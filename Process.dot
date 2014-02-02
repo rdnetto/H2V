@@ -1,0 +1,13 @@
+digraph G{
+    Input [label = "Input (Haskell)"];
+    Output [label = "Output (Verilog)"];
+
+    node [shape=rectangle];
+
+    {
+        rank=same;
+        Optimization -> Compilation [dir=both];
+    }
+
+    Input -> Parsing -> Compilation -> Output;
+}
