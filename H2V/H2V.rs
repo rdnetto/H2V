@@ -3,6 +3,7 @@ use std::path::Path;
 use std::io::buffered::BufferedReader;
 
 
+#[deriving(Eq, Clone)]
 enum AbstractSyntaxTree{
     Leaf(~str),
     AST(~[AbstractSyntaxTree]),
@@ -17,9 +18,26 @@ impl AbstractSyntaxTree{
     fn to_str(&self, indent: uint) -> ~str{
         return " ".repeat(4*indent)
             + match(self){
-                &Leaf(ref value) => value.to_owned(),
+                &Leaf(ref value) => format!("'{:s}'", *value),
                 &AST(ref nodes) =>  "-\n" + nodes.map(|ast| ast.to_str(indent + 1)).connect("\n"),
             }; //end match
+    }
+
+    fn traverse(&self, processInner: |&AbstractSyntaxTree|, processLeaf: |&str|){
+        match(self){
+            &Leaf(ref value)    =>   processLeaf(*value),
+            &AST(ref nodes)     =>
+                for node in nodes.iter(){
+                    processInner(node);
+                    node.traverse(|x| processInner(x), |x| processLeaf(x));
+                } //end for
+        } //end match
+    }
+
+    fn leaves(&self) -> ~[~str]{
+        let mut res = ~[];
+        self.traverse(|_| (), |s| res.push(s.to_owned()));
+        return res;
     }
 }
 
@@ -32,7 +50,7 @@ fn Parse(reader: &mut BufferedReader<File>) -> ~[Function] {
 
     for line in reader.lines(){
         if(line.contains_char('=')){
-            let words: ~[&str] = line.splitn('=', 1).collect();
+            let words: ~[&str] = line.trim().splitn('=', 1).collect();
             assert_eq!(words.len(), 2);
 
             functions.push(Function{
@@ -57,6 +75,7 @@ fn tokenize(line: &str) -> AbstractSyntaxTree{
     let mut tokens = ~[];
     let mut tokenStart = 0;
 
+    //divide into tokens based on words and brackets
     let mut i = 0;
     while(i < line.len()){
         if(line.char_at(i) == ' '){
@@ -84,6 +103,51 @@ fn tokenize(line: &str) -> AbstractSyntaxTree{
     if(tokens.len() > 0 && tokenStart < line.len()){
         tokens.push(Leaf(line.slice(tokenStart, i).to_owned()));
     } //end if
+
+    //handle operators
+    loop{
+        let mut i = tokens.len();
+
+        //first tier of operators
+        match(tokens.position_elem(&Leaf(~"*"))){
+            Some(index) if index < i => i = index,
+            _ => ()
+        } //end match
+
+        match(tokens.position_elem(&Leaf(~"/"))){
+            Some(index) if index < i => i = index,
+            _ => ()
+        } //end match
+
+        if(i != tokens.len()){
+            let node = AST(~[tokens[i - 1].clone(), tokens[i].clone(), tokens[i + 1].clone()]);
+            tokens.remove(i);
+            tokens.remove(i);
+            tokens[i - 1] = node;
+            continue;
+        } //end if
+
+        //second tier of operators
+        match(tokens.position_elem(&Leaf(~"+"))){
+            Some(index) if index < i => i = index,
+            _ => ()
+        } //end match
+
+        match(tokens.position_elem(&Leaf(~"-"))){
+            Some(index) if index < i => i = index,
+            _ => ()
+        } //end match
+
+        if(i != tokens.len()){
+            let node = AST(~[tokens[i - 1].clone(), tokens[i].clone(), tokens[i + 1].clone()]);
+            tokens.remove(i);
+            tokens.remove(i);
+            tokens[i - 1] = node;
+            continue;
+        } //end if
+
+        break;
+    } //end loop
 
     return
         if(tokens.len() == 0){
