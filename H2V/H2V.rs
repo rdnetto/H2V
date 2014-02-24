@@ -8,7 +8,13 @@ enum AbstractSyntaxTree{
     AST(~[AbstractSyntaxTree]),
 }
 
-fn Parse(reader: &mut BufferedReader<File>) -> ~[(AbstractSyntaxTree, AbstractSyntaxTree)] {
+struct Function{
+    Header: AbstractSyntaxTree,
+    Body: AbstractSyntaxTree
+}
+
+
+fn Parse(reader: &mut BufferedReader<File>) -> ~[Function] {
     //! Creates a new AST
 
     //vector of (header, body) tuples. May need to add types in the future
@@ -19,9 +25,10 @@ fn Parse(reader: &mut BufferedReader<File>) -> ~[(AbstractSyntaxTree, AbstractSy
             let words: ~[&str] = line.splitn('=', 1).collect();
             assert_eq!(words.len(), 2);
 
-            let funcHeader = tokenize(words[0]);        //this provides a list of arguments with pattern matching
-            let funcBody = tokenize(words[1]);          //this contains the structure of the function definition
-            functions.push((funcHeader, funcBody));
+            functions.push(Function{
+                Header: tokenize(words[0]),        //this provides a list of arguments with pattern matching
+                Body:   tokenize(words[1]),        //this contains the structure of the function definition
+            })
 
         }else{
             fail!("Invalid line: " + line);
