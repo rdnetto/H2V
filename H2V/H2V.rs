@@ -13,6 +13,16 @@ struct Function{
     Body: AbstractSyntaxTree
 }
 
+impl AbstractSyntaxTree{
+    fn to_str(&self, indent: uint) -> ~str{
+        return " ".repeat(4*indent)
+            + match(self){
+                &Leaf(ref value) => value.to_owned(),
+                &AST(ref nodes) =>  "-\n" + nodes.map(|ast| ast.to_str(indent + 1)).connect("\n"),
+            }; //end match
+    }
+}
+
 
 fn Parse(reader: &mut BufferedReader<File>) -> ~[Function] {
     //! Creates a new AST
@@ -87,4 +97,9 @@ fn main(){
     let reader = File::open(&Path::new("../bison-flex_experimental/test.hs")).unwrap();
     let mut bufRead = BufferedReader::new(reader);
     let ast = Parse(&mut bufRead);
+
+    for func in ast.iter(){
+        println!("Header: \n{}", func.Header.to_str(0));
+        println!("Body: \n{}\n", func.Body.to_str(0));
+    } //end for
 }
