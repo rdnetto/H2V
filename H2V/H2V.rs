@@ -1,9 +1,10 @@
 use std::io::fs::File;
 use std::path::Path;
 use std::io::buffered::BufferedReader;
+use std::hashmap::HashMap;
 
 
-#[deriving(Eq, Clone)]
+#[deriving(Eq, Clone, IterBytes)]
 enum AbstractSyntaxTree{
     Leaf(~str),
     AST(~[AbstractSyntaxTree]),
@@ -15,28 +16,46 @@ struct Function{
 }
 
 impl AbstractSyntaxTree{
-    fn to_str(&self, indent: uint) -> ~str{
+    pub fn to_str(&self) -> ~str{
+        self._to_str(0)
+    }
+
+    fn _to_str(&self, indent: uint) -> ~str{
         return " ".repeat(4*indent)
             + match(self){
                 &Leaf(ref value) => format!("'{:s}'", *value),
-                &AST(ref nodes) =>  "-\n" + nodes.map(|ast| ast.to_str(indent + 1)).connect("\n"),
+                &AST(ref nodes) =>  "-\n" + nodes.map(|ast| ast._to_str(indent + 1)).connect("\n"),
             }; //end match
     }
 
-    fn traverse(&self, processInner: |&AbstractSyntaxTree|, processLeaf: |&str|){
+    fn traverse(&self, process: |&AbstractSyntaxTree|){
+        process(self);
+
         match(self){
-            &Leaf(ref value)    =>   processLeaf(*value),
+            &Leaf(_)            => (),
             &AST(ref nodes)     =>
                 for node in nodes.iter(){
-                    processInner(node);
-                    node.traverse(|x| processInner(x), |x| processLeaf(x));
+                    node.traverse(|x| process(x));
                 } //end for
+        } //end match
+    }
+
+    fn traverse_sep(&self, processInner: |&[AbstractSyntaxTree]|, processLeaf: |&str|){
+        match(self){
+            &Leaf(ref value)    =>   processLeaf(*value),
+            &AST(ref nodes)     => {
+                processInner(*nodes);
+
+                for node in nodes.iter(){
+                    node.traverse_sep(|x| processInner(x), |x| processLeaf(x));
+                } //end for
+            }
         } //end match
     }
 
     fn leaves(&self) -> ~[~str]{
         let mut res = ~[];
-        self.traverse(|_| (), |s| res.push(s.to_owned()));
+        self.traverse_sep(|_| (), |s| res.push(s.to_owned()));
         return res;
     }
 }
@@ -45,7 +64,7 @@ impl AbstractSyntaxTree{
 fn Parse(reader: &mut BufferedReader<File>) -> ~[Function] {
     //! Creates a new AST
 
-    //vector of (header, body) tuples. May need to add types in the future
+    //parse the AST
     let mut functions = ~[];
 
     for line in reader.lines(){
@@ -63,7 +82,8 @@ fn Parse(reader: &mut BufferedReader<File>) -> ~[Function] {
         } //end if
     } //end for
 
-    //TODO: convert AST into DFD. All leaves of DFD should be constants or arguments
+    //TODO: convert AST into DFD. We can skip that for now because our
+    //TODO: Validate - all leaves of DFD should be constants or arguments. Types needs to be integers, tuples, or (in the future) lists
 
     return functions;
 }
@@ -157,13 +177,91 @@ fn tokenize(line: &str) -> AbstractSyntaxTree{
         };
 }
 
-fn main(){
-    let reader = File::open(&Path::new("../bison-flex_experimental/test.hs")).unwrap();
-    let mut bufRead = BufferedReader::new(reader);
-    let ast = Parse(&mut bufRead);
+fn OutputVerilog(functions: ~[Function]) -> ~str{
+    //! Output DFD as Verilog. Each function becomes a combinatorial module
+    //! we represent intermediate values as wires, and operations as assign statements or module imports.
 
-    for func in ast.iter(){
-        println!("Header: \n{}", func.Header.to_str(0));
-        println!("Body: \n{}\n", func.Body.to_str(0));
+    //! NOTE: because we using an AST instead of a proper DFD in the prototype, there will be lots of hacks in here that will need
+    //! to be refactored when we implement the DFD code
+
+    let mut res = ~"";
+
+    for function in functions.iter() {
+        //the first leaf in the header will be the function name
+        //all others will be arguments names
+        let args = function.Header.leaves();
+        res.push_str(format!("module {} (", args[0]));
+
+        for arg in args.iter().skip(1){
+            res.push_str(*arg + ", ");
+        } //end for
+
+        res.pop_char();
+        res.pop_char();
+        res.push_str(");\n");
+
+        //input declarations
+        //TODO: we should really be checking what type the argument actually is, but that requires type inference
+        for arg in args.iter().skip(1){
+            res.push_str(format!("\tinput [31:0] {};\n", *arg));
+        } //end for
+
+        //output declaration
+        //TODO: this should really be based on the function's type, but I haven't implemented code to perform type inference yet
+        res.push_str("\toutput [31:0] res;\n\n");
+
+        //process operators and function calls
+
+        //maps nodes to intermediate variables. Note that all leaves are implicitly mapped to their constants/args.
+        let mut intCount = 0;
+        let mut intermediates = HashMap::<AbstractSyntaxTree, uint>::new();
+
+        let getNodeID = |node: &AbstractSyntaxTree| -> ~str{
+            match(node){
+                &Leaf(ref value) => value.to_owned(),
+                &AST(_)          => {
+                    let id = *intermediates.find_or_insert(node.clone(), intCount);
+
+                    if(id == intCount){
+                        res.push_str(format!("\twire [31:0] w{:u};\n", id));
+                        intCount += 1;
+                    } //end if
+
+                    return "w" + id.to_str();
+                }
+            } //end match
+        }; //end lambda
+
+        //output function calls. We assume these are simple operators, as we do not have support for function calls yet.
+        let mut assigns = ~"";
+        let mut rootNode = function.Body.clone();
+        function.Body.traverse(|node: &AbstractSyntaxTree|
+            match(node){
+                &AST(ref children) if children.len() == 1 => rootNode = children[0].clone(),
+                &AST(ref children) if children.len() != 3 => fail!("Invariant violated - an operator is non-binary:\n" + node.to_str()),
+                &AST(ref children) => assigns.push_str(format!("\tassign {} = {} {} {};\n",
+                                                        getNodeID(node),
+                                                        getNodeID(&children[0]),
+                                                        getNodeID(&children[1]),            //HACK: assuming this is the operator
+                                                        getNodeID(&children[2]))),
+                &Leaf(_)       => ()
+            }
+        );
+
+        res.push_str("\n");
+        res.push_str(assigns);
+        res.push_str(format!("\tassign res = {};\n", getNodeID(&rootNode)));
+        res.push_str("endmodule;\n\n");
     } //end for
+
+    return res;
+}
+
+fn main(){
+    let reader = File::open(&Path::new("test.hs")).unwrap();
+    let mut bufRead = BufferedReader::new(reader);
+    let functions = Parse(&mut bufRead);
+    let v = OutputVerilog(functions);
+
+    println(v);
 }
