@@ -1,0 +1,17 @@
+================================================================================
+Wednesday 05 March 2014
+Prototype and design proposal completed.
+
+Git commits:
+78d8a17  2014-03-04 23:17:51 +1100  Committed changes to report
+4ea2686  2014-02-25 22:10:31 +1100  Completed prototype
+540266d  2014-02-24 20:19:34 +1100  Added operator precedence
+bc8b5f7  2014-02-24 19:08:08 +1100  Implemented printing of AST.
+1e39577  2014-02-24 19:07:29 +1100  Replaced 2-tuple with a Function structure.
+8c9c534  2014-02-24 18:16:49 +1100  Rewrote in Rust.
+4adace7  2014-02-24 02:54:57 +1100  Implemented a large amount of parsing logic. At this point I'm giving up on a C++ implementation.
+31f7a64  2014-02-19 21:09:19 +1100  Initial commit for H2V project
+7feb560  2014-02-19 20:27:08 +1100  Updated design summary
+9ed76ba  2014-02-16 22:07:30 +1100  Added discussion of Bison & Yacc
+c3c8b00  2014-02-02 19:32:07 +1100  Initial commit - did first draft of preliminary design.
+
