@@ -1,1 +1,2 @@
-f x a b c = a * a * x + b * x + c
+f x a b c = a2 * x + b * x + c where
+    a2 = a * a
