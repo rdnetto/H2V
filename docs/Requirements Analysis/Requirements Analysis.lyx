@@ -1,0 +1,558 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\options onecolumn
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+H2V --- Requirements Analysis
+\end_layout
+
+\begin_layout Author
+Reuben D'Netto
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage pagebreak
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Subsection
+Objective
+\end_layout
+
+\begin_layout Standard
+The aim of this document is to specify the requirements for the Haskell
+ to Verilog compiler project.
+\end_layout
+
+\begin_layout Subsection
+Context
+\end_layout
+
+\begin_layout Standard
+The compiler will enable the generation of accelerators for soft processors
+ on FPGAs from high-level definitions in a subset of Haskell, a functional
+ programming language.
+ Accelerator definitions will allow recursive functions, and possibly direct
+ memory access (DMA) as well.
+ The targeted soft processor architecture will be Nios II.
+\end_layout
+
+\begin_layout Subsection
+Types of Requirements
+\end_layout
+
+\begin_layout Paragraph
+Requirements
+\end_layout
+
+\begin_layout Standard
+Core features of the project, without which it will not be suitable for
+ the intended application.
+\end_layout
+
+\begin_layout Paragraph
+Optional Features 
+\end_layout
+
+\begin_layout Standard
+Features which may be included if possible, but may be omitted due to time
+ constraints of infeasibility.
+ This includes optimizations to existing functionality.
+\end_layout
+
+\begin_layout Paragraph
+Assumptions 
+\end_layout
+
+\begin_layout Standard
+Assumptions implicit in the requirements.
+ Violation of these assumptions may result in the need to re-evaluate the
+ project's requirements.
+\end_layout
+
+\begin_layout Paragraph
+Limitations 
+\end_layout
+
+\begin_layout Standard
+Negative requirements; features which have been excluded to limit the project's
+ scope.
+\end_layout
+
+\begin_layout Section
+Requirements
+\end_layout
+
+\begin_layout Paragraph
+Project Overview
+\end_layout
+
+\begin_layout Standard
+The project has been split into the following phases:
+\end_layout
+
+\begin_layout Itemize
+Compiler design --- enables the conversion of Haskell into Verilog
+\end_layout
+
+\begin_layout Itemize
+Nios II intergration --- enables the use of resulting Verilog modules as
+ Nios peripherals
+\end_layout
+
+\begin_layout Itemize
+Direct Memory Access --- enables the accelerator to access the processor's
+ RAM
+\end_layout
+
+\begin_layout Itemize
+Benchmarking --- performance comparison of generated accelerators with equivalen
+t handwritten C and Verilog
+\end_layout
+
+\begin_layout Subsection
+Compiler
+\end_layout
+
+\begin_layout Subsubsection
+Requirements
+\end_layout
+
+\begin_layout Enumerate
+Must accept input in the form of a single file written in a subset of Haskell,
+ and output a Verilog module which performs an equivalent computation.
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Input file may contain tail-recursive functions.
+\end_layout
+
+\end_deeper
+\begin_layout Subsubsection
+Optional Features
+\end_layout
+
+\begin_layout Enumerate
+The language of accepted input files should be a proper subset of Haskell.
+ i.e.
+ it should be compatible with existing Haskell compilers.
+\end_layout
+
+\begin_layout Enumerate
+Advanced features of the language, such as monads, may be supported.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Consider adding a reference here.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+Unary non-tail recursive functions may be supported, provided the expression
+ mapping the current arguments to the recursive call is a bijective function.
+ i.e.
+ every possible output of the mapping and its inverse (on their respective
+ domains) is unique.
+\end_layout
+
+\begin_layout Enumerate
+Multiple files may be sourced by the compiler and output as corresponding
+ Verilog modules.
+\end_layout
+
+\begin_layout Enumerate
+Where a function calls itself recursively, more than one recursive call
+ may be performed per clock cycle (loop vectorization).
+\end_layout
+
+\begin_layout Enumerate
+Expression trees may be restructured to reduce the length of the critical
+ path, thereby reducing computation time.
+\end_layout
+
+\begin_layout Subsubsection
+Assumptions
+\end_layout
+
+\begin_layout Subsubsection
+Limitations
+\end_layout
+
+\begin_layout Enumerate
+The Haskell standard library will not be supported.
+ A small subset of the Prelude module will be implemented as necessary to
+ enable the use cases.
+\end_layout
+
+\begin_layout Enumerate
+Type inference will not be implemented.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Non-unary recursive functions will not be supported.
+\end_layout
+
+\begin_layout Subsection
+Nios II Intergration
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+pending research
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Need to do research into what boilerplate is required for this, and how
+ it can be connected to SOPC/Qsys.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Requirements
+\end_layout
+
+\begin_layout Enumerate
+The compiler must generate a Verilog module and appropriate C headers such
+ that the module can be used as an accelerator for a Nios II processor.
+\end_layout
+
+\begin_layout Subsubsection
+Optional Features
+\end_layout
+
+\begin_layout Subsubsection
+Assumptions
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+pending research
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+I'm sure there's something that should go here, but I don't know enough
+ about this yet...
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Limitations
+\end_layout
+
+\begin_layout Subsection
+Direct Memory Access
+\end_layout
+
+\begin_layout Subsubsection
+Requirements
+\end_layout
+
+\begin_layout Enumerate
+The accelerator must be capable of accessing data stored in memory.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+TBC: don't know if this should be a hard requirement or not.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Optional Features
+\end_layout
+
+\begin_layout Enumerate
+The accelerator may pipeline memory access.
+\end_layout
+
+\begin_layout Enumerate
+The accelerator may cache subsequent accesses to improve performance.
+\end_layout
+
+\begin_layout Subsubsection
+Assumptions
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+pending research
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+I have no idea whether we'll be using DRAM or SRAM --- big difference in
+ terms of access time and complexity.
+ Maybe dedicated memory for the accelerator is a possibility?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Limitations
+\end_layout
+
+\begin_layout Enumerate
+Access will be restricted to a single memory bank.
+\end_layout
+
+\begin_layout Subsection
+Performance
+\end_layout
+
+\begin_layout Subsubsection
+Requirements
+\end_layout
+
+\begin_layout Enumerate
+Benchmarks will be used to compare the execution time of the accelerator
+ to handwritten C and Verilog.
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+The benchmarks used should be taken from 
+\emph on
+s
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Use-Cases"
+
+\end_inset
+
+ Use Cases
+\emph default
+.
+\end_layout
+
+\begin_layout Enumerate
+This requirement should not be construed as implying the implementation
+ of all use cases detailed in s
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Use-Cases"
+
+\end_inset
+
+ --- where a use case depends on optional features, it will be regarded
+ as one.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+The execution time of the accelerator should be within an order of magnitude
+ of handwritten C, or better.
+\end_layout
+
+\begin_layout Subsubsection
+Optional Features
+\end_layout
+
+\begin_layout Subsubsection
+Assumptions
+\end_layout
+
+\begin_layout Subsubsection
+Limitations
+\end_layout
+
+\begin_layout Subsection
+Legal
+\end_layout
+
+\begin_layout Enumerate
+The project should published under a 
+\emph on
+free software license
+\emph default
+, as defined by the Free Software Foundation.
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-2"
+
+\end_inset
+
+, 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-3"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Use Cases
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Use-Cases"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-1"
+
+\end_inset
+
+Grey Innovation (2006, Mar.).
+ 
+\emph on
+Requirements Specification
+\emph default
+.
+ [Online].
+ Available: http://moodle.vle.monash.edu/mod/resource/view.php?id=1461367
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-2"
+
+\end_inset
+
+Free Software Foundation (2013).
+ 
+\emph on
+What is free software?
+\emph default
+ [Online].
+ Available: http://www.gnu.org/philosophy/free-sw.html
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-3"
+
+\end_inset
+
+Free Software Foundation Inc.
+ (2012).
+ 
+\emph on
+Various Licenses and Comments About Them.
+
+\emph default
+ [Online].
+ Available: http://www.gnu.org/licenses/license-list.html
+\end_layout
+
+\end_body
+\end_document
