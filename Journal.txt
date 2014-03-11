@@ -1,4 +1,47 @@
 ================================================================================
+Tuesday 11 March 2014
+Investigated use of GHC's parser. Decided against using it as there is a
+standard library (haskell-src) better suited to this task.
+Wrote a simple parsing spike to familiarise myself with haskell-src.
+
+Added Risk Analysis and an early draft of the Requirements Analysis.
+Basic structure and key requirements have been defined, some sections will require further research.
+
+Notes:
+The haskell standard libraries contains haskell-src, a library specifically
+for parsing Haskell. This will be /much/ easier to use than GHC, since it will
+not require reverse engineering. haskell-src-ext may also be useful.
+    http://hackage.haskell.org/package/haskell-src
+    http://hackage.haskell.org/package/haskell-src-1.0.1.5/docs/Language-Haskell-Parser.html
+
+There's a Haskell to Javascript compiler here that could be interesting to
+look at (in terms of how it handles parsing and AST manipulation).
+    https://github.com/faylang/fay
+
+Test input for parsing spike:
+f x a b c = a2 * x + b * x + c where
+    a2 = a * a
+
+Test output for parsing spike:
+Module: Main
+        Function: f
+                        Match:
+                                Pattern: [HsPVar (HsIdent "x"),HsPVar (HsIdent "a"),HsPVar (HsIdent "b"),HsPVar (HsIdent "c")]
+                                RHS: HsUnGuardedRhs (HsInfixApp (HsInfixApp (HsInfixApp (HsInfixApp (HsVar (UnQual (HsIdent "a2"))) (HsQVarOp (UnQual (HsSymbol "*"))) (HsVar (UnQual (HsIdent "x")))) (HsQVarOp (UnQual (HsSymbol "+"))) (HsVar (UnQual (HsIdent "b")))) (HsQVarOp (UnQual (HsSymbol "*"))) (HsVar (UnQual (HsIdent "x")))) (HsQVarOp (UnQual (HsSymbol "+"))) (HsVar (UnQual (HsIdent "c"))))
+                                Declarations:
+                                        Pattern Binding:
+                                                Pattern: HsPVar (HsIdent "a2")
+                                                RHS: HsUnGuardedRhs (HsInfixApp (HsVar (UnQual (HsIdent "a"))) (HsQVarOp (UnQual (HsSymbol "*"))) (HsVar (UnQual (HsIdent "a"))))
+                                                Declarations:
+
+Git commits:
+9d40f9e  2014-03-11 19:53:56 +1100  Early draft of Requirements Analysis. Some sections are pending further research.
+2a89fd7  2014-03-09 21:44:29 +1100  Parsing spike. Useful for examining code and familiarizing myself with the parser's types
+11517af  2014-03-09 21:43:32 +1100  Added a file to hold use cases. Currently only contains Fibonnacci sequence.
+a982a70  2014-03-05 19:52:49 +1100  Completed Risk Analysis
+15ebc1a  2014-03-05 19:33:29 +1100  Moved files from project proposal into dedicated subdirectory
+
+================================================================================
 Wednesday 05 March 2014
 Prototype and design proposal completed.
 
