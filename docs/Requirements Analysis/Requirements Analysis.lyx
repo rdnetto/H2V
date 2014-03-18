@@ -154,6 +154,63 @@ Negative requirements; features which have been excluded to limit the project's
 \end_layout
 
 \begin_layout Section
+Equipment
+\end_layout
+
+\begin_layout Standard
+The following equipment will be required.
+\end_layout
+
+\begin_layout Subsection
+Hardware
+\end_layout
+
+\begin_layout Enumerate
+Altera DE2 FPGA
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Field Programmable Gate Array
+\end_layout
+
+\end_inset
+
+ --- for testing of generated accelerators.
+ Available in labs.
+\end_layout
+
+\begin_layout Subsection
+Software
+\end_layout
+
+\begin_layout Enumerate
+Glasgow Haskell Compiler --- reference implementation of Haskell.
+ Freely available online.
+\end_layout
+
+\begin_layout Enumerate
+Altera Quartus II 13.0sp1
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+This is the most recent version of Quartus which supports the DE2 series
+ of FPGAs.
+\end_layout
+
+\end_inset
+
+ --- for synthesis and programming of generated accelerators.
+ Available in labs, license provided.
+\end_layout
+
+\begin_layout Enumerate
+Git --- revision control software.
+ Freely available online.
+\end_layout
+
+\begin_layout Section
 Requirements
 \end_layout
 
@@ -170,8 +227,8 @@ Compiler design --- enables the conversion of Haskell into Verilog
 \end_layout
 
 \begin_layout Itemize
-Nios II intergration --- enables the use of resulting Verilog modules as
- Nios peripherals
+Qsys integration --- enables the use of resulting Verilog modules as Nios
+ peripherals
 \end_layout
 
 \begin_layout Itemize
@@ -199,6 +256,19 @@ Must accept input in the form of a single file written in a subset of Haskell,
 
 \begin_deeper
 \begin_layout Enumerate
+The supported language will be a subset of Haskell 2010.
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-haskell-def"
+
+\end_inset
+
+ Haskell is a pure functional language, meaning that variables within a
+ function are immutable.
+ This simplifies conversion to hardware logic.
+\end_layout
+
+\begin_layout Enumerate
 Input file may contain tail-recursive functions.
 \end_layout
 
@@ -214,17 +284,19 @@ The language of accepted input files should be a proper subset of Haskell.
 \end_layout
 
 \begin_layout Enumerate
-Advanced features of the language, such as monads, may be supported.
-\begin_inset Note Note
-status open
+First class functions
+\begin_inset Foot
+status collapsed
 
 \begin_layout Plain Layout
-Consider adding a reference here.
+A first class function is one which can be stored in a variable and passed
+ as an argument to a function.
 \end_layout
 
 \end_inset
 
-
+ may be supported.
+ (This is a prerequisite for functors and monads.)
 \end_layout
 
 \begin_layout Enumerate
@@ -250,8 +322,16 @@ Expression trees may be restructured to reduce the length of the critical
  path, thereby reducing computation time.
 \end_layout
 
+\begin_layout Enumerate
+Type inference may be partially implemented.
+\end_layout
+
 \begin_layout Subsubsection
 Assumptions
+\end_layout
+
+\begin_layout Enumerate
+First class functions are not required to implement the core features.
 \end_layout
 
 \begin_layout Subsubsection
@@ -265,36 +345,11 @@ The Haskell standard library will not be supported.
 \end_layout
 
 \begin_layout Enumerate
-Type inference will not be implemented.
- 
-\end_layout
-
-\begin_layout Enumerate
 Non-unary recursive functions will not be supported.
 \end_layout
 
 \begin_layout Subsection
-Nios II Intergration
-\end_layout
-
-\begin_layout Standard
-
-\emph on
-pending research
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Need to do research into what boilerplate is required for this, and how
- it can be connected to SOPC/Qsys.
-\end_layout
-
-\end_inset
-
-
+Qsys Integration
 \end_layout
 
 \begin_layout Subsubsection
@@ -302,32 +357,49 @@ Requirements
 \end_layout
 
 \begin_layout Enumerate
-The compiler must generate a Verilog module and appropriate C headers such
- that the module can be used as an accelerator for a Nios II processor.
+The compiler must generate appropriate C headers such that the module can
+ be used as an accelerator for a Nios II processor (implemented as a custom
+ instruction).
+\end_layout
+
+\begin_layout Enumerate
+The compiler must generate an appropriate component definition such that
+ the accelerator can be added to the processor using Qsys.
 \end_layout
 
 \begin_layout Subsubsection
 Optional Features
 \end_layout
 
+\begin_layout Enumerate
+Optional features in the Avalon bus protocol may be used to reduce overheads
+ or improve performance.
+\end_layout
+
+\begin_layout Enumerate
+Support for Avalon Streaming interfaces
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-1"
+
+\end_inset
+
+ may be implemented.
+ (This is a similar but distinct bus protocol to that used for Avalon Memory
+ Mapped devices.
+ It has applications in signal processing, and may be more compatible with
+ Haskell than the DMA approach.)
+\end_layout
+
 \begin_layout Subsubsection
 Assumptions
 \end_layout
 
-\begin_layout Standard
-
-\emph on
-pending research
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-I'm sure there's something that should go here, but I don't know enough
- about this yet...
-\end_layout
+\begin_layout Enumerate
+The Avalon bus protocol is well documented and can be interfaced with easily.
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-1"
 
 \end_inset
 
@@ -336,6 +408,17 @@ I'm sure there's something that should go here, but I don't know enough
 
 \begin_layout Subsubsection
 Limitations
+\end_layout
+
+\begin_layout Enumerate
+The accelerator will be subject to the overheads of the Avalon bus, etc.
+ which are used by Qsys.
+ The overhead may be on order of several clock cycles.
+\end_layout
+
+\begin_layout Enumerate
+The accelerator will only support memory available as an Avalon Memory Mapped
+ Slave interface.
 \end_layout
 
 \begin_layout Subsection
@@ -347,18 +430,9 @@ Requirements
 \end_layout
 
 \begin_layout Enumerate
-The accelerator must be capable of accessing data stored in memory.
+The accelerator must be capable of reading data from sequential addresses
+ in RAM.
  
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-TBC: don't know if this should be a hard requirement or not.
-\end_layout
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Subsubsection
@@ -366,7 +440,18 @@ Optional Features
 \end_layout
 
 \begin_layout Enumerate
-The accelerator may pipeline memory access.
+The accelerator may be capable of writing data to sequential addresses in
+ RAM.
+\end_layout
+
+\begin_layout Enumerate
+The accelerator may be capable of reading non-sequential data stored in
+ RAM.
+\end_layout
+
+\begin_layout Enumerate
+The accelerator may be capable of writing data to non-sequential addresses
+ in RAM.
 \end_layout
 
 \begin_layout Enumerate
@@ -377,15 +462,13 @@ The accelerator may cache subsequent accesses to improve performance.
 Assumptions
 \end_layout
 
-\begin_layout Standard
-
-\emph on
-pending research
+\begin_layout Enumerate
+All memory accesses (both reads and writes) will take one clock cycle.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 I have no idea whether we'll be using DRAM or SRAM --- big difference in
@@ -403,7 +486,8 @@ Limitations
 \end_layout
 
 \begin_layout Enumerate
-Access will be restricted to a single memory bank.
+All memory access will take place through the Avalon bus, which will add
+ overheads.
 \end_layout
 
 \begin_layout Subsection
@@ -458,12 +542,29 @@ The execution time of the accelerator should be within an order of magnitude
 Optional Features
 \end_layout
 
+\begin_layout Enumerate
+Handwritten Verilog examples may also be included in the comparison.
+\end_layout
+
 \begin_layout Subsubsection
 Assumptions
 \end_layout
 
+\begin_layout Enumerate
+Memory access will be the bottleneck for most accelerators.
+\end_layout
+
+\begin_layout Enumerate
+The processor's RAM will be support multiple reads/writes within a single
+ clock cycle.
+\end_layout
+
 \begin_layout Subsubsection
 Limitations
+\end_layout
+
+\begin_layout Enumerate
+The soft processor may be the upper bound on clock frequency.
 \end_layout
 
 \begin_layout Subsection
@@ -501,6 +602,75 @@ name "sec:Use-Cases"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Enumerate
+Generation of the Fibonacci sequence.
+ Note that while this is of little practical value, it is a useful demonstration
+ of basic flow control and tail recursive functions.
+\end_layout
+
+\begin_layout Enumerate
+Summing a list of numbers.
+ This will demonstrate sequential reads via DMA.
+\end_layout
+
+\begin_layout Enumerate
+Vector dot products.
+ This will demonstrate (possibly concurrent) sequential reads and writes
+ via DMA.
+\end_layout
+
+\begin_layout Enumerate
+Signal filtering.
+ This will demonstrate one-dimensional convolution.
+\end_layout
+
+\begin_layout Enumerate
+Image filtering.
+ This will demonstrate two-dimensional convolution.
+\end_layout
+
+\begin_layout Enumerate
+Matrix multiplication.
+ This will demonstrate non-sequential reads and writes via DMA, as well
+ as being of practical value.
+\end_layout
+
+\begin_layout Enumerate
+Iterative eigendecomposition.
+ This example is primarily of practical value.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Consider doing a Fourier transform as well --- need to figure out how to
+ implement FFT without binary recursion.
+ A stream based approach would be ideal...
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-haskell-def"
+
+\end_inset
+
+Simon Marlow (2010, Apr).
+ 
+\emph on
+Haskell 2010 Language Report
+\emph default
+ [Online].
+ Available: http://www.haskell.org/onlinereport/haskell2010/
 \end_layout
 
 \begin_layout Bibliography
@@ -552,6 +722,22 @@ Various Licenses and Comments About Them.
 \emph default
  [Online].
  Available: http://www.gnu.org/licenses/license-list.html
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "key-1"
+
+\end_inset
+
+Altera (2013, May).
+ 
+\emph on
+Avalon Interface Specifications
+\emph default
+ [Online].
+ Available: http://www.altera.com/literature/manual/mnl_avalon_spec.pdf
 \end_layout
 
 \end_body
