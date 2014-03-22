@@ -1,5 +1,5 @@
 all:
-	ghc --make main.hs -o H2V
+	ghc --make main.hs -outputdir build -o H2V
 
 clean:
-	rm -f *.o *.hi H2V
+	rm -f build/* H2V
