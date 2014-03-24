@@ -107,8 +107,9 @@ unqual (UnQual n) = n
 unqual q = error $ "Unknown HsQName: " ++ pshow q
 
 --used to implement a monad for tracking node IDs and graph output in the render graph
---functions do not expressly take the state as an argument; they simply return a monad of the appropriate type
-newId :: State Int Int                  --State stateType returnType
+--we store an ID counter in the state monad and pass/return the graphviz code between functions
+--all monadic functions have a return type of (State stateType returnType). They do not need to take a monadic argument.
+newId :: State Int Int
 newId =
    do oldID <- get
       let newID = oldID + 1
@@ -119,22 +120,45 @@ newId =
 --runID m = evalState m 0
 
 --converts the DFD to a visual representation
---NOTE: it may actually be easier to generate Verilog than to generate a visual graph, since a visual graph needs unique node IDs
 dfdToGraphviz :: DFD -> String
 dfdToGraphviz (DFD _ allFuncs) = "digraph G{\n" ++ gv ++ "}" where
     funcs = foldM renderFunc "" allFuncs
     gv = evalState funcs 0
 
-
+--TODO: add the ability for one function to call another
 renderFunc :: String -> Function -> State Int String
 renderFunc gv (Function name args expr) = do
-    id <- newId
-    return $ gv ++ "Assigned id " ++ (show id) ++ " to function " ++ (show name) ++ "\n"
+    let defnFmt = "func_%s [label=\"%s(%s)\", shape=Mdiamond];\n"
+    let defn = printf defnFmt (prettyPrint name) (prettyPrint name) (joinMap ", " prettyPrint args)
 
-{-
-    let defn = printf "func_%s [label=\"%s(%s)\", shape=Mdiamond];\n" (prettyPrint name) (prettyPrint name) (joinMap ", " prettyPrint args)
-    let exp = renderExpr expr                       --this will need to use newId later
+    (rootId, expGv) <- renderExpr expr
+    let rootLink = printf "node_%i -> func_%s;\n" rootId (prettyPrint name)
+    return $ gv ++ defn ++ rootLink ++ expGv
 
-    return gv ++ defn ++ exp
--}
-renderExpr _ = "//expr goes here\n"
+renderExpr :: HsExp -> State Int (Int, String)
+
+renderExpr (HsLit literal) = do
+    rootId <- newId
+    let label = printf "node_%i [label=\"Literal: %s\"];\n" rootId (prettyPrint literal)
+    return (rootId, label)
+
+renderExpr (HsVar name) = do
+    rootId <- newId
+    let label = printf "node_%i [label=\"Variable: %s\"];\n" rootId (prettyPrint name)
+    return (rootId, label)
+
+renderExpr (HsLet decls exp) = do
+    rootId <- newId
+    (childId, childGv) <- renderExpr exp
+    let label = printf "node_%i [label=\"Let: %s\"];\n" rootId (joinMap "\\n" prettyPrint decls)               --TODO: visually represent decls
+    let rootEdge = printf "node_%i -> node_%i;\n" childId rootId
+    return (rootId, label ++ rootEdge ++ childGv)
+
+renderExpr (HsApp f x) = do
+    rootId <- newId
+    (childId, childGv) <- renderExpr x
+    let label = printf "node_%i [label=\"->\"];\n" rootId
+    let rootEdge = printf "node_%i -> node_%i;\n" childId rootId
+    return (rootId, label ++ rootEdge ++ childGv)
+
+renderExpr exp = error $ "Unknown expression: " ++ pshow exp
