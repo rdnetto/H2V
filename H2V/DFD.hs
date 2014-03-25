@@ -19,6 +19,9 @@ data DFD = DFD [HsName] [Function] deriving Show
 --arguments is a list of name-type tuples (names will be generated if none are present)
 data Function = Function HsName [HsName] HsExp deriving Show
 
+--Used to represent created Graphviz nodes, and the current namespace (implicitly).
+type GNode = (HsQName, String)
+
 --helper function used to display parsing errors
 pshow :: Show a => Pretty a => a -> String
 pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
@@ -81,13 +84,15 @@ cleanExpr (HsParen exp) = cleanExpr exp
 
 cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 
---cleans declarations, by recursing through them to call cleanExpr
+--cleans declarations
+--TODO: implement pattern matching and destructuring logic here
 cleanDecl :: HsDecl -> HsDecl
 cleanDecl (HsPatBind src pat rhs decls) = HsPatBind src pat (cleanRHS rhs) (map cleanDecl decls)
 cleanDecl (HsFunBind matches) = HsFunBind (map cleanMatch matches)
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
 --cleans RHSs
+--TODO: this should only handle unguarded RHSs. Guarded RHSs should be refactored at the pattern level
 cleanRHS :: HsRhs -> HsRhs
 cleanRHS (HsUnGuardedRhs exp) = HsUnGuardedRhs (cleanExpr exp)
 cleanRHS (HsGuardedRhss guards) = HsGuardedRhss (map f guards) where
@@ -119,7 +124,7 @@ newId =
 
 --converts the DFD to a visual representation
 dfdToGraphviz :: DFD -> String
-dfdToGraphviz (DFD _ allFuncs) = "digraph G{\n" ++ gv ++ "}" where
+dfdToGraphviz (DFD _ allFuncs) = "digraph G{\n" ++ gv ++ "}\n" where
     funcs = foldM renderFunc "" allFuncs
     gv = evalState funcs 0
 
@@ -138,28 +143,26 @@ renderFunc gv (Function name args expr) = do
 
 concatDecls (gv0, decls) (gv, decl) = (gv0 ++ gv, decl:decls)
 
-
 --args: name
 --returns (graphviz, decl), where decl is a 2-tuple of (HsName, nodeID)
-renderArg :: HsName -> State Int (String, (HsQName, String))
+renderArg :: HsName -> State Int (String, GNode)
 renderArg name = do
     rootId <- liftM id2node newId
-    let label = printf "%s [label = \"Argument: %s\"];\n" rootId (prettyPrint name)
+    let label = printf "%s [label = \"%s\"];\n" rootId (prettyPrint name)
     return (label, (UnQual name, rootId))
 
 --args: args
 --returns: (graphviz, decls)
-renderArgs :: [HsName] -> (String, [(HsQName, String)]) -> State Int (String, [(HsQName, String)])
+renderArgs :: [HsName] -> (String, [GNode]) -> State Int (String, [GNode])
 renderArgs (arg:args) (graphviz, decls) = do
     (gv, decl) <- renderArg arg
     renderArgs args (gv ++ graphviz, decl:decls)
 renderArgs [] x = return x
 
-
 --declaration resolution:
 --let expressions generate the appropriate nodes for their declaractions and populate an association list passed to subexpressions which maps variable names to nodes
 --returns: (rootID, graphviz). rootID is the ID of the node rendered. graphviz is the graphviz code generated for it.
-renderExpr :: HsExp -> [(HsQName, String)] -> State Int (String, String)
+renderExpr :: HsExp -> [GNode] -> State Int (String, String)
 
 renderExpr (HsLit literal) _ = do
     rootId <- liftM id2node newId
@@ -172,7 +175,7 @@ renderExpr (HsVar name) decls = do
         return (fromJust res, "")
 
     else
-        if (prettyPrint name) `elem` ["(+)", "(-)", "(*)", "(/)", "a2"] then do                 --TODO: remove a2 from here
+        if (prettyPrint name) `elem` ["(+)", "(-)", "(*)", "(/)"] then do
             --render builtins (temporary hack to workaround our lack of global functions)
             rootId <- liftM id2node newId
             let gv = printf "%s [label=\"Function Call: %s\"];\n" rootId (prettyPrint name)
@@ -181,18 +184,15 @@ renderExpr (HsVar name) decls = do
             error $ printf "Undefined variable: %s\nDefined tokens: %s" (show name) (show decls)
 
 renderExpr (HsLet newDecls exp) decls = do
-    --TODO: define nodes for decls
-    rootId <- liftM id2node newId
-    (childId, childGv) <- renderExpr exp decls      --TODO: insert newDecls before this
-    let label = printf "%s [label=\"Let: %s\"];\n" rootId (joinMap "\\n" prettyPrint newDecls)
-    let rootEdge = printf "%s -> %s; //check this out\n" childId rootId
-    return (rootId, label ++ rootEdge ++ childGv)
+    (declGv, argDecs) <- renderDecls decls newDecls ("", [])
+    (childId, childGv) <- renderExpr exp (argDecs ++ decls)
+    return (childId, declGv ++ childGv)
 
 renderExpr (HsApp f x) decls = do
     rootId <- liftM id2node newId
 
     (fId, fGv) <- renderExpr f decls
-    let fEdge = printf "%s -> %s;\n" fId rootId
+    let fEdge = printf "%s -> %s [color = \"blue\"];\n" fId rootId
 
     (xId, xGv) <- renderExpr x decls
     let xEdge = printf "%s -> %s;\n" xId rootId
@@ -202,6 +202,38 @@ renderExpr (HsApp f x) decls = do
 
 renderExpr exp _ = error $ printf "Unknown expression: " ++ pshow exp
 
+--helper functions
 id2node :: Int -> String
 id2node id = "node_" ++ (show id)
+
+--TODO: this should be responsible for calling renderFunc
+--TODO: need to add guard support...
+--args: namespace decl
+--returns (graphviz, node)
+renderDecl :: [GNode] -> HsDecl -> State Int (String, GNode)
+renderDecl ns (HsPatBind _ (HsPVar name) (HsUnGuardedRhs expr) []) = do
+    --simplest case: $name = $expr
+    (node, gv) <- renderExpr expr ns
+
+    rootId <- liftM id2node newId
+    let label = printf "%s [label=\"%s\"];\n" rootId (prettyPrint name)
+    let rootEdge = printf "%s -> %s;\n" node rootId
+    return (gv ++ label ++ rootEdge, (UnQual name, rootId))
+
+renderDecl ns (HsPatBind src pat rhs subdecls) = do
+    --need to render subdeclarations before we can deal with the expression
+    (gv0, nodes) <- renderDecls ns subdecls ("", [])
+    (gv,  node) <- renderDecl (nodes ++ ns) (HsPatBind src pat rhs [])
+    return (gv0 ++ gv, node)
+
+renderDecl _ d = error $ printf "Unknown declaration: " ++ pshow d
+
+--args: namespace decls
+--returns: (graphviz, nodes)
+renderDecls :: [GNode] -> [HsDecl] -> (String, [GNode]) -> State Int (String, [GNode])
+renderDecls ns (decl:decls) (graphviz, nodes) = do
+    (gv, node) <- renderDecl ns decl
+    renderDecls ns decls (gv ++ graphviz, node:nodes)
+
+renderDecls _ [] x = return x
 
