@@ -15,9 +15,10 @@ main = do
             Parser.ParseOk hMod -> hMod
 
     --display AST
-    putStrLn . displayAST $ ast
+    --putStrLn . displayAST $ ast
 
     let dfd = astToDfd ast
     putStrLn $ show dfd
+
     writeFile "test.gv" $ dfdToGraphviz dfd
 

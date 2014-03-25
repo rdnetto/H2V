@@ -3,6 +3,7 @@ module DFD (astToDfd, dfdToGraphviz) where
 
 import Control.Monad.State
 import Data.List
+import Data.Maybe
 import Text.Printf
 import Language.Haskell.Pretty (Pretty, prettyPrint)
 import Language.Haskell.Syntax
@@ -116,49 +117,91 @@ newId =
       put newID
       return oldID
 
---runID :: State Int a -> a
---runID m = evalState m 0
-
 --converts the DFD to a visual representation
 dfdToGraphviz :: DFD -> String
 dfdToGraphviz (DFD _ allFuncs) = "digraph G{\n" ++ gv ++ "}" where
     funcs = foldM renderFunc "" allFuncs
     gv = evalState funcs 0
 
---TODO: add the ability for one function to call another
 renderFunc :: String -> Function -> State Int String
 renderFunc gv (Function name args expr) = do
     let defnFmt = "func_%s [label=\"%s(%s)\", shape=Mdiamond];\n"
     let defn = printf defnFmt (prettyPrint name) (prettyPrint name) (joinMap ", " prettyPrint args)
 
-    (rootId, expGv) <- renderExpr expr
-    let rootLink = printf "node_%i -> func_%s;\n" rootId (prettyPrint name)
-    return $ gv ++ defn ++ rootLink ++ expGv
+    (args, argDecs) <- renderArgs args ("", [])
+    let decls = argDecs                                 --TODO: add the ability for one function to call another
 
-renderExpr :: HsExp -> State Int (Int, String)
+    (rootId, expGv) <- renderExpr expr decls
+    let rootLink = printf "%s -> func_%s;\n" rootId (prettyPrint name)
+    return $ gv ++ defn ++ rootLink ++ args ++ expGv
 
-renderExpr (HsLit literal) = do
-    rootId <- newId
-    let label = printf "node_%i [label=\"Literal: %s\"];\n" rootId (prettyPrint literal)
+
+concatDecls (gv0, decls) (gv, decl) = (gv0 ++ gv, decl:decls)
+
+
+--args: name
+--returns (graphviz, decl), where decl is a 2-tuple of (HsName, nodeID)
+renderArg :: HsName -> State Int (String, (HsQName, String))
+renderArg name = do
+    rootId <- liftM id2node newId
+    let label = printf "%s [label = \"Argument: %s\"];\n" rootId (prettyPrint name)
+    return (label, (UnQual name, rootId))
+
+--args: args
+--returns: (graphviz, decls)
+renderArgs :: [HsName] -> (String, [(HsQName, String)]) -> State Int (String, [(HsQName, String)])
+renderArgs (arg:args) (graphviz, decls) = do
+    (gv, decl) <- renderArg arg
+    renderArgs args (gv ++ graphviz, decl:decls)
+renderArgs [] x = return x
+
+
+--declaration resolution:
+--let expressions generate the appropriate nodes for their declaractions and populate an association list passed to subexpressions which maps variable names to nodes
+--returns: (rootID, graphviz). rootID is the ID of the node rendered. graphviz is the graphviz code generated for it.
+renderExpr :: HsExp -> [(HsQName, String)] -> State Int (String, String)
+
+renderExpr (HsLit literal) _ = do
+    rootId <- liftM id2node newId
+    let label = printf "%s [label=\"Literal: %s\"];\n" rootId (prettyPrint literal)
     return (rootId, label)
 
-renderExpr (HsVar name) = do
-    rootId <- newId
-    let label = printf "node_%i [label=\"Variable: %s\"];\n" rootId (prettyPrint name)
-    return (rootId, label)
+renderExpr (HsVar name) decls = do
+    let res = lookup name decls
+    if isJust res then
+        return (fromJust res, "")
 
-renderExpr (HsLet decls exp) = do
-    rootId <- newId
-    (childId, childGv) <- renderExpr exp
-    let label = printf "node_%i [label=\"Let: %s\"];\n" rootId (joinMap "\\n" prettyPrint decls)               --TODO: visually represent decls
-    let rootEdge = printf "node_%i -> node_%i;\n" childId rootId
+    else
+        if (prettyPrint name) `elem` ["(+)", "(-)", "(*)", "(/)", "a2"] then do                 --TODO: remove a2 from here
+            --render builtins (temporary hack to workaround our lack of global functions)
+            rootId <- liftM id2node newId
+            let gv = printf "%s [label=\"Function Call: %s\"];\n" rootId (prettyPrint name)
+            return $ (rootId, gv)
+        else
+            error $ printf "Undefined variable: %s\nDefined tokens: %s" (show name) (show decls)
+
+renderExpr (HsLet newDecls exp) decls = do
+    --TODO: define nodes for decls
+    rootId <- liftM id2node newId
+    (childId, childGv) <- renderExpr exp decls      --TODO: insert newDecls before this
+    let label = printf "%s [label=\"Let: %s\"];\n" rootId (joinMap "\\n" prettyPrint newDecls)
+    let rootEdge = printf "%s -> %s; //check this out\n" childId rootId
     return (rootId, label ++ rootEdge ++ childGv)
 
-renderExpr (HsApp f x) = do
-    rootId <- newId
-    (childId, childGv) <- renderExpr x
-    let label = printf "node_%i [label=\"->\"];\n" rootId
-    let rootEdge = printf "node_%i -> node_%i;\n" childId rootId
-    return (rootId, label ++ rootEdge ++ childGv)
+renderExpr (HsApp f x) decls = do
+    rootId <- liftM id2node newId
 
-renderExpr exp = error $ "Unknown expression: " ++ pshow exp
+    (fId, fGv) <- renderExpr f decls
+    let fEdge = printf "%s -> %s;\n" fId rootId
+
+    (xId, xGv) <- renderExpr x decls
+    let xEdge = printf "%s -> %s;\n" xId rootId
+
+    let label = printf "%s [label=\"->\"];\n" rootId
+    return (rootId, label ++ fGv ++ xGv ++ fEdge ++ xEdge)
+
+renderExpr exp _ = error $ printf "Unknown expression: " ++ pshow exp
+
+id2node :: Int -> String
+id2node id = "node_" ++ (show id)
+
