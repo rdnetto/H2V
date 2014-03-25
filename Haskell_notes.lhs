@@ -51,7 +51,12 @@ Functions:
 >   foo :: aType -> bType -> cType -> resType    --type declaration (optional). Note the lack of distinction between parameter and return types.
 >   foo a,b,c = expr_in_terms_of_args
 
-Pattern matching - can define a function multiple times, with parameters replaced by constants. Can be used to decompose tuples (trivial) and lists (x:xs). Note that x:xs implies a non-empty list. Note that we can use : (cons), but not ++.
+Pattern matching - can define a function multiple times, with parameters replaced by constants. Can be used to decompose tuples (trivial) and lists (x:xs).
+    -x:xs implies a non-empty list.
+    -we can use : (cons), but not ++.
+>   head (x:_) = x                              --note that we must wrap the cons in () for precedence. *not* []
+>   head [1, 2, 3]
+
 Patterns - a parameter of form all@(x:y:xs) decomposes the argument, but aliases x:y:xs to all.
 Guards - similar to switch/match. (The newlines below are optional but highly recommended.)
 >   myfunc inf = "wow that's big"
