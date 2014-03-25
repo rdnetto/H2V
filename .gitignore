@@ -1,5 +1,7 @@
 H2V/H2V
 H2V/build/
+H2V/test.gv
+H2V/test.png
 *.lyx~
 *.pdf
 scratch/

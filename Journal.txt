@@ -1,4 +1,46 @@
 ================================================================================
+Tuesday 25 March 2014
+Implemented a rough prototype of Graphviz generation. It can generate the graph of f, but not fib, which requires pattern matching.
+See H2V/test.hs for the source code, and H2V/test.png for the output. (The make debug target is responsible for rendering test.gv into test.png.)
+
+Graph generation consists of a two step process:
+-the AST is 'cleaned', to reduce the number of syntactic structures used. Any additional logic required is generated at this point.
+-the cleaned AST (now referred to as a DFD) is transformed into Graphviz code via graph traversal
+    +each function and variable has a node with a unique ID (implemented using a monotonically counting monad)
+    +the traversal functions (which are defined recursively) keep track of the local namespace (a mapping between variable names and node IDs)
+    +blue edges are used to identify functions that will undergo application (denoted by <-). Everything is curried right now, which isn't particularly readable - need to look at optimizing this in the future. (This may require the AST structure to be extended - the alternative is an external map which provides additional information. That said, we will need to store additional info later anyway in order to identify thunk boundaries)
+
+-The pattern matching and function generation logic need to be rewritten; the current approach is a hack that is not sufficiently generalizable
+-Graphviz generation is quite similar to Verilog generation. The main difference is that Verilog requires an explicit definition of the interfaces between nodes. It should be easy to implement Verilog generation once Graphviz generation is feature-complete.
+-It looks like currying (partial application) will be possible; this arises quite naturally from mapping the function application operator (->) to a module which has an input (representing the argument), an input-output pair (representing a function of one argument), and another input-output pair (representing a partially applied function.) The inputs will vary in widths, depending on the degree of application. As this would result in many extraneous modules, combining as much application into a single module as possible is recommended.
+    +This implies the rather useful insight that the generated visual graph is an exact representation of what the inter-module connections will be for a given program.
+
+The Requirements Analysis has been submitted to Moodle.
+
+Notes:
+Documentation on parsing API:
+    http://hackage.haskell.org/package/haskell-src-1.0.1.5/docs/Language-Haskell-Syntax.html
+
+After populating the signals for a Qsys Component, you can go back to Files to
+generate a file with the given signals.
+
+Only reads can be pipelined, not writes. However, burst mode can be used for
+both reads and writes. (Burst = accessing an entire row of data at once.)
+
+Useful info on DE0-Nano SDRAM, and potential clock skew issues:
+        ftp://ftp.altera.com/up/pub/Altera_Material/12.0/Tutorials/Verilog/DE0-Nano/Using_the_SDRAM.pdf
+
+Git commits:
+4ad668b  2014-03-25 22:08:45 +1100  Graph generation now works with subdeclarations. Pattern matching is broken (requires additional cleaning logic).
+f8d67d2  2014-03-25 22:23:06 +1100  Graph generation now works, except for subdeclarations
+a704d24  2014-03-24 19:56:22 +1100  Graphviz generation now working, except for argument resolution
+c552d4c  2014-03-25 22:23:28 +1100  Improved Makefile to automate testing of Graphviz generation
+f1dfc2a  2014-03-25 22:17:51 +1100  Node ID Counter monad now works.
+d605911  2014-03-22 18:32:46 +1100  Moved build files into separate directory
+7bf76db  2014-03-22 18:32:36 +1100  Refactored code into separate files
+666cb8c  2014-03-22 17:47:09 +1100  Requirements Analysis: corrected typo.
+
+================================================================================
 Wednesday 19 March 2014
 Read up on functors and monads. They seem to consist primarily of glue code
 that does pattern matching and destructuring. However, if all stateful
@@ -16,7 +58,7 @@ Notes:
 Nios II Tutorial (useful as a checklist):
     http://www.altera.com/literature/tt/tt_nios2_hardware_tutorial.pdf
 
-Sumamry of Qsys components:
+Summary of Qsys components:
     ftp://ftp.altera.com/up/pub/Altera_Material/12.0/Tutorials/making_qsys_components.pdf
 
 Qsys Bus Protocol Specifications:
