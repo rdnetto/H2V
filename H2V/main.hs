@@ -19,6 +19,7 @@ main = do
 
     let dfd = astToDfd ast
     putStrLn $ show dfd
+    putStrLn ""
 
     writeFile "test.gv" $ dfdToGraphviz dfd
 

@@ -58,7 +58,43 @@ processFunc (HsFunBind matches) = Function name args expr where
 
     --selects the match expression to use, and wrap it in a HsLet to preserve where-declarations
     selectMatch :: [HsMatch] -> HsExp
-    selectMatch [HsMatch _ _ pat (HsUnGuardedRhs exp) decls] = HsLet decls exp  --TODO: assume only one match object for now
+
+    selectMatch [HsMatch _ name pats (HsUnGuardedRhs exp) decls] = HsLet newDecls exp where      --base case: only one match
+        argIDs = map (\x -> HsIdent $ "arg_" ++ show x) [0..]
+        args = map fromJust $ filter isJust $ map patternDecls $ zip argIDs pats
+        newDecls = (args ++ decls)
+
+    selectMatch [m] = error $ "Failed to match:" ++ pshow m
+
+    --TODO: need to handle pattern matching & destructuring
+    selectMatch (m0:ms) = HsIf cond (selectMatch [m0]) (selectMatch ms) where     --perform pattern matching via IFs
+        --this technically makes variables accessible where they shouldn't be, but if they are used they'll get shadowed anyway
+        HsMatch _ _ pats _ _ = m0       --there is one HsPat for each argument
+        --AND together conditions which are not always true
+        argIDs = map (\x -> "arg_" ++ show x) [0..]
+        cond = combineConds $ map fromJust $ filter isJust $ map patternMatches $ zip argIDs pats
+
+    --returns an expression which is True iff the pattern matches
+    --takes an (argument name, pattern) tuple
+    --returns Nothing if the pattern will always match
+    patternMatches :: (String, HsPat) -> Maybe HsExp
+    patternMatches (_, HsPVar _) = Nothing
+    patternMatches (_, HsPWildCard) = Nothing
+    patternMatches (argId, HsPLit lit@(HsInt val)) = Just $ cleanExpr $ HsInfixApp lhs op rhs where
+        lhs = HsVar $ UnQual $ HsIdent argId
+        op = HsQVarOp $ UnQual $ HsSymbol "=="
+        rhs = HsLit lit
+    patternMatches (arg, pat) = error $ printf "%s: unknown pattern%s" arg (pshow pat)
+
+    combineConds :: [HsExp] -> HsExp
+    combineConds [x] = x
+
+    --extracts bindings from pattern matching
+    patternDecls :: (HsName, HsPat) -> Maybe HsDecl
+    patternDecls (argID, var@(HsPVar _)) = Just $ HsPatBind (SrcLoc "" 0 0) var (HsUnGuardedRhs $ HsVar $ UnQual argID) []
+    patternDecls (_, HsPLit _) = Nothing
+    patternDecls (_, HsPWildCard) = Nothing
+    patternDecls (arg, pat) = error $ printf "%s: unknown pattern%s" (show arg) (pshow pat)
 
 processFunc d = error $ "Unknown declaration: " ++ pshow d
 
@@ -69,6 +105,7 @@ cleanExpr exp@(HsVar _) = exp
 cleanExpr exp@(HsLit _) = exp
 cleanExpr (HsLet decls exp) = HsLet (map cleanDecl decls) $ cleanExpr exp
 cleanExpr (HsApp e1 e2) = HsApp (cleanExpr e1) (cleanExpr e2)
+cleanExpr (HsIf e1 e2 e3) = HsIf (cleanExpr e1) (cleanExpr e2) (cleanExpr e3)
 --convert infix application to prefix application
 cleanExpr (HsInfixApp arg1 op arg2) = case op of
                                         HsQVarOp opName -> newExpr opName
@@ -199,6 +236,21 @@ renderExpr (HsApp f x) decls = do
 
     let label = printf "%s [label=\"->\"];\n" rootId
     return (rootId, label ++ fGv ++ xGv ++ fEdge ++ xEdge)
+
+renderExpr (HsIf cond trueExp falseExp) decls = do
+    rootId <- liftM id2node newId
+
+    (cId, cGv) <- renderExpr cond decls
+    let cEdge = printf "%s -> %s;\n" cId rootId
+
+    (tId, tGv) <- renderExpr trueExp decls
+    let tEdge = printf "%s -> %s [color = \"green\"];\n" tId rootId
+
+    (fId, fGv) <- renderExpr falseExp decls
+    let fEdge = printf "%s -> %s [color = \"red\"];\n" fId rootId
+
+    let label = printf "%s [label=\"if black then green else red\"];\n" rootId
+    return (rootId, label ++ cGv ++ tGv ++ fGv ++ cEdge ++ tEdge ++ fEdge)
 
 renderExpr exp _ = error $ printf "Unknown expression: " ++ pshow exp
 
