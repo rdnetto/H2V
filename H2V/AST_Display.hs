@@ -5,7 +5,7 @@ import Language.Haskell.Syntax
 import Language.Haskell.Parser as Parser
 import Text.Printf
 
-import Utility
+import Common
 
 --pretty-prints the parsed AST
 displayAST :: HsModule -> String
