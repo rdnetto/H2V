@@ -18,7 +18,7 @@ pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
 --DFD coreFuncs allFunctions
 --coreFuncs contains the names of functions which are exported
 --allFunctions is a list of all the functions defined in the file root of the file
-data DFD = DFD [HsName] [Function] deriving Show
+data DFD_old = DFD [HsName] [Function] deriving Show
 
 --Function(name, arguments, expression)
 --arguments is a list of name-type tuples (names will be generated if none are present)

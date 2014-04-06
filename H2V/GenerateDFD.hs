@@ -1,7 +1,9 @@
---This module contains code for converting ASTs to DFDs, and for displaying them in the Graphviz format
+--This module contains code for converting ASTs to DFDs
 module GenerateDFD (astToDfd) where
 
 import Control.Monad.State
+import Data.Int
+import Data.Word
 import Data.List
 import Data.Maybe
 import Text.Printf
@@ -9,15 +11,75 @@ import Language.Haskell.Syntax
 
 import Common
 
+{-
+ - A DFD is a graph, where nodes repesent values/computations, which are connected by edges.
+ - Each function will be mapped to a DFD, and may be combinatorial or synchronous.
+ - A DFD will be synchronous if its function is recursive or calls a function which is recursive.
+ - Each DFD will have a name for descriptive purposes (may also store source location for debugging).
+ -
+ - A node may be one of the following types:
+ - * literal constant
+ - * argument (value sourced from external scope)
+ - * built-in computation - provided by an operator in Verilog
+ - * function call - the computation is performed by another DFD
+ -
+ - One DFD will be generated for each function.
+ - Note that nodes may hold numeric values or functions. This needs to be stored explicitly, to assist in rendering.
+ -
+ - During generation, functions/DFDs are referred to by numeric identifiers. This is because functions within the same namespace can
+ - depend on each other regardless of the order they are in.
+ -
+ - All DFDs used by a program are stored in a DProgram record
+ -}
+
+
+--NOTE: replace 'type X = X blah' with newtype?
+type DProgram = [DFD]                                       --allDFDs              TODO: add info for exported functions
+type NodeId = Int                                           --Used to assign nodes and graphs unique names
+data DFD = DFD NodeId String DType Bool DNode               --id name, returnType, isSync, root
+data DNode = DLiteral NodeId Num                            --id value             TODO: include type?
+            | DArgument NodeId DType                        --id type              TODO: extend this to support functional arguments
+            | DBuiltin NodeId BuiltinOp DType [DNode]       --id op type args
+            | DFunctionCall NodeId DFD [DNode]              --id function args
+            | DFunctionCall_unresolved String [DNode]       --functionName args. (Only used duration generation)
+
+-- supported data types: D_Int width. (May add fixed point support in the future)
+-- Note that Haskell types for signed and unsigned integers are Int32 and Word32
+data DType = DSInt Int | DUInt Int
+data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
+
+
+astToDfd :: HsModule -> DProgram
+astToDfd (HsModule _ _ exportSpec _ decls) = functions where
+    --TODO: do this monadically, so that each DFD and node has a unique ID
+    functions = map (createDFD . cleanDecl) decls
+
+--convert a cleaned function (should have only a single match) to a DFD
+--TODO: redefine this to be monadic
+createDFD :: HsDecl -> DFD
+createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = DFD name (DUInt 8) False root where
+    --TODO: traverse AST and generate DFD structure
+    --pats will define argument names, expr is our starting point
+    --should probably generate IDs at the same time, since this is the easiest way of doing so
+
+
+
+
+
+
+
+
+
 --converts an AST to a DFD
-astToDfd :: HsModule -> DFD
-astToDfd (HsModule _ hMod exportSpec _ decls) = DFD coreFuncs allFuncs where
+astToDfd_old :: HsModule -> DFD
+astToDfd_old (HsModule _ hMod exportSpec _ decls) = DFD coreFuncs allFuncs where
     coreFuncs = case exportSpec of
                 Just exports -> map exportName $ exports
                 Nothing -> [HsIdent "main"]                         --if there is no export spec, assume the function is called main
     allFuncs = map processFunc decls
 
 --generates the DFD object for a function
+--OBSOLETE - remove once code is working
 processFunc :: HsDecl -> Function
 processFunc (HsFunBind matches) = Function name args expr where
     name = case matches of                                          --use the name from the first match clause
@@ -37,11 +99,10 @@ processFunc (HsFunBind matches) = Function name args expr where
         f (_, Just x) = x
 
     --add match selection logic to expression tree
-    expr = cleanExpr $ selectMatch matches
+    expr = cleanExpr $ selectMatch $ cleanMatch matches
 
     --selects the match expression to use, and wrap it in a HsLet to preserve where-declarations
     selectMatch :: [HsMatch] -> HsExp
-
     selectMatch [HsMatch _ name pats (HsUnGuardedRhs exp) decls] = HsLet newDecls exp where      --base case: only one match
         argIDs = map (\x -> HsIdent $ "arg_" ++ show x) [0..]
         args = map fromJust $ filter isJust $ map patternDecls $ zip argIDs pats
@@ -108,7 +169,12 @@ cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 --TODO: implement pattern matching and destructuring logic here
 cleanDecl :: HsDecl -> HsDecl
 cleanDecl (HsPatBind src pat rhs decls) = HsPatBind src pat (cleanRHS rhs) (map cleanDecl decls)
-cleanDecl (HsFunBind matches) = HsFunBind (map cleanMatch matches)
+--cleanDecl (HsFunBind matches) = HsFunBind (map cleanMatch matches)
+cleanDecl (HsFunBind matches) = HsFunBind [resMatch] where
+    let (HsMatch src name pats rhs decls):_ = matches in
+        resMatch = HsMatch src name genPats (HsUnGuardedRhs expr) []
+    expr = cleanExpr $ selectMatch matches
+
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
 --cleans RHSs
