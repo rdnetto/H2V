@@ -54,6 +54,7 @@ fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
  - Identifier resolution is implemented as a hierarchial list of association lists. The top-most list has precedence.
  - Note that nodes and functions/DFDs have separate resolution namespaces.
  -}
+--TODO: this is horribly broken and needs to be prototyped on a smaller scale...
 type NodeGen = State (Int, [[(String, DNode)]], [[(String, DFD)]])
 
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
