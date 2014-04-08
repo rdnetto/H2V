@@ -25,9 +25,9 @@ newId =
       put newID
       return oldID
 
---converts the DFD to a visual representation
-dfdToGraphviz :: DFD -> String
-dfdToGraphviz (DFD _ allFuncs) = "digraph G{\n" ++ gv ++ "}\n" where
+--converts the DFD_old to a visual representation
+dfdToGraphviz :: DFD_old -> String
+dfdToGraphviz (DFD_old _ allFuncs) = "digraph G{\n" ++ gv ++ "}\n" where
     funcs = foldM renderFunc "" allFuncs
     gv = evalState funcs 0
 
