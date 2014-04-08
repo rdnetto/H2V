@@ -1,4 +1,18 @@
 ================================================================================
+Wednesday 09 April 2014
+Started refactoring Graphviz code to separate graph traversal from code generation.
+Key structures have been defined, algorithms just need to be ported across from existing code.
+Currently having issues with state monad - need to prototype on smaller scale to identify the problem (something to do type inference).
+
+Git commits:
+d5f9124  2014-04-09 02:46:16 +1000  Added spike file to test monad code.
+e0cee23  2014-04-09 02:04:11 +1000  WIP: NodeGen monad definition.
+1ef7d7e  2014-04-06 22:34:41 +1000  Defined the DFD structure.
+2d65e54  2014-04-06 20:04:49 +1000  Moved Graphviz generation code and type definitions into separate files.
+aad45d1  2014-04-02 00:50:59 +1100  WIP
+2e6bcb1  2014-03-25 23:00:42 +1100  Added script for submitting progress reports
+
+================================================================================
 Tuesday 25 March 2014
 Implemented a rough prototype of Graphviz generation. It can generate the graph of f, but not fib, which requires pattern matching.
 See H2V/test.hs for the source code, and H2V/test.png for the output. (The make debug target is responsible for rendering test.gv into test.png.)
