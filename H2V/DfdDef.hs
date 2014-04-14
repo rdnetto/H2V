@@ -1,3 +1,10 @@
+{-
+ - Scoped type annotations are immensely helpful in debugging type inference problems with monads.
+ - For example, we can annotate the result from (get :: MonadState) as being of type NodeGenData.
+ - This is necessary to get comprehensible error messages.
+ -}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module DfdDef where
 
 import Control.Monad.State
@@ -41,6 +48,10 @@ data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
 -- Note that Haskell types for signed and unsigned integers are Int32 and Word32
 data DType = DSInt Int | DUInt Int
 
+instance Eq DNode
+instance Eq DFD
+instance Show DFD
+instance Show DNode
 
 --utility function to simplify mapping over a 3-tuple
 fmap3 :: (a -> a, b -> b, c -> c) -> (a, b, c) -> (a, b, c)
@@ -54,8 +65,8 @@ fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
  - Identifier resolution is implemented as a hierarchial list of association lists. The top-most list has precedence.
  - Note that nodes and functions/DFDs have separate resolution namespaces.
  -}
---TODO: this is horribly broken and needs to be prototyped on a smaller scale...
-type NodeGen = State (Int, [[(String, DNode)]], [[(String, DFD)]])
+type NodeGenData = (Int, [[(String, DNode)]], [[(String, DFD)]])
+type NodeGen = State NodeGenData
 
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
 --all monadic functions have a return type of (State ...). They do not need to take a monadic argument. (Alternatively, this could be understood as monadic functions having (State ...) as the type of the last argument.)
@@ -78,7 +89,7 @@ popNodeNS entry = do
     --    modify $ fmap3 (id, \_ -> ns, id)
         return ()
     else
-        error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" entry (n0:ns)
+        error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
 
 popDfdNS :: [(String, DFD)] -> NodeGen ()
 popDfdNS entry = do
@@ -87,18 +98,19 @@ popDfdNS entry = do
     --    modify $ fmap3 (id, id, \_ -> ns)
         return ()
     else
-        error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" entry (n0:ns)
+        error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
 
 resolveNode :: String -> NodeGen DNode
 resolveNode name = do
-    (_, ns, _) <- get
-    case concatMap (filter (\(n, _) -> n == name)) ns of
+    (_, ns, _) :: NodeGenData <- get
+    return $ case concatMap (filter (\(n, _) -> n == name)) ns of
         (_, x):_ -> x
-        [] -> error $ printf "Unable to resolve node '%s'. Namespace:\n%s" name ns
+        [] -> error $ printf "Unable to resolve node '%s'. Namespace:\n%s" name (show ns)
 
 resolveDFD :: String -> NodeGen DFD
 resolveDFD name = do
-    (_, _, ns) <- get
-    case concatMap (filter (\(n, _) -> n == name)) ns of
-        (_, x):_ -> x
-        [] -> error $ printf "Unable to resolve function '%s'. Namespace:\n%s" name ns
+    (_, _, ns) :: NodeGenData <- get
+    return $ case concatMap (filter (\(n, _) -> n == name)) ns of
+              (_, x):_ -> x
+              [] -> error $ printf "Unable to resolve function '%s'. Namespace:\n%s" name (show ns)
+
