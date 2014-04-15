@@ -1,4 +1,15 @@
 ================================================================================
+Tuesday 15 April 2014
+Fixed bug affecting state monad. This bug can be solved more easily in the future by using scoped type annotations.
+Function-level pattern matching has been implemented - need to refactor so that it can be used for arbitrary variables.
+Code is now in good shape for the DFD node generation logic to be implemented. Once this is complete, the legacy Graphviz code will need to be updated to use the new interface.
+
+Git commits:
+210ca19  2014-04-15 22:56:45 +1000  Cleaned up code, removed legacy cruft
+ff08611  2014-04-15 22:35:02 +1000  Implemented pattern matching logic.
+007c353  2014-04-14 12:21:42 +1000  Fixed type inference bug. Was caused by not wrapping result in return.
+
+================================================================================
 Wednesday 09 April 2014
 Started refactoring Graphviz code to separate graph traversal from code generation.
 Key structures have been defined, algorithms just need to be ported across from existing code.
