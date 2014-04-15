@@ -68,6 +68,9 @@ fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
 type NodeGenData = (Int, [[(String, DNode)]], [[(String, DFD)]])
 type NodeGen = State NodeGenData
 
+initialNodeData :: NodeGenData
+initialNodeData = (0, [], [])
+
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
 --all monadic functions have a return type of (State ...). They do not need to take a monadic argument. (Alternatively, this could be understood as monadic functions having (State ...) as the type of the last argument.)
 newId :: NodeGen Int

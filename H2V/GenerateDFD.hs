@@ -1,6 +1,7 @@
 --This module contains code for converting ASTs to DFDs
 module GenerateDFD (astToDfd) where
 
+import Control.Monad.State
 import Data.Int
 import Data.Word
 import Data.List
@@ -12,35 +13,23 @@ import Common
 import DfdDef
 
 
+--TODO: need to store exported function list here
 astToDfd :: HsModule -> DProgram
-astToDfd (HsModule _ _ exportSpec _ decls) = do
-    --TODO: do this monadically, so that each DFD and node has a unique ID
-    return mapM (createDFD . cleanDecl) decls
+astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
+    m = mapM (createDFD . cleanDecl) decls
 
 --convert a cleaned function (should have only a single match) to a DFD
 --TODO: redefine this to be monadic
 createDFD :: HsDecl -> NodeGen DFD
 createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
-    --TODO: traverse AST and generate DFD structure
-    --pats will define argument names, expr is our starting point
-    --should probably generate IDs at the same time, since this is the easiest way of doing so
+    --id name, returnType, isSync, root
+    rootID <- newId
 
+    --TODO: need to write logic to generate DFD nodes
+    tmpID <- newId
+    let root = DLiteral tmpID 0
 
-    return $ DFD name (DUInt 8) False root
-
-
-
-
-
-
-
---converts an AST to a DFD
-astToDfd_old :: HsModule -> DFD
-astToDfd_old (HsModule _ hMod exportSpec _ decls) = DFD coreFuncs allFuncs where
-    coreFuncs = case exportSpec of
-                Just exports -> map exportName $ exports
-                Nothing -> [HsIdent "main"]                         --if there is no export spec, assume the function is called main
-    allFuncs = map processFunc decls
+    return $ DFD rootID (show name) (DUInt 8) False root
 
 --generates the DFD object for a function
 --OBSOLETE - remove once code is working
@@ -63,9 +52,12 @@ processFunc (HsFunBind matches) = Function name args expr where
         f (_, Just x) = x
 
     --add match selection logic to expression tree
-    expr = cleanExpr $ selectMatch $ cleanMatch matches
+    expr = cleanExpr $ selectMatch matches
 
     --selects the match expression to use, and wrap it in a HsLet to preserve where-declarations
+    --TODO: this is literally a duplicate of the code used in cleanDecl - need to refactor so that it's saner
+    --NOTE: the code at the bottom is more elegant and functional, as it uses fold
+    --NOTE: this entire function is obsolete/deprecated
     selectMatch :: [HsMatch] -> HsExp
     selectMatch [HsMatch _ name pats (HsUnGuardedRhs exp) decls] = HsLet newDecls exp where      --base case: only one match
         argIDs = map (\x -> HsIdent $ "arg_" ++ show x) [0..]
@@ -130,14 +122,16 @@ cleanExpr (HsParen exp) = cleanExpr exp
 cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 
 --cleans declarations
---TODO: implement pattern matching and destructuring logic here
 cleanDecl :: HsDecl -> HsDecl
 cleanDecl (HsPatBind src pat rhs decls) = HsPatBind src pat (cleanRHS rhs) (map cleanDecl decls)
---cleanDecl (HsFunBind matches) = HsFunBind (map cleanMatch matches)
 cleanDecl (HsFunBind matches) = HsFunBind [resMatch] where
-    (HsMatch src name pats rhs decls):_ = matches
-    resMatch = HsMatch src name genPats (HsUnGuardedRhs expr) []
-    expr = cleanExpr $ selectMatch matches
+    --final value is for pattern exhaustion
+    res = foldl cleanMatch m0 matches
+    resMatch = res HsWildCard                                           --using HsWildCard to represent non-exhaustive pattern matching
+    --initial value m0 is used for the outermost match
+    (HsMatch src name pats _ _):_ = matches                                --using info from first match for the resultant match object
+    m0 = \expr -> HsMatch src name pats (HsUnGuardedRhs expr) []
+    args = take (length pats) genArgs
 
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
@@ -148,9 +142,30 @@ cleanRHS (HsUnGuardedRhs exp) = HsUnGuardedRhs (cleanExpr exp)
 cleanRHS (HsGuardedRhss guards) = HsGuardedRhss (map f guards) where
     f (HsGuardedRhs src e1 e2) = HsGuardedRhs src (cleanExpr e1) (cleanExpr e2)
 
---cleans function matches
-cleanMatch :: HsMatch -> HsMatch
-cleanMatch (HsMatch src name pats rhs decls) = HsMatch src name pats (cleanRHS rhs) (map cleanDecl decls)
+--Cleans function matches. Used in folding.
+--The result is a function of the expression returned if the pattern fails
+--The left argument will have precedence over the right.
+cleanMatch :: (HsExp -> HsMatch) -> HsMatch -> (HsExp -> HsMatch)
+cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
+    --res = HsMatch src name cPats (cleanRHS rhs) (map cleanDecl decls)
+    res = \elseExpr -> leftM $ HsIf patternsMatch trueExpr elseExpr
+    patternsMatch = foldl1 andConds $ map patternMatches $ zip genArgs pats
+    expr = case rhs of
+        HsUnGuardedRhs expr -> expr
+        _ -> error "Guarded RHSs are not implemented yet"               --Guarded RHS can have multiple expressions?
+    trueExpr = HsLet decls expr
+
+    --given multiple Boolean expressions, AND them together
+    andConds :: HsExp -> HsExp -> HsExp
+    andConds left right = HsInfixApp left (HsQVarOp $ UnQual $ HsIdent "&&") right
+
+--yields a boolean expression which is true if the pattern is matched
+--the argument is a 2-tuple specifying the new argument name and the pattern to be matched
+patternMatches :: (HsName, HsPat) -> HsExp
+patternMatches (_, HsPVar _) = trueExpr
+patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ patternMatches (name, pat)
+patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
+patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
 
 --converts an export into an unqualified name
 exportName :: HsExportSpec -> HsName
@@ -161,3 +176,12 @@ exportName e = error $ "Unknown exportSpec: " ++ pshow e
 unqual :: HsQName -> HsName
 unqual (UnQual n) = n
 unqual q = error $ "Unknown HsQName: " ++ pshow q
+
+--yields an infinite list of arg names
+genArgs :: [HsName]
+genArgs = map (\a -> HsIdent $ "_arg_" ++ (show a)) [0..]
+
+
+--TODO: this should return an expression equal to True
+trueExpr :: HsExp
+trueExpr = unit_con
