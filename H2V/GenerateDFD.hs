@@ -74,7 +74,7 @@ cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 cleanMatch :: (HsExp -> HsMatch) -> HsMatch -> (HsExp -> HsMatch)
 cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
     res = \elseExpr -> leftM $ HsIf patternsMatch trueExp elseExpr
-    patternsMatch = foldl1 andConds $ filter (/= trueExpr) $ map patternMatches $ zip genArgs pats
+    patternsMatch = foldl1 andConds $ (trueExpr:) $ map patternMatches $ zip genArgs pats
     expr = case rhs of
         HsUnGuardedRhs e -> cleanExpr e
         _ -> error "Guarded RHSs are not implemented yet"               --Guarded RHS can have multiple expressions?
@@ -82,12 +82,16 @@ cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
 
     --given multiple Boolean expressions, AND them together
     andConds :: HsExp -> HsExp -> HsExp
-    andConds left right = HsInfixApp left (HsQVarOp $ UnQual $ HsIdent "&&") right
+    andConds left right
+        | left == trueExpr  = right
+        | right == trueExpr = left
+        | otherwise         = HsInfixApp left (HsQVarOp $ UnQual $ HsIdent "&&") right
 
 --yields a boolean expression which is true if the pattern is matched
 --the argument is a 2-tuple specifying the new argument name and the pattern to be matched
 patternMatches :: (HsName, HsPat) -> HsExp
 patternMatches (_, HsPVar _) = trueExpr
+patternMatches (_, HsPWildCard) = trueExpr
 patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ patternMatches (name, pat)
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
