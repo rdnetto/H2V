@@ -411,7 +411,37 @@ Monads
     filterM - like filter, but the filter function and result have monadic values. e.g. using lists means that we can non-deterministically include/reject different elements.
     foldM - like fold, but with a monadic result for the combination function.
 
-
-
-
 http://learnyouahaskell.com/for-a-few-monads-more
+
+DEBUGGING
+Here are some useful tips for debugging Haskell programs:
+-hpc can be used to examine which code paths are evaluated and which are not. Useful for identifying potentially stale code.
+-compile with '-rtsopts -prof -auto-all' if you want usable traces
+-run with '+RTS -xc' to get a stack trace when an exception occurs
+-to debug an infinite loop, see http://www.haskell.org/haskellwiki/Debugging#Infinite_loops
+
+The GHCi Debugger
+GHCi includes a debugger which is powerful enough to deserve a section of its own.
+Stepping through a program:
+>   ghci main.hs
+>   :set stop :list             --run :list every time we stop to display the current expression
+>   :step main                  --step through the function main. The argument may be any Haskell expression, not just a function name.
+>   :step                       --step to the next expression
+
+Viewing the stack when an exception occurs:
+>   :set -fbreak-on-error       --stop at a virtual breakpoint when an exception occurs
+>   :trace main                 --run main until an exception occurs, recording the stack as we go
+>   :back                       --step back from the exception to a frame with source code
+
+-':show bindings' may also be useful to see what local variables are available
+-':show context' is useful for seeing the breakpoint stack
+-':break' can be used to add breakpoints
+-':help' provides the full list of commands
+-':print x' shows the current value of x without evaluating any new thunks. In contrast, 'x' forces evaluation.
+    +':sprint x' does the same thing, but does not assign names to thunks. It may be easier to read.
+-running 'seq x ()' forces the shallow execution of x (but not its subthunks); it can be used to incrementally process thunks
+-once you reach the expression which is causing the error, computing intermediate terms via the prompt may prove useful
+-Note that the stack trace is in terms of thunk evaluation, not calls. This means it may be somewhat confusing.
+-GHCi executes the contents of '~/.ghc/ghci.conf" on startup - this may be a useful place to place the :set commands.
+
+http://www.haskell.org/wikiupload/0/0a/TMR-Issue10.pdf
