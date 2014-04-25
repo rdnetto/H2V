@@ -444,4 +444,12 @@ Viewing the stack when an exception occurs:
 -Note that the stack trace is in terms of thunk evaluation, not calls. This means it may be somewhat confusing.
 -GHCi executes the contents of '~/.ghc/ghci.conf" on startup - this may be a useful place to place the :set commands.
 
+
+NOTE: do not define the Show typeclass for the State monad (or its derivatives), as this results in an infinite loop.
+Use runState to view the contents instead.
+
+BUG: The inherited implementation of show seems to cause stack overflows.
+     See: http://www.reddit.com/r/haskellquestions/comments/23xueu/ghc_bug_or_newbie_mistake/
+
+
 http://www.haskell.org/wikiupload/0/0a/TMR-Issue10.pdf

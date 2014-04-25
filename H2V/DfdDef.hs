@@ -50,8 +50,18 @@ data DType = DSInt Int | DUInt Int
 
 instance Eq DNode
 instance Eq DFD
-instance Show DFD
-instance Show DNode
+
+instance Show DFD where
+    show (DFD id name returnType isSync root) =
+        printf "{DFD id=%i, name=%s, returnType=%s, isSync=%s, root=%s}" id name (show returnType) (show isSync) (show root)
+
+instance Show DNode where
+    show (DLiteral id x) = show ("DLiteral", id, x)
+    show _ = error "failed pattern match"
+
+instance Show DType where
+    show (DUInt x) = "DUInt " ++ show x
+    show (DSInt x) = "DSInt " ++ show x
 
 --utility function to simplify mapping over a 3-tuple
 fmap3 :: (a -> a, b -> b, c -> c) -> (a, b, c) -> (a, b, c)
