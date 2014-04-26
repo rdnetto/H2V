@@ -37,31 +37,20 @@ import Text.Printf
 type DProgram = [DFD]                                       --allDFDs              TODO: add info for exported functions
 type NodeId = Int                                           --Used to assign nodes and graphs unique names
 data DFD = DFD NodeId String DType Bool DNode               --id name, returnType, isSync, root
+    deriving (Show, Eq)
 data DNode = DLiteral NodeId Int                            --id value             TODO: include type?
             | DArgument NodeId DType                        --id type              TODO: extend this to support functional arguments
             | DBuiltin NodeId BuiltinOp DType [DNode]       --id op type args
             | DFunctionCall NodeId DFD [DNode]              --id function args
             | DFunctionCall_unresolved String [DNode]       --functionName args. (Only used duration generation)
+    deriving (Show, Eq)
 data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
+    deriving (Show, Eq)
 
 -- supported data types: D_Int width. (May add fixed point support in the future)
 -- Note that Haskell types for signed and unsigned integers are Int32 and Word32
 data DType = DSInt Int | DUInt Int
-
-instance Eq DNode
-instance Eq DFD
-
-instance Show DFD where
-    show (DFD id name returnType isSync root) =
-        printf "{DFD id=%i, name=%s, returnType=%s, isSync=%s, root=%s}" id name (show returnType) (show isSync) (show root)
-
-instance Show DNode where
-    show (DLiteral id x) = show ("DLiteral", id, x)
-    show _ = error "failed pattern match"
-
-instance Show DType where
-    show (DUInt x) = "DUInt " ++ show x
-    show (DSInt x) = "DSInt " ++ show x
+    deriving (Show, Eq)
 
 --utility function to simplify mapping over a 3-tuple
 fmap3 :: (a -> a, b -> b, c -> c) -> (a, b, c) -> (a, b, c)
