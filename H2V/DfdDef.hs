@@ -42,7 +42,7 @@ data DFD = DFD NodeId String DType Bool DNode               --id, name, returnTy
 
 data DNode = DLiteral NodeId Int                            --id, value             TODO: include type?
             | DVariable NodeId DType (Maybe DNode)          --id, type, value       TODO: extend this to support functional arguments
-            | DBuiltin NodeId BuiltinOp DType [DNode]       --id, op type args
+            | DBuiltin NodeId BuiltinOp                     --id, op
             | DFunctionCall NodeId DFD [DNode]              --id, function args
             | DFunctionCall_unresolved String [DNode]       --functionName args. (Only used duration generation)
     deriving (Show, Eq)

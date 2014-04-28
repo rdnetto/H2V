@@ -12,11 +12,23 @@ import Language.Haskell.Syntax
 import Common
 import DfdDef
 
-
 --TODO: need to store exported function list here
+--TODO: need to find a sane way to import Prelude here
 astToDfd :: HsModule -> DProgram
 astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
-    m = mapM (createDFD . cleanDecl) decls
+    m = do
+        --import prelude (this will need to go in a function/file of its own at some point...)
+        --TODO: refactor this code so that we can handle all arithmetic operators at once
+        id1 <- newId
+        id2 <- newId
+        pushDfdNS [("+", DFD id1 "+" (DUInt 8) False $ DBuiltin id2 (BinaryOp "+"))]
+
+        id1 <- newId
+        id2 <- newId
+        pushDfdNS [("*", DFD id1 "*" (DUInt 8) False $ DBuiltin id2 (BinaryOp "*"))]
+
+        --local functions
+        mapM (createDFD . cleanDecl) decls
 
 --cleaning logic
 
