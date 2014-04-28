@@ -154,14 +154,15 @@ defineExpr e = error $ "Failed to match expression: " ++ pshow e
 
 --utility functions
 
---converts an export into an unqualified name
-exportName :: HsExportSpec -> HsName
-exportName (HsEVar (UnQual name)) = name
-exportName e = error $ "Unknown exportSpec: " ++ pshow e
+--utility functions
 
 fromHsName :: HsName -> String
 fromHsName (HsIdent x) = x
 fromHsName (HsSymbol x) = x
+
+fromHsQName :: HsQName -> String
+fromHsQName (UnQual n) = fromHsName n
+fromHsQName (Qual (Module m) n) = m ++ "." ++ fromHsName n
 
 --yields an infinite list of arg names
 genArgs :: [HsName]
