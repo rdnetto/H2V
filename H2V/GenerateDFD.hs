@@ -58,12 +58,16 @@ cleanDecl (HsFunBind matches) = HsFunBind [resMatch] where
 
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
---Cleans function matches. Used in folding.
+--Cleans function matches. Used in folding. leftM is the left (folded) match
 --The result is a function of the expression returned if the pattern fails
 --The left argument will have precedence over the right.
 cleanMatch :: (HsExp -> HsMatch) -> HsMatch -> (HsExp -> HsMatch)
 cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
-    res = \elseExpr -> leftM $ HsIf patternsMatch trueExp elseExpr
+    --we apply HsWildCard to the tail, so its presence means we assume that the last pattern matches
+    res :: HsExp -> HsMatch
+    res HsWildCard = leftM $ trueExp
+    res elseExpr = leftM $ HsIf patternsMatch trueExp elseExpr
+
     patternsMatch = foldl1 andConds $ (trueExpr:) $ map patternMatches $ zip genArgs pats
     expr = case rhs of
         HsUnGuardedRhs e -> cleanExpr e
