@@ -78,7 +78,7 @@ initialNodeData = (0, [], [])
 newId :: NodeGen Int
 newId = do
     (oldID, _, _) <- get
---    modify $ fmap3 (succ, id, id)
+    modify $ fmap3 (succ, id, id)
     return oldID
 
 --namespace management functions. Pop takes the value expected to be popped as a sanity check.
@@ -91,8 +91,7 @@ popNodeNS :: [(String, DNode)] -> NodeGen ()
 popNodeNS entry = do
     (_, n0:ns, _) <- get
     if entry == n0 then
-    --    modify $ fmap3 (id, \_ -> ns, id)
-        return ()
+        modify $ fmap3 (id, \_ -> ns, id)
     else
         error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
 
@@ -100,8 +99,7 @@ popDfdNS :: [(String, DFD)] -> NodeGen ()
 popDfdNS entry = do
     (_, _, n0:ns) <- get
     if entry == n0 then
-    --    modify $ fmap3 (id, id, \_ -> ns)
-        return ()
+        modify $ fmap3 (id, id, \_ -> ns)
     else
         error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
 
