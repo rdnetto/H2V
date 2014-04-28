@@ -1,5 +1,5 @@
 all:
-	ghc --make main.hs -outputdir build -o H2V -rtsopts -prof -auto-all 
+	ghc --make main.hs -outputdir build -o H2V -rtsopts -prof -auto-all -hide-package=monads-tf
 
 clean:
 	rm -f build/* H2V
