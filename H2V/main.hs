@@ -34,5 +34,6 @@ main = do
     putStrLn $ show dfd
     putStrLn ""
 
-    writeFile "test.gv" $ dfdToGraphviz dfd
+    --writeFile "test.gv" $ dfdToGraphviz dfd
+    writeFile "test.gv" $ show dfd
 
