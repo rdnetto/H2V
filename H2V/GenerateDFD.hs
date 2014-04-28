@@ -89,7 +89,7 @@ patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show n
 --DFD generation logic
 
 --convert a cleaned function (should have only a single match) to a DFD
---TODO: find a way to reuse the code from defineDecl
+--TODO: find a way to reuse the code from defineDecl. This can be done by generating simple argument names for the patterns (_arg_0, etc.) then inserting let statements to perform binding
 createDFD :: HsDecl -> NodeGen DFD
 createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     rootID <- newId
@@ -108,40 +108,45 @@ createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     --id, name, returnType, isSync, root
     return $ DFD rootID (show name) (DUInt 8) False root
 
---generates a node for a pattern / function argument
+--defines a function argument. Similar to definePat, but without binding
 defineArg :: HsPat -> NodeGen (String, DNode)
 defineArg (HsPVar name) = do
     nodeID <- newId
-    return $ (fromHsName name, DArgument nodeID (DUInt 8))
+    return $ (fromHsName name, DVariable nodeID (DUInt 8) Nothing)
+
+--Generates a node for a variable bound to a pattern.
+--This needs to be able to return multiple nodes, due to destructuring, etc.
+--TODO: add support for tuples, etc.
+definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
+definePat (HsPVar name) value = do
+    nodeID <- newId
+    return $ [(fromHsName name, DVariable nodeID (DUInt 8) (Just value))]
 
 --generates nodes for declarations. These can be either variables or functions in their own right. Returns namespace info.
+--lhs = rhs where subterms
 --TODO: add support for nested functions (requires additional logic to input shared variables as args)
+--TODO: this code assumes that all declarations are variables, not functions
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
 defineDecl :: HsDecl -> NodeGen [(String, DNode)]
-defineDecl (HsPatBind _ pats (HsUnGuardedRhs expr) decls) = do
-    --LHS (pats)
-    args <- mapM defineArg pats
-    pushNodeNS args                             --args will be used by things outside the pattern matching; need to move the push/pops outside this function
-
+defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
+    --subterms
     terms <- liftM concat $ mapM defineDecl decls
     pushNodeNS terms
 
-    --RHS (expr)
-    --TODO: need to perform binding here. i.e. set pattern nodes to values
-    --TODO: this code assumes that all declarations are variables, not functions
-    root <- defineExpr expr
+    --define the RHS, and bind it to the LHS
+    rhs <- defineExpr expr
+    lhs <- definePat pat rhs
 
     popNodeNS terms
-    popNodeNS args
-
-    return args
+    return lhs
 
 --generates/resolves nodes for expressions
 defineExpr :: HsExp -> NodeGen DNode
 defineExpr (HsVar (UnQual name)) = resolveNode $ fromHsName name
 defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
-    return $ DLiteral nodeID (DUInt 8)
+    return $ DLiteral nodeID $ fromIntegral val
+defineExpr e = error $ "Failed to match expression: " ++ pshow e
 
 --utility functions
 
