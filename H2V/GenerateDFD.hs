@@ -18,17 +18,7 @@ astToDfd :: HsModule -> DProgram
 astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
     m = mapM (createDFD . cleanDecl) decls
 
---convert a cleaned function (should have only a single match) to a DFD
-createDFD :: HsDecl -> NodeGen DFD
-createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
-    --id name, returnType, isSync, root
-    rootID <- newId
-
-    --TODO: need to write logic to generate DFD nodes
-    tmpID <- newId
-    let root = DLiteral tmpID 0
-
-    return $ DFD rootID (show name) (DUInt 8) False root
+--cleaning logic
 
 --rewrites expressions to remove irrelevant syntactic differences. e.g. infix vs prefix application
 --the following white-listed expressions are the only ones we will support
@@ -96,10 +86,73 @@ patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ pat
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
 
+--DFD generation logic
+
+--convert a cleaned function (should have only a single match) to a DFD
+--TODO: find a way to reuse the code from defineDecl
+createDFD :: HsDecl -> NodeGen DFD
+createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
+    rootID <- newId
+
+    args <- mapM defineArg pats
+    pushNodeNS args
+
+    --TODO: this code assumes that all declarations are variables, not functions
+    terms <- liftM concat $ mapM defineDecl decls
+    pushNodeNS terms
+
+    root <- defineExpr expr
+    popNodeNS terms
+    popNodeNS args
+
+    --id, name, returnType, isSync, root
+    return $ DFD rootID (show name) (DUInt 8) False root
+
+--generates a node for a pattern / function argument
+defineArg :: HsPat -> NodeGen (String, DNode)
+defineArg (HsPVar name) = do
+    nodeID <- newId
+    return $ (fromHsName name, DArgument nodeID (DUInt 8))
+
+--generates nodes for declarations. These can be either variables or functions in their own right. Returns namespace info.
+--TODO: add support for nested functions (requires additional logic to input shared variables as args)
+--TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
+defineDecl :: HsDecl -> NodeGen [(String, DNode)]
+defineDecl (HsPatBind _ pats (HsUnGuardedRhs expr) decls) = do
+    --LHS (pats)
+    args <- mapM defineArg pats
+    pushNodeNS args                             --args will be used by things outside the pattern matching; need to move the push/pops outside this function
+
+    terms <- liftM concat $ mapM defineDecl decls
+    pushNodeNS terms
+
+    --RHS (expr)
+    --TODO: need to perform binding here. i.e. set pattern nodes to values
+    --TODO: this code assumes that all declarations are variables, not functions
+    root <- defineExpr expr
+
+    popNodeNS terms
+    popNodeNS args
+
+    return args
+
+--generates/resolves nodes for expressions
+defineExpr :: HsExp -> NodeGen DNode
+defineExpr (HsVar (UnQual name)) = resolveNode $ fromHsName name
+defineExpr (HsLit (HsInt val)) = do
+    nodeID <- newId
+    return $ DLiteral nodeID (DUInt 8)
+
+--utility functions
+
 --converts an export into an unqualified name
 exportName :: HsExportSpec -> HsName
 exportName (HsEVar (UnQual name)) = name
 exportName e = error $ "Unknown exportSpec: " ++ pshow e
+
+fromHsName :: HsName -> String
+fromHsName (HsIdent x) = x
+fromHsName (HsSymbol x) = x
 
 --yields an infinite list of arg names
 genArgs :: [HsName]

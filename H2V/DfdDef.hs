@@ -36,14 +36,17 @@ import Text.Printf
 --NOTE: replace 'type X = X blah' with newtype?
 type DProgram = [DFD]                                       --allDFDs              TODO: add info for exported functions
 type NodeId = Int                                           --Used to assign nodes and graphs unique names
-data DFD = DFD NodeId String DType Bool DNode               --id name, returnType, isSync, root
-    deriving (Show, Eq)
-data DNode = DLiteral NodeId Int                            --id value             TODO: include type?
-            | DArgument NodeId DType                        --id type              TODO: extend this to support functional arguments
-            | DBuiltin NodeId BuiltinOp DType [DNode]       --id op type args
-            | DFunctionCall NodeId DFD [DNode]              --id function args
+
+data DFD = DFD NodeId String DType Bool DNode               --id, name, returnType, isSync, root.
+    deriving (Show, Eq)                                     --Note that DFD's id is distinct from its root node.
+
+data DNode = DLiteral NodeId Int                            --id, value             TODO: include type?
+            | DArgument NodeId DType                        --id, type              TODO: extend this to support functional arguments
+            | DBuiltin NodeId BuiltinOp DType [DNode]       --id, op type args
+            | DFunctionCall NodeId DFD [DNode]              --id, function args
             | DFunctionCall_unresolved String [DNode]       --functionName args. (Only used duration generation)
     deriving (Show, Eq)
+
 data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
     deriving (Show, Eq)
 
