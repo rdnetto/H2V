@@ -162,9 +162,35 @@ defineExpr (HsVar (UnQual name)) = resolveNode $ fromHsName name
 defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
     return $ DLiteral nodeID $ fromIntegral val
+defineExpr (HsLet decls exp) = do
+    locals <- liftM concat $ mapM defineDecl decls
+    pushNodeNS locals
+    root <- defineExpr exp
+    popNodeNS locals
+    return root
+defineExpr app@(HsApp _ _) = do
+    let (f, args) = foldApp app
+    nodeID <- newId
+    f' <- resolveFunc f
+    args' <- mapM defineExpr args
+    return $ DFunctionCall nodeID f' args'
+
 defineExpr e = error $ "Failed to match expression: " ++ pshow e
 
---utility functions
+--Combines repeated applications to collect a list of arguments
+--Returns a 2-tuple of the function and its arguments.
+--Note that the first application we encounter will be the outermost. i.e. the last argument. e.g f a b c = (((f a) b) c)
+foldApp :: HsExp -> (HsExp, [HsExp])
+foldApp (HsApp a0@(HsApp _ _) x) = res where
+    (f, xs) = foldApp a0
+    res = (f, xs ++ [x])                                     --x goes last, because we parse application from the outside-in
+foldApp (HsApp f x) = (f, [x])
+
+--Resolves an expression into a function (DFD).
+--The expression may simply be the name of a known function, or it may be a lambda or curried expression.
+--TODO: add support for lambdas, etc.
+resolveFunc :: HsExp -> NodeGen DFD
+resolveFunc (HsVar name) = resolveDFD $ fromHsQName name
 
 --utility functions
 
