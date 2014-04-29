@@ -29,6 +29,13 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         id2 <- newId
         pushDfdNS [("*", DFD id1 "*" (DUInt 8) False $ DBuiltin id2 (BinaryOp "*"))]
 
+        id1 <- newId
+        id2 <- newId
+        pushDfdNS [("==", DFD id1 "==" (DUInt 8) False $ DBuiltin id2 (BinaryOp "=="))]
+
+        --implement if as a function, since it's easier
+        --TODO: add definition for if
+
         --local functions
         mapM (createDFD . cleanDecl) decls
 
@@ -41,7 +48,10 @@ cleanExpr exp@(HsVar _) = exp
 cleanExpr exp@(HsLit _) = exp
 cleanExpr (HsLet decls exp) = HsLet (map cleanDecl decls) $ cleanExpr exp
 cleanExpr (HsApp e1 e2) = HsApp (cleanExpr e1) (cleanExpr e2)
-cleanExpr (HsIf e1 e2 e3) = HsIf (cleanExpr e1) (cleanExpr e2) (cleanExpr e3)
+--replace IFs with a function call
+--TODO: add support for qualified function names, so that we can avoid if being overloaded
+cleanExpr (HsIf cond tExp fExp) = cleanExpr $ HsApp (HsApp (HsApp f cond) tExp) fExp where
+    f = HsVar $ UnQual $ HsIdent "if"
 --convert infix application to prefix application
 cleanExpr (HsInfixApp arg1 op arg2) = case op of
                                         HsQVarOp opName -> newExpr opName
@@ -62,6 +72,7 @@ cleanDecl :: HsDecl -> HsDecl
 --TODO: Refactor: PatBind should use the same code as FunBind for pattern matching.
 cleanDecl (HsPatBind src pat (HsUnGuardedRhs expr) decls) = HsPatBind src pat (HsUnGuardedRhs $ cleanExpr expr) (map cleanDecl decls)
 cleanDecl (HsFunBind matches) = HsFunBind [resMatch] where
+--BUG: fib': where the first match contains a literal, it is not cleaned
     --final value is for pattern exhaustion
     res = foldl cleanMatch m0 matches
     resMatch = res HsWildCard                                           --using HsWildCard to represent non-exhaustive pattern matching
@@ -80,7 +91,7 @@ cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
     --we apply HsWildCard to the tail, so its presence means we assume that the last pattern matches
     res :: HsExp -> HsMatch
     res HsWildCard = leftM $ trueExp
-    res elseExpr = leftM $ HsIf patternsMatch trueExp elseExpr
+    res elseExpr = leftM $ cleanExpr $ HsIf patternsMatch trueExp elseExpr
 
     patternsMatch = foldl1 andConds $ (trueExpr:) $ map patternMatches $ zip genArgs pats
     expr = case rhs of
