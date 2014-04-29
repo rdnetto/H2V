@@ -1,4 +1,37 @@
 ================================================================================
+Wednesday 30 April 2014
+Encountered a temporary set-back related to a GHC bug where undefined
+typeclass members could result in stack overflows. Found a workaround, but
+spent most of the break doing doing so.
+
+DFD generation code is slowly underway - implementing support for expressions one at a
+time as required by test case (Fibonacci sequence).
+
+The minimal implementation may be larger than expected due to
+interdependencies. e.g. pattern matching requires if statements, which require
+the ability to import functions from Prelude. However, this does not change
+the overall implementation time because these features would need to be
+implemented sooner or later anyway.
+
+
+Git commits:
+83108f4  2014-04-30 00:56:52 +1000  WIP: adding support for IF statements
+93b515e  2014-04-30 00:58:22 +1000  TEMP: Changed test.hs so that functions are in strict dependency order. Revert once we have better dependency resolution
+4c6c526  2014-04-29 02:42:53 +1000  Added support for let statements, function application.
+336a832  2014-04-29 02:41:54 +1000  Preliminary: added some basic definitions of built-in operators
+2497610  2014-04-29 02:40:53 +1000  Added utility methods for converting qualified names to strings, removed stale code.
+770ce6f  2014-04-29 02:38:45 +1000  BUG FIX: State modification code was commented out
+4139525  2014-04-29 02:37:58 +1000  BUG FIX: Was generating a redundant 'if true then X else _'
+36ca55b  2014-04-29 02:37:18 +1000  Replaced DNode.DArgument with DVariable, which may or may not have a subexpression.
+6b92c3a  2014-04-29 02:35:14 +1000  Started implementing monadic DFD generation logic.
+6c7c79d  2014-04-29 02:46:02 +1000  TEMP: Disable outdated Graphviz code until the new DFD code is stable
+2535b14  2014-04-28 10:59:33 +1000  BUG FIX: build failed when both mtl and monads-tf were installed, since they both contain Control.Monad.State
+18ffe93  2014-04-27 01:22:06 +1000  BUG FIX: replaced explicit definition for show with inherited one (that does not trigger bug).
+7f2e8de  2014-04-25 20:19:26 +1000  BUG FIX: The default implementation of show seems to cause stack overflows. Manually implementing it is a (inelegant) workaround. See: http://www.reddit.com/r/haskellquestions/comments/23xueu/ghc_bug_or_newbie_mistake/
+4e4d0d4  2014-04-24 22:45:11 +1000  Rewrote pattern matching logic to correctly handle the case where none of the patterns impose constraints e.g. they are all variables
+f07e733  2014-04-24 22:43:10 +1000  Added notes on debugging.
+
+================================================================================
 Tuesday 15 April 2014
 Fixed bug affecting state monad. This bug can be solved more easily in the future by using scoped type annotations.
 Function-level pattern matching has been implemented - need to refactor so that it can be used for arbitrary variables.
