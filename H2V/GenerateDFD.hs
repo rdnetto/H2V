@@ -71,15 +71,16 @@ cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 cleanDecl :: HsDecl -> HsDecl
 --TODO: Refactor: PatBind should use the same code as FunBind for pattern matching.
 cleanDecl (HsPatBind src pat (HsUnGuardedRhs expr) decls) = HsPatBind src pat (HsUnGuardedRhs $ cleanExpr expr) (map cleanDecl decls)
-cleanDecl (HsFunBind matches) = HsFunBind [resMatch] where
---BUG: fib': where the first match contains a literal, it is not cleaned
-    --final value is for pattern exhaustion
-    res = foldl cleanMatch m0 matches
-    resMatch = res HsWildCard                                           --using HsWildCard to represent non-exhaustive pattern matching
+cleanDecl (HsFunBind matches) = HsFunBind [res] where
+    --using HsWildCard to represent non-exhaustive pattern matching
     --initial value m0 is used for the outermost match
-    (HsMatch src name pats _ _):_ = matches                             --using info from first match for the resultant match object
-    m0 = \expr -> HsMatch src name pats (HsUnGuardedRhs expr) []
-    args = take (length pats) genArgs
+    res = foldl cleanMatch m0 matches $ HsWildCard
+
+    --using info from first match for the resultant match object
+    --we use a generic set of variable names for args, since each match can given them different names (or none at all)
+    (HsMatch src name pats _ _):_ = matches
+    m0 = \expr -> HsMatch src name args (HsUnGuardedRhs expr) []
+    args = take (length pats) $ map HsPVar $ genArgs
 
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
@@ -97,7 +98,8 @@ cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
     expr = case rhs of
         HsUnGuardedRhs e -> cleanExpr e
         _ -> error "Guarded RHSs are not implemented yet"               --Guarded RHS can have multiple expressions?
-    trueExp = HsLet (map cleanDecl decls) expr
+    --bind args, then subdecls
+    trueExp = HsLet (concat $ zipWith bindPattern genArgs pats) $ HsLet (map cleanDecl decls) expr
 
     --given multiple Boolean expressions, AND them together
     andConds :: HsExp -> HsExp -> HsExp
@@ -114,6 +116,14 @@ patternMatches (_, HsPWildCard) = trueExpr
 patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ patternMatches (name, pat)
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
+
+--Performs pattern binding. Note that each pattern can result in multiple bindings due to destructuring
+bindPattern :: HsName -> HsPat -> [HsDecl]
+bindPattern argName pat@(HsPVar _) = return $ HsPatBind (SrcLoc "" 0 0) pat rhs [] where
+    rhs = HsUnGuardedRhs . HsVar . UnQual $ argName
+bindPattern _ (HsPLit _) = []
+bindPattern _ HsPWildCard = []
+bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 
 --DFD generation logic
 
@@ -144,8 +154,8 @@ defineArg (HsPVar name) = do
     return $ (fromHsName name, DVariable nodeID (DUInt 8) Nothing)
 
 --Generates a node for a variable bound to a pattern.
---This needs to be able to return multiple nodes, due to destructuring, etc.
---TODO: add support for tuples, etc.
+--This may need to be able to return multiple nodes, due to destructuring, etc.
+--Note that bindPattern limits what we will see here - outputting multiple nodes might be unnecessary.
 definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
 definePat (HsPVar name) value = do
     nodeID <- newId
