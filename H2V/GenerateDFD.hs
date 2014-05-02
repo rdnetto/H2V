@@ -20,21 +20,9 @@ astToDfd :: HsModule -> DProgram
 astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
     m = do
         --import prelude (this will need to go in a function/file of its own at some point...)
-        --TODO: refactor this code so that we can handle all arithmetic operators at once
-        id1 <- newId
-        id2 <- newId
-        pushDfdNS [("+", DFD id1 "+" (DUInt 8) False $ DBuiltin id2 (BinaryOp "+"))]
-
-        id1 <- newId
-        id2 <- newId
-        pushDfdNS [("*", DFD id1 "*" (DUInt 8) False $ DBuiltin id2 (BinaryOp "*"))]
-
-        id1 <- newId
-        id2 <- newId
-        pushDfdNS [("==", DFD id1 "==" (DUInt 8) False $ DBuiltin id2 (BinaryOp "=="))]
-
-        --implement if as a function, since it's easier
-        --TODO: add definition for if
+        --using nodeID=-1 for built-in functions, since they'll be implemented in handwritten Verilog and won't need assigned IDs
+        let f op = pushDfdNS [(op, DFD (-1) op (DUInt 8) False $ DBuiltin (-1) (BinaryOp op))] in
+            mapM f ["+", "-", "*", "/", "==", "if"]
 
         --local functions
         mapM (createDFD . cleanDecl) decls
