@@ -12,8 +12,6 @@ import Language.Haskell.Syntax
 import Common
 import DfdDef
 
---TODO: implement support for calling functions which are not in dependency order. This is a particularly common pattern. e.g. fib and fib'
-
 --TODO: need to store exported function list here
 --TODO: need to find a sane way to import Prelude here
 astToDfd :: HsModule -> DProgram
