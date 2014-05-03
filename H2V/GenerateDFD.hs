@@ -6,8 +6,9 @@ import Data.Int
 import Data.Word
 import Data.List
 import Data.Maybe
-import Text.Printf
+import Data.Graph
 import Language.Haskell.Syntax
+import Text.Printf
 
 import Common
 import DfdDef
@@ -23,7 +24,9 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             mapM f ["+", "-", "*", "/", "==", "if"]
 
         --local functions
-        mapM (createDFD . cleanDecl) decls
+        dfds <- mapM createDFD $ sortDecls $ map cleanDecl decls
+        mapM popDfdNS $ reverse dfds
+        return $ map snd dfds
 
 --cleaning logic
 
@@ -123,7 +126,7 @@ createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     pushNodeNS args
 
     --TODO: this code assumes that all declarations are variables, not functions
-    terms <- liftM concat $ mapM defineDecl decls
+    terms <- liftM concat $ mapM defineDecl $ sortDecls decls
     pushNodeNS terms
 
     root <- defineExpr expr
@@ -155,7 +158,7 @@ definePat (HsPVar name) value = do
 defineDecl :: HsDecl -> NodeGen [(String, DNode)]
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     --subterms
-    terms <- liftM concat $ mapM defineDecl decls
+    terms <- liftM concat $ mapM defineDecl $ sortDecls decls
     pushNodeNS terms
 
     --define the RHS, and bind it to the LHS
@@ -172,7 +175,7 @@ defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
     return $ DLiteral nodeID $ fromIntegral val
 defineExpr (HsLet decls exp) = do
-    locals <- liftM concat $ mapM defineDecl decls
+    locals <- liftM concat $ mapM defineDecl $ sortDecls decls
     pushNodeNS locals
     root <- defineExpr exp
     popNodeNS locals
@@ -201,6 +204,54 @@ foldApp (HsApp f x) = (f, [x])
 resolveFunc :: HsExp -> NodeGen DFD
 resolveFunc (HsVar name) = resolveDFD $ fromHsQName name
 
+--This function re-orders declarations so that their data dependencies are met.
+--This is necessary because the order of the declarations does not affect resolution; a term defined later in the list can shadow
+--something defined at a broader scope. Consequently the declarations must be reordered to ensure correct resolution.
+--Note that while we handle shadowing correctly, we do not allow the same term to be defined multiple times, since that is only used in
+--do-blocks which do not need to be sorted.
+--
+--NOTE: We are not allowing for mutual recursion here. While this could be a legitemate use case, it adds considerable complexity and
+--      is rarely used.
+sortDecls :: [HsDecl] -> [HsDecl]
+sortDecls decls = res where
+    --this function is called post-cleaning, so we shouldn't need to worry about patterns
+    names = map declName decls
+    deps = (flip map) decls $ filter (`elem` names) . declDeps
+    z = if unique names
+        then zip names deps
+        else error $ "Duplicate identifiers found: " ++ show names
+
+    --TODO: look at rewriting this to avoid O(N^2) behaviour, since N can be large
+    g = buildG (-1, length z - 1) edges
+    edges = concatMap f0 z where
+        f0 (n, ds) = map (f1 n) ds                                              --maps a declaration to a set of edges
+        f1 n dep = (idx n, idx dep)                                             --maps a dep to an edge
+        idx n = fromMaybe (-1) $ elemIndex n names                              --maps a token to an index, or -1 if out of scope
+    ds = filter (/= -1) . reverse $ topSort g
+    res = map (decls !!) ds
+
+    declName :: HsDecl -> String
+    declName (HsFunBind ((HsMatch _ n _ _ _):_)) = fromHsName n
+    declName (HsPatBind _ (HsPVar n) _ _) = fromHsName n
+
+    --these functions are for collecting a list of functions/variables which each declaration depends on
+    declDeps :: HsDecl -> [String]
+    declDeps (HsPatBind _ _ rhs _) = rhsDeps rhs
+    declDeps (HsFunBind ms) = concatMap f ms where
+        f (HsMatch _ _ _ rhs _) = rhsDeps rhs
+
+    exprDeps :: HsExp -> [String]
+    exprDeps (HsVar n) = return $ fromHsQName n
+    exprDeps (HsLit _) = []
+    exprDeps (HsApp a b) = exprDeps a ++ exprDeps b
+    exprDeps (HsLet d e) = concatMap declDeps d ++ exprDeps e
+    exprDeps (HsIf a b c) = exprDeps a ++ exprDeps b ++ exprDeps c
+
+    rhsDeps :: HsRhs -> [String]
+    rhsDeps (HsUnGuardedRhs e) = exprDeps e
+    rhsDeps (HsGuardedRhss gs) = concatMap f gs where
+        f (HsGuardedRhs _ e1 e2) = concatMap exprDeps [e1, e2]
+
 --utility functions
 
 fromHsName :: HsName -> String
@@ -218,3 +269,10 @@ genArgs = map (\a -> HsIdent $ "_arg_" ++ (show a)) [0..]
 --TODO: this should return an expression equal to True
 trueExpr :: HsExp
 trueExpr = unit_con
+
+--Returns False if any element appears the in the list more than once.
+unique :: Ord a => [a] -> Bool
+unique xs = or . (True:) . map f . zip xs' $ tail xs' where
+    xs' = sort xs
+    f (a, b) = a == b
+
