@@ -2,12 +2,16 @@
  - Scoped type annotations are immensely helpful in debugging type inference problems with monads.
  - For example, we can annotate the result from (get :: MonadState) as being of type NodeGenData.
  - This is necessary to get comprehensible error messages.
+ - Deriving Typeable is needed for custom exceptions.
  -}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable #-}
+
 
 module DfdDef where
 
 import Control.Monad.State
+import Control.Exception (Exception, throw)
+import Data.Typeable
 import Text.Printf
 
 {-
@@ -70,6 +74,12 @@ fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
 type NodeGenData = (Int, [[(String, DNode)]], [[(String, DFD)]])
 type NodeGen = State NodeGenData
 
+data ResolutionException = ResolutionException String String String                      --scope name ns
+    deriving (Typeable)
+instance Exception ResolutionException
+instance Show ResolutionException where
+    show (ResolutionException scope name ns) = printf "Unable to resolve %s '%s'. Namespace:\n%s" scope name ns
+
 initialNodeData :: NodeGenData
 initialNodeData = (0, [], [])
 
@@ -108,12 +118,11 @@ resolveNode name = do
     (_, ns, _) :: NodeGenData <- get
     return $ case concatMap (filter (\(n, _) -> n == name)) ns of
         (_, x):_ -> x
-        [] -> error $ printf "Unable to resolve node '%s'. Namespace:\n%s" name (show ns)
+        [] -> throw $ ResolutionException "node" name (show ns)
 
 resolveDFD :: String -> NodeGen DFD
 resolveDFD name = do
     (_, _, ns) :: NodeGenData <- get
     return $ case concatMap (filter (\(n, _) -> n == name)) ns of
               (_, x):_ -> x
-              [] -> error $ printf "Unable to resolve function '%s'. Namespace:\n%s" name (show ns)
-
+              [] -> throw $ ResolutionException "DFD" name (show ns)
