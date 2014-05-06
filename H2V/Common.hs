@@ -1,6 +1,7 @@
 module Common where
 
 import Data.List
+import Debug.Trace
 import Language.Haskell.Pretty (Pretty, prettyPrint)
 import Language.Haskell.Syntax
 
@@ -13,6 +14,9 @@ iterateN n f x = (iterate f x) !! n
 --helper function used to display parsing errors
 pshow :: Show a => Pretty a => a -> String
 pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
+
+--helper function for logging values
+tShow msg x = trace (msg ++ ": " ++ show x) x
 
 --DFD coreFuncs allFunctions
 --coreFuncs contains the names of functions which are exported

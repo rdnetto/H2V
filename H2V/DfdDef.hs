@@ -14,6 +14,8 @@ import Control.Exception (Exception, throw)
 import Data.Typeable
 import Text.Printf
 
+import Common
+
 {-
  - This module contains definitions of the DFD types and associated monads.
  -
