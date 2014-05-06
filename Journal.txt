@@ -1,4 +1,32 @@
 ================================================================================
+Wednesday 07 May 2014
+DFD generation code is now almost completely functional. Implemented data
+dependency resolution code, so that variables and functions can be defined in arbitary
+order.
+
+Nested functions are not yet implemented (requires adjustments to dependency
+resolution to handle closure correctly). Recursive functions are also
+currently not functional, since they refer to themselves before they are
+defined. Both of these require only minor fixes.
+
+Graphviz generation (and possibly Verilog) should be attainable by next week.
+Report is due Wed 28 May, so should probably start that soon. (Presentation is
+due the week after.)
+
+Git commits:
+21c170b  2014-05-06 19:23:00 +1000  BUG FIX: Since the namespace is stored as a stack, we need to pop in reverse order.
+cf872a0  2014-05-06 19:22:14 +1000  Reduced verbosity of node resolution error messages, since all we care about are the names.
+fd16aea  2014-05-06 19:21:38 +1000  Added tShow to Common. Useful when debugging.
+b59bb06  2014-05-06 19:01:42 +1000  Refactored namespace storage to use 1D lists, since we never push more than one element at at time.
+1876d7c  2014-05-06 19:00:48 +1000  BUG FIX: We now push declarations to the namespace immediately on creation. This is necessary so that
+b700339  2014-05-06 20:16:55 +1000  Added test case for dependency resolution
+3de1198  2014-05-03 10:48:31 +1000  Added dependency resolution code so that declarations are evaluated in the correct order.
+534be5a  2014-05-03 10:12:55 +1000  Implemented a custom exception for node resolution failure. This was originally going to be used for try-catch structures, but is now used only to format error messages.
+e251e5f  2014-05-03 03:39:37 +1000  WIP: Part 1 of arbitrary term definition order
+1fb90d2  2014-05-03 01:38:15 +1000  Refactored prelude definitions
+70bc6e7  2014-05-03 01:37:47 +1000  BUG FIX: was using an unsanitised version of the arguments from the first match, which could include patterns
+
+================================================================================
 Wednesday 30 April 2014
 Encountered a temporary set-back related to a GHC bug where undefined
 typeclass members could result in stack overflows. Found a workaround, but
