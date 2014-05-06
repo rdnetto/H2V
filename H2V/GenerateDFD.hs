@@ -174,7 +174,7 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     lhs <- definePat pat rhs
 
     --cleanup subterms
-    mapM popNodeNS terms
+    mapM popNodeNS $ reverse terms
 
     --Push term, now that we've created it. This is necessary as other terms within the same list may refer to it.
     pushNodeNS lhs
@@ -189,7 +189,7 @@ defineExpr (HsLit (HsInt val)) = do
 defineExpr (HsLet decls exp) = do
     locals <- mapM defineDecl $ sortDecls decls             --locals are pushed on creation
     root <- defineExpr exp
-    mapM popNodeNS locals                                   --cleanup locals
+    mapM popNodeNS $ reverse locals                         --cleanup locals
     return root
 
 defineExpr app@(HsApp _ _) = do
