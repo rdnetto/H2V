@@ -68,10 +68,10 @@ fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
  - Monad for node generation. This stores information needed to generate unique IDs and perform scoped identifier resolution.
  - State monads take the form 'State stateType returnType' - we are currying the second argument.
  - UIDs are generated using a simple counter.
- - Identifier resolution is implemented as a hierarchial list of association lists. The top-most list has precedence.
+ - Identifier resolution is implemented as a hierarchial association list. The top-most tuple has precedence.
  - Note that nodes and functions/DFDs have separate resolution namespaces.
  -}
-type NodeGenData = (Int, [[(String, DNode)]], [[(String, DFD)]])
+type NodeGenData = (Int, [(String, DNode)], [(String, DFD)])
 type NodeGen = State NodeGenData
 
 data ResolutionException = ResolutionException String String String                      --scope name ns
@@ -92,12 +92,13 @@ newId = do
     return oldID
 
 --namespace management functions. Pop takes the value expected to be popped as a sanity check.
-pushNodeNS :: [(String, DNode)] -> NodeGen ()
+pushNodeNS :: (String, DNode) -> NodeGen ()
 pushNodeNS entry = modify $ fmap3 (id, (entry:), id)
-pushDfdNS :: [(String, DFD)] -> NodeGen ()
+
+pushDfdNS :: (String, DFD) -> NodeGen ()
 pushDfdNS entry = modify $ fmap3 (id, id, (entry:))
 
-popNodeNS :: [(String, DNode)] -> NodeGen ()
+popNodeNS :: (String, DNode) -> NodeGen ()
 popNodeNS entry = do
     (_, n0:ns, _) <- get
     if entry == n0 then
@@ -105,7 +106,7 @@ popNodeNS entry = do
     else
         error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
 
-popDfdNS :: [(String, DFD)] -> NodeGen ()
+popDfdNS :: (String, DFD) -> NodeGen ()
 popDfdNS entry = do
     (_, _, n0:ns) <- get
     if entry == n0 then
@@ -116,13 +117,13 @@ popDfdNS entry = do
 resolveNode :: String -> NodeGen DNode
 resolveNode name = do
     (_, ns, _) :: NodeGenData <- get
-    return $ case concatMap (filter (\(n, _) -> n == name)) ns of
+    return $ case filter (\(n, _) -> n == name) ns of
         (_, x):_ -> x
         [] -> throw $ ResolutionException "node" name (show ns)
 
 resolveDFD :: String -> NodeGen DFD
 resolveDFD name = do
     (_, _, ns) :: NodeGenData <- get
-    return $ case concatMap (filter (\(n, _) -> n == name)) ns of
+    return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
               [] -> throw $ ResolutionException "DFD" name (show ns)

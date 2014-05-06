@@ -20,7 +20,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
     m = do
         --import prelude (this will need to go in a function/file of its own at some point...)
         --using nodeID=-1 for built-in functions, since they'll be implemented in handwritten Verilog and won't need assigned IDs
-        let f op = pushDfdNS [(op, DFD (-1) op (DUInt 8) False $ DBuiltin (-1) (BinaryOp op))] in
+        let f op = pushDfdNS (op, DFD (-1) op (DUInt 8) False $ DBuiltin (-1) (BinaryOp op)) in
             mapM f ["+", "-", "*", "/", "==", "if"]
 
         --local functions
@@ -118,7 +118,8 @@ bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 
 --convert a cleaned function (should have only a single match) to a DFD
 --TODO: find a way to reuse the code from defineDecl. This can be done by generating simple argument names for the patterns (_arg_0, etc.) then inserting let statements to perform binding
-createDFD :: HsDecl -> NodeGen DFD
+--TODO: this function needs to be able to handle pattern bindings as well, since that's how CAFs are parsed
+createDFD :: HsDecl -> NodeGen (String, DFD)
 createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     rootID <- newId
 
@@ -128,11 +129,16 @@ createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     terms <- mapM defineDecl $ sortDecls decls
 
     root <- defineExpr expr
-    mapM popNodeNS terms
-    mapM popNodeNS [args]
+    mapM popNodeNS $ reverse terms
+    mapM popNodeNS $ reverse args
 
     --id, name, returnType, isSync, root
-    return $ DFD rootID (show name) (DUInt 8) False root
+    let name' = fromHsName name
+    let res = DFD rootID name' (DUInt 8) False root
+    pushDfdNS (name', res)
+    return (name', res)
+
+createDFD d = error $ pshow d
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
@@ -140,16 +146,16 @@ defineArg :: HsPat -> NodeGen (String, DNode)
 defineArg (HsPVar name) = do
     nodeID <- newId
     let res = (fromHsName name, DVariable nodeID (DUInt 8) Nothing)
-    pushNodeNS [res]
+    pushNodeNS res
     return res
 
 --Generates a node for a variable bound to a pattern.
 --This may need to be able to return multiple nodes, due to destructuring, etc.
 --Note that bindPattern limits what we will see here - outputting multiple nodes might be unnecessary.
-definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
+definePat :: HsPat -> DNode -> NodeGen (String, DNode)
 definePat (HsPVar name) value = do
     nodeID <- newId
-    return $ [(fromHsName name, DVariable nodeID (DUInt 8) (Just value))]
+    return $ (fromHsName name, DVariable nodeID (DUInt 8) (Just value))
 
 --generates nodes for declarations. These can be either variables or functions in their own right. Returns namespace info.
 --lhs = rhs where subterms
@@ -158,7 +164,7 @@ definePat (HsPVar name) value = do
 --TODO: add support for nested functions (requires additional logic to input shared variables as args)
 --TODO: this code assumes that all declarations are variables, not functions
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
-defineDecl :: HsDecl -> NodeGen [(String, DNode)]
+defineDecl :: HsDecl -> NodeGen (String, DNode)
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     --subterms are automatically pushed on creation
     terms <- mapM defineDecl $ sortDecls decls
