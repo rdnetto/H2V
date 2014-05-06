@@ -106,7 +106,7 @@ popNodeNS entry = do
     if entry == n0 then
         modify $ fmap3 (id, \_ -> ns, id)
     else
-        error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
+        error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
 
 popDfdNS :: (String, DFD) -> NodeGen ()
 popDfdNS entry = do
@@ -114,18 +114,18 @@ popDfdNS entry = do
     if entry == n0 then
         modify $ fmap3 (id, id, \_ -> ns)
     else
-        error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (show entry) (show n0)
+        error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
 
 resolveNode :: String -> NodeGen DNode
 resolveNode name = do
     (_, ns, _) :: NodeGenData <- get
     return $ case filter (\(n, _) -> n == name) ns of
         (_, x):_ -> x
-        [] -> throw $ ResolutionException "node" name (show ns)
+        [] -> throw $ ResolutionException "node" name (show $ map fst ns)
 
 resolveDFD :: String -> NodeGen DFD
 resolveDFD name = do
     (_, _, ns) :: NodeGenData <- get
     return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
-              [] -> throw $ ResolutionException "DFD" name (show ns)
+              [] -> throw $ ResolutionException "DFD" name (show $ map fst ns)
