@@ -22,7 +22,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
     m = do
         --import prelude (this will need to go in a function/file of its own at some point...)
         --using nodeID=-1 for built-in functions, since they'll be implemented in handwritten Verilog and won't need assigned IDs
-        let f op = pushDfdNS (op, DFD (-1) op (DUInt 8) False $ DBuiltin (-1) (BinaryOp op)) in
+        let f op = pushDfdNS (op, DFD (-1) op UndefinedType False $ DBuiltin (-1) (BinaryOp op)) in
             mapM f ["+", "-", "*", "/", "==", "if"]
 
         --local functions
@@ -142,7 +142,7 @@ createDfdHeaders d = error $ pshow d
 defineArg :: HsPat -> NodeGen (String, DNode)
 defineArg (HsPVar name) = do
     nodeID <- newId
-    let res = (fromHsName name, DVariable nodeID (DUInt 8) Nothing)
+    let res = (fromHsName name, DVariable nodeID UndefinedType Nothing)
     pushNodeNS res
     return res
 
@@ -152,7 +152,7 @@ defineArg (HsPVar name) = do
 definePat :: HsPat -> DNode -> NodeGen (String, DNode)
 definePat (HsPVar name) value = do
     nodeID <- newId
-    return $ (fromHsName name, DVariable nodeID (DUInt 8) (Just value))
+    return $ (fromHsName name, DVariable nodeID UndefinedType (Just value))
 
 --Generates nodes/DFDs for declarations. These can be either variables/expressions (left case) or functions (right case).
 --Returns namespace info.
@@ -201,7 +201,7 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
 
     --id, name, returnType, isSync, root
     let name' = fromHsName name
-    let res = DFD rootID name' (DUInt 8) False root
+    let res = DFD rootID name' UndefinedType False root
     pushDfdNS (name', res)
     return $ Right (name', res)
 
