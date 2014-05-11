@@ -164,25 +164,36 @@ definePat (HsPVar name) value = do
 defineDecl :: HsDecl -> NodeGen (Either (String, DNode) (String, DFD))
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     --subterms are automatically pushed on creation
-    terms <- mapM defineDecl $ sortDecls decls
+    let decls' = sortDecls decls
+    headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
+    terms <- mapM defineDecl $ decls'
 
-    --define the RHS, and bind it to the LHS
-    rhs <- defineExpr expr
+    --define the RHS, link it, and bind it to the LHS
+    rhs <- linkExpr <=< defineExpr $ expr
     lhs <- definePat pat rhs
 
     --cleanup subterms
     mapM popNS $ reverse terms
+    mapM popDfdNS $ reverse headers
 
     --Push term, now that we've created it. This is necessary as other terms within the same list may refer to it.
     pushNodeNS lhs
     return $ Left lhs
+
 defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     rootID <- newId
     args <- mapM defineArg pats
-    terms <- mapM defineDecl $ sortDecls decls
 
-    root <- defineExpr expr
+    --headers are needed in case we have recursive functions
+    let decls' = sortDecls decls
+    headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
+    terms <- mapM defineDecl $ decls'
+
+    --link functions. <=< is the monadic composition operator (analogous to .)
+    root <- linkExpr <=< defineExpr $ expr
+
     mapM popNS $ reverse terms
+    mapM popDfdNS $ reverse headers
     mapM popNodeNS $ reverse args
 
     --id, name, returnType, isSync, root
@@ -197,10 +208,15 @@ defineExpr (HsVar (UnQual name)) = resolveNode $ fromHsName name
 defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
     return $ DLiteral nodeID $ fromIntegral val
+
 defineExpr (HsLet decls exp) = do
-    locals <- mapM defineDecl $ sortDecls decls             --locals are pushed on creation
-    root <- defineExpr exp
-    mapM popNS $ reverse locals                             --cleanup locals
+    let decls' = sortDecls decls
+    headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
+    terms <- mapM defineDecl $ decls'                       --locals are pushed on creation
+
+    root <- linkExpr <=< defineExpr $ exp
+    mapM popNS $ reverse terms                              --cleanup locals
+    mapM popDfdNS $ reverse headers
     return root
 
 defineExpr app@(HsApp _ _) = do
