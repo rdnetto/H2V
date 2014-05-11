@@ -127,4 +127,6 @@ resolveDFD name = do
     (_, _, ns) :: NodeGenData <- get
     return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
-              [] -> throw $ ResolutionException "DFD" name (show $ map fst ns)
+              [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
+                f (name, DFD _ _ _ _ _) = "\t" ++ name
+                f (name, DfdHeader _) = "\t" ++ name ++ " (header)"
