@@ -13,6 +13,7 @@ import Text.Printf
 import Common
 import DfdDef
 
+
 --TODO: need to store exported function list here
 --TODO: need to find a sane way to import Prelude here
 astToDfd :: HsModule -> DProgram
@@ -24,9 +25,18 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             mapM f ["+", "-", "*", "/", "==", "if"]
 
         --local functions
-        dfds <- mapM createDFD $ sortDecls $ map cleanDecl decls
+        --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
+        let decls' = sortDecls $ map cleanDecl decls
+        headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
+        dfds <- mapM createDFD decls'
+
+        --replace headers with completed functions
+        res <- mapM linkDFD $ map snd dfds
+
+        --cleanup
         mapM popDfdNS $ reverse dfds
-        return $ map snd dfds
+        mapM popDfdNS $ reverse headers
+        return res
 
 --cleaning logic
 
@@ -115,6 +125,15 @@ bindPattern _ HsPWildCard = []
 bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 
 --DFD generation logic
+
+createDfdHeaders :: HsDecl -> NodeGen (Maybe (String, DFD))
+createDfdHeaders (HsFunBind [HsMatch _ name _ _ _]) = do
+    let name' = fromHsName name
+    let res = DfdHeader name'
+    pushDfdNS (name', res)
+    return $ Just (name', res)
+createDfdHeaders (HsPatBind _ _ _ _) = return Nothing                         --pattern bindings are CAFs, so they don't need headers
+createDfdHeaders d = error $ pshow d
 
 --convert a cleaned function (should have only a single match) to a DFD
 --TODO: find a way to reuse the code from defineDecl. This can be done by generating simple argument names for the patterns (_arg_0, etc.) then inserting let statements to perform binding
@@ -263,6 +282,20 @@ sortDecls decls = res where
     rhsDeps (HsUnGuardedRhs e) = exprDeps e
     rhsDeps (HsGuardedRhss gs) = concatMap f gs where
         f (HsGuardedRhs _ e1 e2) = concatMap exprDeps [e1, e2]
+
+--linking logic - replaces function headers with DFDs
+
+linkFunc :: DFD -> NodeGen DFD
+linkFunc x@(DFD _ _ _ _ _) = return x
+linkFunc x = return x
+
+linkDFD :: DFD -> NodeGen DFD
+linkDFD (DFD a b c d root) = liftM (\x -> DFD a b c d x) $ linkExpr root
+
+linkExpr :: DNode -> NodeGen DNode
+linkExpr (DVariable a b (Just e)) = liftM (\e' -> DVariable a b (Just e')) $ linkExpr e
+linkExpr (DFunctionCall id f args) = liftM2 (\f' -> \a' -> DFunctionCall id f' a') (linkFunc f) (mapM linkExpr args)
+linkExpr x = return x
 
 --utility functions
 
