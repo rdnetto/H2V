@@ -1,12 +1,3 @@
-{-
- - Scoped type annotations are immensely helpful in debugging type inference problems with monads.
- - For example, we can annotate the result from (get :: MonadState) as being of type NodeGenData.
- - This is necessary to get comprehensible error messages.
- - Deriving Typeable is needed for custom exceptions.
- -}
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable #-}
-
-
 module DfdDef where
 
 import Control.Monad.State
