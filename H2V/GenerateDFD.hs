@@ -129,8 +129,9 @@ bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 
 createDfdHeaders :: HsDecl -> NodeGen (Maybe (String, DFD))
 createDfdHeaders (HsFunBind [HsMatch _ name _ _ _]) = do
+    rootID <- newId
     let name' = fromHsName name
-    let res = DfdHeader name'
+    let res = DfdHeader rootID name'
     pushDfdNS (name', res)
     return $ Just (name', res)
 createDfdHeaders (HsPatBind _ _ _ _) = return Nothing                         --pattern bindings are CAFs, so they don't need headers
@@ -181,8 +182,10 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     return $ Left lhs
 
 defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
-    rootID <- newId
     args <- mapM defineArg pats
+
+    --use the same ID as the header. This avoids issues related to shadowing.
+    DfdHeader rootID _ <- resolveFunc $ HsVar $ UnQual name
 
     --headers are needed in case we have recursive functions
     let decls' = sortDecls decls
@@ -294,7 +297,7 @@ sortDecls decls = res where
 --linking logic - replaces function headers with DFDs
 
 linkFunc :: DFD -> NodeGen DFD
-linkFunc x@(DFD _ _ _ _ _) = return x
+linkFunc (DfdHeader id _) = resolveIdDFD id
 linkFunc x = return x
 
 linkDFD :: DFD -> NodeGen DFD

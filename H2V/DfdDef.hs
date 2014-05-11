@@ -35,7 +35,7 @@ type DProgram = [DFD]                                       --allDFDs           
 type NodeId = Int                                           --Used to assign nodes and graphs unique names
 
 data DFD = DFD NodeId String DType Bool DNode               --id, name, returnType, isSync, root.
-            | DfdHeader String                              --name. Acts as a placeholder during generation.
+            | DfdHeader NodeId String                       --id, name. Acts as a placeholder during generation.
     deriving (Show, Eq)                                     --Note that DFD's id is distinct from its root node.
 
 data DNode = DLiteral NodeId Int                            --id, value             TODO: include type?
@@ -129,4 +129,17 @@ resolveDFD name = do
               (_, x):_ -> x
               [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
                 f (name, DFD _ _ _ _ _) = "\t" ++ name
-                f (name, DfdHeader _) = "\t" ++ name ++ " (header)"
+                f (name, DfdHeader _ _) = "\t" ++ name ++ " (header)"
+
+resolveIdDFD :: NodeId -> NodeGen DFD
+resolveIdDFD id = do
+    (_, _, ns) :: NodeGenData <- get
+
+    let f = f' where
+        f' (_, DfdHeader id2 _) = id == id2
+        f' _ = False
+
+    return $ case filter f ns of
+              (_, x):_ -> x
+              [] -> throw $ ResolutionException "DFD" ("ID=" ++ show id) (show ns)
+
