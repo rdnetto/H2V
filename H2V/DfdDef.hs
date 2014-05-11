@@ -56,6 +56,11 @@ data DType = DSInt Int | DUInt Int
 fmap3 :: (a -> a, b -> b, c -> c) -> (a, b, c) -> (a, b, c)
 fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
 
+nodeID :: DNode -> NodeId
+nodeID (DLiteral x _) = x
+nodeID (DVariable x _ _) = x
+nodeID (DBuiltin x _) = x
+nodeID (DFunctionCall x _ _) = x
 
 {-
  - Monad for node generation. This stores information needed to generate unique IDs and perform scoped identifier resolution.

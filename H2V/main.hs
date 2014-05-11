@@ -31,9 +31,6 @@ main = do
     --putStrLn . displayAST $ ast
 
     let dfd = astToDfd ast
-    putStrLn $ show dfd
-    putStrLn ""
 
-    --writeFile "test.gv" $ dfdToGraphviz dfd
-    writeFile "test.gv" $ show dfd
+    writeFile "test.gv" $ dfdToGraphviz dfd
 

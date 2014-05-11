@@ -9,7 +9,21 @@ import Language.Haskell.Syntax
 joinMap delim f list = intercalate delim $ map f list
 
 --applies function f to x N times
+iterateN :: Int -> (a -> a) -> a -> a
 iterateN n f x = (iterate f x) !! n
+
+--returns a list without its first N elements
+headlessN :: Int -> [a] -> [a]
+headlessN 0 xs = xs
+headlessN n (x0:xs) = headlessN (n - 1) xs
+
+--Replace all substrings s1 of s0 with s2
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace _ _ [] = []
+replace s1 s2 s0 = res where
+    res = if isPrefixOf s1 s0
+        then replace s1 s2 (s2 ++ (headlessN (length s1) s0))
+        else (head s0):(replace s1 s2 (tail s0))
 
 --helper function used to display parsing errors
 pshow :: Show a => Pretty a => a -> String
