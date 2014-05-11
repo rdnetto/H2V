@@ -91,6 +91,10 @@ pushNodeNS entry = modify $ fmap3 (id, (entry:), id)
 pushDfdNS :: (String, DFD) -> NodeGen ()
 pushDfdNS entry = modify $ fmap3 (id, id, (entry:))
 
+pushNS :: Either (String, DNode) (String, DFD) -> NodeGen ()
+pushNS (Left n) = pushNodeNS n
+pushNS (Right n) = pushDfdNS n
+
 popNodeNS :: (String, DNode) -> NodeGen ()
 popNodeNS entry = do
     (_, n0:ns, _) <- get
@@ -106,6 +110,10 @@ popDfdNS entry = do
         modify $ fmap3 (id, id, \_ -> ns)
     else
         error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
+
+popNS :: Either (String, DNode) (String, DFD) -> NodeGen ()
+popNS (Left n) = popNodeNS n
+popNS (Right n) = popDfdNS n
 
 resolveNode :: String -> NodeGen DNode
 resolveNode name = do

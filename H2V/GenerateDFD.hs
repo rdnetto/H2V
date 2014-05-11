@@ -5,6 +5,7 @@ import Control.Monad.State
 import Data.Int
 import Data.Word
 import Data.List
+import Data.Either
 import Data.Maybe
 import Data.Graph
 import Language.Haskell.Syntax
@@ -28,7 +29,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = sortDecls $ map cleanDecl decls
         headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
-        dfds <- mapM createDFD decls'
+        dfds <- (liftM rights) . mapM defineDecl $ decls'
 
         --replace headers with completed functions
         res <- mapM linkDFD $ map snd dfds
@@ -135,30 +136,6 @@ createDfdHeaders (HsFunBind [HsMatch _ name _ _ _]) = do
 createDfdHeaders (HsPatBind _ _ _ _) = return Nothing                         --pattern bindings are CAFs, so they don't need headers
 createDfdHeaders d = error $ pshow d
 
---convert a cleaned function (should have only a single match) to a DFD
---TODO: find a way to reuse the code from defineDecl. This can be done by generating simple argument names for the patterns (_arg_0, etc.) then inserting let statements to perform binding
---TODO: this function needs to be able to handle pattern bindings as well, since that's how CAFs are parsed
-createDFD :: HsDecl -> NodeGen (String, DFD)
-createDFD (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
-    rootID <- newId
-
-    args <- mapM defineArg pats
-
-    --TODO: this code assumes that all declarations are variables, not functions
-    terms <- mapM defineDecl $ sortDecls decls
-
-    root <- defineExpr expr
-    mapM popNodeNS $ reverse terms
-    mapM popNodeNS $ reverse args
-
-    --id, name, returnType, isSync, root
-    let name' = fromHsName name
-    let res = DFD rootID name' (DUInt 8) False root
-    pushDfdNS (name', res)
-    return (name', res)
-
-createDFD d = error $ pshow d
-
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
 defineArg :: HsPat -> NodeGen (String, DNode)
@@ -176,14 +153,15 @@ definePat (HsPVar name) value = do
     nodeID <- newId
     return $ (fromHsName name, DVariable nodeID (DUInt 8) (Just value))
 
---generates nodes for declarations. These can be either variables or functions in their own right. Returns namespace info.
---lhs = rhs where subterms
+--Generates nodes/DFDs for declarations. These can be either variables/expressions (left case) or functions (right case).
+--Returns namespace info.
+--Declaration structure: lhs = rhs where subterms
+--
 --NOTE: This function pushes the declaration to the namespace stack immediately on creation, and it is the caller's responsibility to
 --  pop them afterwards. This is necessary so that multiple declarations which refer to each other can be handled with mapM.
---TODO: add support for nested functions (requires additional logic to input shared variables as args)
---TODO: this code assumes that all declarations are variables, not functions
+--
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
-defineDecl :: HsDecl -> NodeGen (String, DNode)
+defineDecl :: HsDecl -> NodeGen (Either (String, DNode) (String, DFD))
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     --subterms are automatically pushed on creation
     terms <- mapM defineDecl $ sortDecls decls
@@ -193,11 +171,25 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     lhs <- definePat pat rhs
 
     --cleanup subterms
-    mapM popNodeNS $ reverse terms
+    mapM popNS $ reverse terms
 
     --Push term, now that we've created it. This is necessary as other terms within the same list may refer to it.
     pushNodeNS lhs
-    return lhs
+    return $ Left lhs
+defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
+    rootID <- newId
+    args <- mapM defineArg pats
+    terms <- mapM defineDecl $ sortDecls decls
+
+    root <- defineExpr expr
+    mapM popNS $ reverse terms
+    mapM popNodeNS $ reverse args
+
+    --id, name, returnType, isSync, root
+    let name' = fromHsName name
+    let res = DFD rootID name' (DUInt 8) False root
+    pushDfdNS (name', res)
+    return $ Right (name', res)
 
 --generates/resolves nodes for expressions
 defineExpr :: HsExp -> NodeGen DNode
@@ -208,7 +200,7 @@ defineExpr (HsLit (HsInt val)) = do
 defineExpr (HsLet decls exp) = do
     locals <- mapM defineDecl $ sortDecls decls             --locals are pushed on creation
     root <- defineExpr exp
-    mapM popNodeNS $ reverse locals                         --cleanup locals
+    mapM popNS $ reverse locals                             --cleanup locals
     return root
 
 defineExpr app@(HsApp _ _) = do
