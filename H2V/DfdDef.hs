@@ -7,6 +7,8 @@ import Text.Printf
 
 import Common
 
+--DFD Types
+
 {-
  - This module contains definitions of the DFD types and associated monads.
  -
@@ -58,6 +60,8 @@ nodeID (DVariable x _ _) = x
 nodeID (DBuiltin x _) = x
 nodeID (DFunctionCall x _ _) = x
 
+--DFD Generation Monad
+
 {-
  - Monad for node generation. This stores information needed to generate unique IDs and perform scoped identifier resolution.
  - State monads take the form 'State stateType returnType' - we are currying the second argument.
@@ -85,6 +89,8 @@ data ResolutionException = ResolutionException String String String             
 instance Exception ResolutionException
 instance Show ResolutionException where
     show (ResolutionException scope name ns) = printf "Unable to resolve %s '%s'. Namespace:\n%s" scope name ns
+
+--Monadic functions
 
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
 --all monadic functions have a return type of (State ...). They do not need to take a monadic argument. (Alternatively, this could be understood as monadic functions having (State ...) as the type of the last argument.)
