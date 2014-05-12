@@ -34,14 +34,14 @@ import Common
 type DProgram = [DFD]                                       --allDFDs              TODO: add info for exported functions
 type NodeId = Int                                           --Used to assign nodes and graphs unique names
 
-data DFD = DFD NodeId String DType Bool DNode               --id, name, returnType, isSync, root.
+data DFD = DFD NodeId String [(NodeId, DType)] DType Bool DNode       --id, name, args, returnType, isSync, root.
             | DfdHeader NodeId String                       --id, name. Acts as a placeholder during generation.
     deriving (Show, Eq)                                     --Note that DFD's id is distinct from its root node.
 
 data DNode = DLiteral NodeId Int                            --id, value             TODO: include type?
             | DVariable NodeId DType (Maybe DNode)          --id, type, value       TODO: extend this to support functional arguments
             | DBuiltin NodeId BuiltinOp                     --id, op
-            | DFunctionCall NodeId DFD [DNode]              --id, function args
+            | DFunctionCall NodeId DFD [DNode]              --id, function, args
     deriving (Show, Eq)
 
 data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
@@ -133,7 +133,7 @@ resolveDFD name = do
     return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
               [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
-                f (name, DFD _ _ _ _ _) = "\t" ++ name
+                f (name, DFD _ _ _ _ _ _) = "\t" ++ name
                 f (name, DfdHeader _ _) = "\t" ++ name ++ " (header)"
 
 resolveIdDFD :: NodeId -> NodeGen DFD

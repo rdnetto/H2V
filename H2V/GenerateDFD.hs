@@ -22,8 +22,9 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
     m = do
         --import prelude (this will need to go in a function/file of its own at some point...)
         --using nodeID=-1 for built-in functions, since they'll be implemented in handwritten Verilog and won't need assigned IDs
-        let f op = pushDfdNS (op, DFD (-1) op UndefinedType False $ DBuiltin (-1) (BinaryOp op)) in
-            mapM f ["+", "-", "*", "/", "==", "if"]
+        let f = f' where
+            f' op argN = pushDfdNS (op, DFD (-1) op (take argN $ repeat (-1, UndefinedType)) UndefinedType False $ DBuiltin (-1) (BinaryOp op)) in
+            zipWithM f ["+", "-", "*", "/", "==", "if"] [2, 2, 2, 2, 2, 3]
 
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
@@ -201,7 +202,8 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
 
     --id, name, returnType, isSync, root
     let name' = fromHsName name
-    let res = DFD rootID name' UndefinedType False root
+    let args' = (flip map) args $ (\x -> (x, UndefinedType)) . nodeID . snd
+    let res = DFD rootID name' args' UndefinedType False root
     pushDfdNS (name', res)
     return $ Right (name', res)
 
@@ -301,7 +303,7 @@ linkFunc (DfdHeader id _) = resolveIdDFD id
 linkFunc x = return x
 
 linkDFD :: DFD -> NodeGen DFD
-linkDFD (DFD a b c d root) = liftM (\x -> DFD a b c d x) $ linkExpr root
+linkDFD (DFD a b c d e root) = liftM (\x -> DFD a b c d e x) $ linkExpr root
 
 linkExpr :: DNode -> NodeGen DNode
 linkExpr (DVariable a b (Just e)) = liftM (\e' -> DVariable a b (Just e')) $ linkExpr e
