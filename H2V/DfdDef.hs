@@ -36,14 +36,38 @@ import Common
 type DProgram = [DFD]                                       --allDFDs              TODO: add info for exported functions
 type NodeId = Int                                           --Used to assign nodes and graphs unique names
 
-data DFD = DFD NodeId String [(NodeId, DType)] DType Bool DNode       --id, name, args, returnType, isSync, root.
-            | DfdHeader NodeId String                       --id, name. Acts as a placeholder during generation.
-    deriving (Show, Eq)                                     --Note that DFD's id is distinct from its root node.
+data DFD = DFD{
+                dfdID :: NodeId,                    --This is the ID of the *function* - it is distinct from the ID of the root node.
+                dfdName :: String,
+                dfdArgs :: [(NodeId, DType)],
+                returnType :: DType,
+                isSync :: Bool,
+                dfdRoot :: DNode
+            }
+            | DfdHeader{                            --Used as a placeholder during generation
+                dfdID :: NodeId,
+                dfdName ::String
+            }
+    deriving (Show, Eq)
 
-data DNode = DLiteral NodeId Int                            --id, value             TODO: include type?
-            | DVariable NodeId DType (Maybe DNode)          --id, type, value       TODO: extend this to support functional arguments
-            | DBuiltin NodeId BuiltinOp                     --id, op
-            | DFunctionCall NodeId DFD [DNode]              --id, function, args
+data DNode = DLiteral{
+                nodeID :: NodeId,
+                literalValue :: Int
+            }
+            | DVariable{
+                nodeID :: NodeId,
+                variableType :: DType,
+                variableValue :: Maybe DNode
+            }
+            | DBuiltin{
+                nodeID :: NodeId,
+                builtinOp :: BuiltinOp
+            }
+            | DFunctionCall{
+                nodeID :: NodeId,
+                functionCalled :: DFD,
+                callArgs :: [DNode]
+            }
     deriving (Show, Eq)
 
 data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
@@ -54,11 +78,13 @@ data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
 data DType = DSInt Int | DUInt Int | UndefinedType
     deriving (Show, Eq)
 
-nodeID :: DNode -> NodeId
-nodeID (DLiteral x _) = x
-nodeID (DVariable x _ _) = x
-nodeID (DBuiltin x _) = x
-nodeID (DFunctionCall x _ _) = x
+isBuiltin :: DNode -> Bool
+isBuiltin (DBuiltin _ _) = True
+isBuiltin _ = False
+
+isHeader :: DFD -> Bool
+isHeader (DfdHeader _ _) = True
+isHeader _ = False
 
 --DFD Generation Monad
 
@@ -144,18 +170,19 @@ resolveDFD name = do
     return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
               [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
-                f (name, DFD _ _ _ _ _ _) = "\t" ++ name
-                f (name, DfdHeader _ _) = "\t" ++ name ++ " (header)"
+                f (name, dfd) = printf "\t%s %s" name (if isHeader dfd
+                                                       then "(header)"
+                                                       else "")
 
 resolveIdDFD :: NodeId -> NodeGen DFD
 resolveIdDFD id = do
     ns <- liftM funcNS $ get
-
-    let f = f' where
-        f' (_, DfdHeader id2 _) = id == id2
-        f' _ = False
+    let f (_, func) = isHeader func && dfdID func == id
 
     return $ case filter f ns of
               (_, x):_ -> x
-              [] -> throw $ ResolutionException "DFD" ("ID=" ++ show id) (show ns)
+              [] -> throw $ ResolutionException "DFD" ("ID=" ++ show id) (unlines $ map f ns) where
+                f (name, dfd) = printf "\t[%2i] %s %s" (dfdID dfd) name (if isHeader dfd
+                                                                         then "(header)"
+                                                                         else "")
 

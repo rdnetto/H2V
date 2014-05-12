@@ -41,8 +41,8 @@ renderNode (DVariable varID _ (Just val)) = valDef ++ return (varID, res) where
     res =  printf "node_%i [ fontcolor=dimgray ];\n" varID
         ++ printf "node_%i -> node_%i;\n" (nodeID val) varID
 
-renderNode (DFunctionCall appID f@(DFD fID fName _ _ _ _) args) = aDefs ++ return (appID, res) where
-    res =  printf "node_%i [ label = \"Function call: %s\", color=darkgreen ];\n" appID fName
+renderNode (DFunctionCall appID f args) = aDefs ++ return (appID, res) where
+    res =  printf "node_%i [ label = \"Function call: %s\", color=darkgreen ];\n" appID (dfdName f)
         ++ (concatMap argEdge $ zip [0..] args)
 
     aDefs = concatMap renderNode args
