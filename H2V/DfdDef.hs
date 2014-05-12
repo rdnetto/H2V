@@ -52,10 +52,6 @@ data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
 data DType = DSInt Int | DUInt Int | UndefinedType
     deriving (Show, Eq)
 
---utility function to simplify mapping over a 3-tuple
-fmap3 :: (a -> a, b -> b, c -> c) -> (a, b, c) -> (a, b, c)
-fmap3 (f1, f2, f3) (x1, x2, x3) = (f1 x1, f2 x2, f3 x3)
-
 nodeID :: DNode -> NodeId
 nodeID (DLiteral x _) = x
 nodeID (DVariable x _ _) = x
@@ -69,8 +65,20 @@ nodeID (DFunctionCall x _ _) = x
  - Identifier resolution is implemented as a hierarchial association list. The top-most tuple has precedence.
  - Note that nodes and functions/DFDs have separate resolution namespaces.
  -}
-type NodeGenData = (Int, [(String, DNode)], [(String, DFD)])
 type NodeGen = State NodeGenData
+data NodeGenData = NodeGenData {
+    nextID   :: Int,
+    nodeNS   :: [(String, DNode)],
+    funcNS   :: [(String, DFD)],
+}
+
+initialNodeData :: NodeGenData
+initialNodeData = NodeGenData 0 [] [] []
+
+--modifier functions for mapping over a single field
+modifyNextID f   = modify $ \ngd -> ngd { nextID = f $ nextID ngd }
+modifyNodeNS f   = modify $ \ngd -> ngd { nodeNS = f $ nodeNS ngd }
+modifyFuncNS f   = modify $ \ngd -> ngd { funcNS = f $ funcNS ngd }
 
 data ResolutionException = ResolutionException String String String                      --scope name ns
     deriving (Typeable)
@@ -78,23 +86,20 @@ instance Exception ResolutionException
 instance Show ResolutionException where
     show (ResolutionException scope name ns) = printf "Unable to resolve %s '%s'. Namespace:\n%s" scope name ns
 
-initialNodeData :: NodeGenData
-initialNodeData = (0, [], [])
-
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
 --all monadic functions have a return type of (State ...). They do not need to take a monadic argument. (Alternatively, this could be understood as monadic functions having (State ...) as the type of the last argument.)
 newId :: NodeGen Int
 newId = do
-    (oldID, _, _) <- get
-    modify $ fmap3 (succ, id, id)
+    oldID <- liftM nextID $ get
+    modifyNextID succ
     return oldID
 
 --namespace management functions. Pop takes the value expected to be popped as a sanity check.
 pushNodeNS :: (String, DNode) -> NodeGen ()
-pushNodeNS entry = modify $ fmap3 (id, (entry:), id)
+pushNodeNS entry = modifyNodeNS (entry:)
 
 pushDfdNS :: (String, DFD) -> NodeGen ()
-pushDfdNS entry = modify $ fmap3 (id, id, (entry:))
+pushDfdNS entry = modifyFuncNS (entry:)
 
 pushNS :: Either (String, DNode) (String, DFD) -> NodeGen ()
 pushNS (Left n) = pushNodeNS n
@@ -102,17 +107,17 @@ pushNS (Right n) = pushDfdNS n
 
 popNodeNS :: (String, DNode) -> NodeGen ()
 popNodeNS entry = do
-    (_, n0:ns, _) <- get
+    n0:ns <- liftM nodeNS $ get
     if entry == n0 then
-        modify $ fmap3 (id, \_ -> ns, id)
+        modifyNodeNS $ \_ -> ns
     else
         error $ printf "Error popping node NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
 
 popDfdNS :: (String, DFD) -> NodeGen ()
 popDfdNS entry = do
-    (_, _, n0:ns) <- get
+    n0:ns <- liftM funcNS $ get
     if entry == n0 then
-        modify $ fmap3 (id, id, \_ -> ns)
+        modifyFuncNS $ \_ -> ns
     else
         error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
 
@@ -122,14 +127,14 @@ popNS (Right n) = popDfdNS n
 
 resolveNode :: String -> NodeGen DNode
 resolveNode name = do
-    (_, ns, _) :: NodeGenData <- get
+    ns <- liftM nodeNS $ get
     return $ case filter (\(n, _) -> n == name) ns of
         (_, x):_ -> x
         [] -> throw $ ResolutionException "node" name (show $ map fst ns)
 
 resolveDFD :: String -> NodeGen DFD
 resolveDFD name = do
-    (_, _, ns) :: NodeGenData <- get
+    ns <- liftM funcNS $ get
     return $ case filter (\(n, _) -> n == name) ns of
               (_, x):_ -> x
               [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
@@ -138,7 +143,7 @@ resolveDFD name = do
 
 resolveIdDFD :: NodeId -> NodeGen DFD
 resolveIdDFD id = do
-    (_, _, ns) :: NodeGenData <- get
+    ns <- liftM funcNS $ get
 
     let f = f' where
         f' (_, DfdHeader id2 _) = id == id2
