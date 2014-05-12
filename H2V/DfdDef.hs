@@ -174,15 +174,17 @@ resolveDFD name = do
                                                        then "(header)"
                                                        else "")
 
-resolveIdDFD :: NodeId -> NodeGen DFD
-resolveIdDFD id = do
+resolveHeader :: DFD -> NodeGen DFD
+resolveHeader (DfdHeader fID fName) = do
     ns <- liftM funcNS $ get
-    let f (_, func) = isHeader func && dfdID func == id
+    let f (_, func) = isHeader func && dfdID func == fID
 
     return $ case filter f ns of
               (_, x):_ -> x
-              [] -> throw $ ResolutionException "DFD" ("ID=" ++ show id) (unlines $ map f ns) where
+              [] -> throw $ ResolutionException "DFD" (printf "%s (id=%i)" fName fID) (unlines $ map f ns) where
                 f (name, dfd) = printf "\t[%2i] %s %s" (dfdID dfd) name (if isHeader dfd
                                                                          then "(header)"
                                                                          else "")
+resolveHeader f = return f
+
 

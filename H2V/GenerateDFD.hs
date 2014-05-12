@@ -298,16 +298,12 @@ sortDecls decls = res where
 
 --linking logic - replaces function headers with DFDs
 
-linkFunc :: DFD -> NodeGen DFD
-linkFunc (DfdHeader id _) = resolveIdDFD id
-linkFunc x = return x
-
 linkDFD :: DFD -> NodeGen DFD
 linkDFD (DFD a b c d e root) = liftM (\x -> DFD a b c d e x) $ linkExpr root
 
 linkExpr :: DNode -> NodeGen DNode
 linkExpr (DVariable a b (Just e)) = liftM (\e' -> DVariable a b (Just e')) $ linkExpr e
-linkExpr (DFunctionCall id f args) = liftM2 (\f' -> \a' -> DFunctionCall id f' a') (linkFunc f) (mapM linkExpr args)
+linkExpr (DFunctionCall id f args) = liftM2 (\f' -> \a' -> DFunctionCall id f' a') (resolveHeader f) (mapM linkExpr args)
 linkExpr x = return x
 
 --utility functions
