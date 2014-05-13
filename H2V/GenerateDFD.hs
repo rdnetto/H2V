@@ -330,3 +330,6 @@ unique xs = or . (True:) . map f . zip xs' $ tail xs' where
     xs' = sort xs
     f (a, b) = a == b
 
+--Lifts if-then-else over a monad. Useful for monadic conditions.
+ifM :: (Monad m) => m Bool -> m a -> m a -> m a
+ifM cond trueM falseM = cond >>= (\b -> if b then trueM else falseM)

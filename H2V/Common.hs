@@ -1,12 +1,20 @@
 module Common where
 
+import Control.Monad.State
 import Data.List
 import Debug.Trace
 import Language.Haskell.Pretty (Pretty, prettyPrint)
 import Language.Haskell.Syntax
 
 -- Concatenates the map of a list of elements together, with a delimeter inserted between them.
+joinMap :: [a] -> (b -> [a]) -> [b] -> [a]
 joinMap delim f list = intercalate delim $ map f list
+
+--like concatMap, but for monads
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+concatMapM f xs = do
+    ys <- mapM f xs
+    return $ concat ys
 
 --applies function f to x N times
 iterateN :: Int -> (a -> a) -> a -> a
