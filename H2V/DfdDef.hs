@@ -100,6 +100,7 @@ data NodeGenData = NodeGenData {
     nextID   :: Int,
     nodeNS   :: [(String, DNode)],
     funcNS   :: [(String, DFD)],
+    funcList :: [DFD]
 }
 
 initialNodeData :: NodeGenData
@@ -109,6 +110,7 @@ initialNodeData = NodeGenData 0 [] [] []
 modifyNextID f   = modify $ \ngd -> ngd { nextID = f $ nextID ngd }
 modifyNodeNS f   = modify $ \ngd -> ngd { nodeNS = f $ nodeNS ngd }
 modifyFuncNS f   = modify $ \ngd -> ngd { funcNS = f $ funcNS ngd }
+modifyFuncList f = modify $ \ngd -> ngd { funcList = f $ funcList ngd }
 
 data ResolutionException = ResolutionException String String String                      --scope name ns
     deriving (Typeable)
