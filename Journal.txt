@@ -1,4 +1,37 @@
 ================================================================================
+Wednesday 14 May 2014
+Implemented DFD generation for nested and recursive functions.
+Preliminary Graphviz generation is now implemented - see H2V/test.png for an example of this.
+
+Note that f3 does not render correctly because f2c relies on a closure. (Also,
+nested functions aren't being rendered anyway.) Currently working on rewriting
+closures as function arguments, but this logic is surprisingly complex.
+
+The logic for collecting nested functions and performing closure rewriting has
+been combined, since both require a traversal of the DFD to find functions.
+
+Git commits:
+ac6ad64  2014-05-13 23:59:21 +1000  WIP: closure rewriting
+c287678  2014-05-13 23:53:45 +1000  Added nodeChildren, since it's a fairly common operation.
+c5809d1  2014-05-13 23:53:14 +1000  Added some general purpose monadic methods to Common.
+05c7bfe  2014-05-13 19:55:33 +1000  Added function list to state monad
+68c1244  2014-05-12 22:45:41 +1000  Renamed resolveIdDFD to resolveHeader, since it facilitates better error messages
+d54c008  2014-05-12 22:34:56 +1000  Refactored DFD and DNode to use record syntax, as it simplifies some expressions.
+c2d338e  2014-05-12 21:43:39 +1000  Added some headings to DfdDef
+f814d98  2014-05-12 21:32:00 +1000  Refactored NodeGenData into a record, since this enables neater syntax and allows fields to be added/removed more easily.
+37de45d  2014-05-12 20:08:25 +1000  BUG FIX: where the data path forked and merged, nodes were being defined multiple times
+c0ef5da  2014-05-12 20:07:36 +1000  Added list of arguments (and their types) to function definition.
+d71a3e9  2014-05-11 19:34:34 +1000  Added an explicit type for use when type has not been specified.
+12a86cc  2014-05-11 19:27:07 +1000  WIP: Graphviz generation. Nested functions are not rendered. Need to add no. of args to DFD.
+78ee0cc  2014-05-11 17:50:32 +1000  Changed function linking to use UIDs instead of names. This avoids issues related to shadowing.
+b6914cb  2014-05-11 17:25:56 +1000  Added support for nested, recursive functions.
+954bd20  2014-05-11 15:58:19 +1000  Improved DFD resolution error messages to specify which functions are only headers.
+47e829e  2014-05-11 15:48:14 +1000  Merged createDFD into defineDecl(HsFunBind). defineDecl now returns both nodes and DFDs, which is handled by popNS/pushNS. This enables nested functions.
+0414b5a  2014-05-11 14:48:35 +1000  Added test case for nested functions
+44177a3  2014-05-11 14:48:00 +1000  Moved language extension flags into Makefile
+056bbc1  2014-05-11 14:21:16 +1000  Added logic for defining function headers before functions. This is used by recursive functions.
+
+================================================================================
 Wednesday 07 May 2014
 DFD generation code is now almost completely functional. Implemented data
 dependency resolution code, so that variables and functions can be defined in arbitary
