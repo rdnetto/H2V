@@ -1,3 +1,15 @@
+For Verilog generation of recursive functions, let there be a synchronous
+module which handles recursive logic, and a combinatorial module that
+implements actual logic. This will greatly simplify loop unrolling.
+
+GOAL: generate synchronous Verilog in time for presentation.e.g. Fibonnacci
+sequence. Also implement eigenvalue power method.
+Include block diagrams of expected Verilog output for recursive functions in
+design report.
+
+Presentation should focus on what it will be able to do, as opposed to what it
+can do.
+
 ================================================================================
 Wednesday 14 May 2014
 Implemented DFD generation for nested and recursive functions.
