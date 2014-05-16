@@ -1,9 +1,10 @@
 module Test (f) where
 
-f x a b c = a2 * x + b * x + c where
+--due to a bug in haskell-src, this line is parsed incorrectly as (a2*x + b)*x + c without brackets
+f x a b c = (a2 * x) + (b * x) + c where
     a2 = a * a
 
-f1 x = x + d where
+f1 x = x + c where
     a = 1
     b = 2
     c = d - a
