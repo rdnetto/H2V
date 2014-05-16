@@ -40,12 +40,3 @@ pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
 --helper function for logging values
 tShow msg x = trace (msg ++ ": " ++ show x) x
 
---DFD coreFuncs allFunctions
---coreFuncs contains the names of functions which are exported
---allFunctions is a list of all the functions defined in the file root of the file
-data DFD_old = DFD_old [HsName] [Function] deriving Show
-
---Function(name, arguments, expression)
---arguments is a list of name-type tuples (names will be generated if none are present)
-data Function = Function HsName [HsName] HsExp deriving Show
-
