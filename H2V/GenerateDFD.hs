@@ -171,7 +171,7 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     terms <- mapM defineDecl $ decls'
 
     --define the RHS, link it, and bind it to the LHS
-    rhs <- linkExpr <=< defineExpr $ expr
+    rhs <- dmapM linkExpr <=< defineExpr $ expr
     lhs <- definePat pat rhs
 
     --cleanup subterms
@@ -194,7 +194,7 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     terms <- mapM defineDecl $ decls'
 
     --link functions. <=< is the monadic composition operator (analogous to .)
-    root <- linkExpr <=< defineExpr $ expr
+    root <- dmapM linkExpr <=< defineExpr $ expr
 
     mapM popNS $ reverse terms
     mapM popDfdNS $ reverse headers
@@ -219,7 +219,7 @@ defineExpr (HsLet decls exp) = do
     headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
     terms <- mapM defineDecl $ decls'                       --locals are pushed on creation
 
-    root <- linkExpr <=< defineExpr $ exp
+    root <- dmapM linkExpr <=< defineExpr $ exp
     mapM popNS $ reverse terms                              --cleanup locals
     mapM popDfdNS $ reverse headers
     return root
@@ -299,11 +299,10 @@ sortDecls decls = res where
 --linking logic - replaces function headers with DFDs
 
 linkDFD :: DFD -> NodeGen DFD
-linkDFD (DFD a b c d e root) = liftM (\x -> DFD a b c d e x) $ linkExpr root
+linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
 
 linkExpr :: DNode -> NodeGen DNode
-linkExpr (DVariable a b (Just e)) = liftM (\e' -> DVariable a b (Just e')) $ linkExpr e
-linkExpr (DFunctionCall id f args) = liftM2 (\f' -> \a' -> DFunctionCall id f' a') (resolveHeader f) (mapM linkExpr args)
+linkExpr (DFunctionCall id f args) = liftM (\f' -> DFunctionCall id f' args) (resolveHeader f)
 linkExpr x = return x
 
 --utility functions
