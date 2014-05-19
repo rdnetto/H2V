@@ -334,6 +334,49 @@ funcCollected func = do
     funcs <- liftM (map dfdID . funcList) $ get
     return $ dfdID func `elem` funcs
 
+--Collects a list of all nodes that are external to the function.
+--Note that what we are effectively doing is drawing a boundary/cut between the two functions' DFDs.
+--Cuts which intersect with more edges imply that a greater no. of values must be passed between the functions.
+--However, minimizing the no. of edges comes at the cost of duplicating logic.
+--Since routing is (comparatively) cheap compared to delays, we use zero duplicate logic and maximal data transfer.
+--In practical terms, this means returning every referenced node outside of our scope.
+--
+--Algorithm:
+--We process the graph from the root up. We say that each node is local, foreign or mixed. Mixed nodes fall on the cut.
+--Arguments (leaves) belonging to the function are local, and all other arguments are foreign.
+--If all the children of a node are local/foreign, that node is local/foreign.
+--If a node has local and foreign children, it is a mixed node.
+--If a node has mixed chidren, it is a mixed node.
+--The result is the set of all nodes which are foreign children of mixed nodes.
+--In other words, the resultant set will consist of foreign nodes, and the paths to them will consist of mixed nodes. All other
+--  nodes will be local.
+closedArgs :: DFD -> [DNode]
+closedArgs f = closedArgs' $ dfdRoot f where
+    --returns all children which are the foreign child of a mixed node, including the root node if it is foreign.
+    closedArgs' :: DNode -> [DNode]
+    closedArgs' n = res where
+        (loc, cnl) = nodeLocality n
+        res = case loc of
+            Local -> []
+            Mixed -> concatMap (closedArgs' . fst) $ filter (\(c, cl) -> cl /= Local) cnl
+            Foreign -> [n]
+
+    --returns the locality of a node, and association list of localities for its children
+    nodeLocality :: DNode -> (NodeLocality, [(DNode, NodeLocality)])
+    nodeLocality n = (res, zip children childLocalities) where
+        children = nodeChildren n
+        childLocalities = map (fst . nodeLocality) children
+        res' = foldl1 f1 childLocalities where
+            f1 a b
+                | a == b    = a
+                | otherwise = Mixed                 --this works because if any child is mixed, the parent is also mixed
+
+        res = if length children == 0
+              then f2 n                             --WIP: f2 needs to determine if an arg is local or foreign. However,
+              else res'                             --we need a list of the function's args to do this.
+
+        f2 _ = Local
+
 --Rewrites a function so that its closure is replaced by arguments
 rewriteFuncDef :: DFD -> [DNode] -> (DFD, RewriteList)
 rewriteFuncDef f _ = (f, [])
