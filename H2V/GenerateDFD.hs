@@ -384,6 +384,7 @@ rewriteFuncDef f _ = (f, (dfdID f, []))
 
 --Checks if the function has been collected
 funcCollected :: DFD -> NodeGen Bool
+funcCollected DFD{dfdID = (-1)} = return True                                       --built-in functions do not need to be rendered
 funcCollected func = do
     funcs <- liftM (map dfdID . funcList) $ get
     return $ dfdID func `elem` funcs
