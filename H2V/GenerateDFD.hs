@@ -38,7 +38,10 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         --cleanup
         mapM popDfdNS $ reverse dfds
         mapM popDfdNS $ reverse headers
-        return res
+
+        --collect functions
+        concatMapM collectDfds res
+        return <=< liftM funcList $ get
 
 --cleaning logic
 
@@ -304,6 +307,36 @@ linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
 linkExpr :: DNode -> NodeGen DNode
 linkExpr (DFunctionCall id f args) = liftM (\f' -> DFunctionCall id f' args) (resolveHeader f)
 linkExpr x = return x
+
+--WIP: Closure logic - converts closures to function arguments
+
+--Need to perform 2 passes - one to collect functions, and one to modify function calls
+--The first pass will recurse into function definitions, so it needs to worry about infinite loops from recursion
+type RewriteList = [(NodeId, [DType])]
+data NodeLocality = Local | Mixed | Foreign deriving Eq
+
+--First pass: collect functions, and rewrite definitions.
+--Collected functions are stored in the monad, and used to avoid infinite loops due to recursion.
+--Returns: an association list of rewritten DFD IDs and the arguments added to them.
+collectDfds :: DFD -> NodeGen RewriteList
+collectDfds func = ifM (funcCollected func) (return []) $ do
+    let (func', rewritten) = rewriteFuncDef func (closedArgs func)
+    modifyFuncList (func':)
+    return rewritten
+
+--second pass: rewrite function calls
+closeOverDFD :: RewriteList -> DFD -> NodeGen DFD
+closeOverDFD rewriteList f = return f
+
+--Checks if the function has been collected
+funcCollected :: DFD -> NodeGen Bool
+funcCollected func = do
+    funcs <- liftM (map dfdID . funcList) $ get
+    return $ dfdID func `elem` funcs
+
+--Rewrites a function so that its closure is replaced by arguments
+rewriteFuncDef :: DFD -> [DNode] -> (DFD, RewriteList)
+rewriteFuncDef f _ = (f, [])
 
 --utility functions
 
