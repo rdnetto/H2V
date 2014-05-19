@@ -40,3 +40,7 @@ pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
 --helper function for logging values
 tShow msg x = trace (msg ++ ": " ++ show x) x
 
+--helper function for mapping over tuples
+map2 :: (a -> b) -> (c -> d) -> ((a, c) -> (b, d))
+map2 f1 f2 = \(x, y) -> (f1 x, f2 y)
+

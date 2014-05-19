@@ -87,6 +87,10 @@ isHeader :: DFD -> Bool
 isHeader (DfdHeader _ _) = True
 isHeader _ = False
 
+isFunctionCall :: DNode -> Bool
+isFunctionCall (DFunctionCall _ _ _) = True
+isFunctionCall _ = False
+
 --Returns a list of values which the node depends on. This does not include functions.
 nodeChildren :: DNode -> [DNode]
 nodeChildren DVariable{variableValue = Just v} = [v]
