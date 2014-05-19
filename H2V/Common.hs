@@ -44,3 +44,9 @@ tShow msg x = trace (msg ++ ": " ++ show x) x
 map2 :: (a -> b) -> (c -> d) -> ((a, c) -> (b, d))
 map2 f1 f2 = \(x, y) -> (f1 x, f2 y)
 
+--Converts a list of tuples to a tuple of lists
+splitTuple :: [(a, b)] -> ([a], [b])
+splitTuple ts = (as, bs) where
+    as = map fst ts
+    bs = map snd ts
+
