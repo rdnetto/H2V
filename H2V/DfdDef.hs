@@ -97,6 +97,11 @@ nodeChildren DVariable{variableValue = Just v} = [v]
 nodeChildren DFunctionCall{callArgs = a} = a
 nodeChildren _ = []
 
+--Convenience function for determining the type of a variable.
+nodeType :: DNode -> DType
+nodeType DVariable{variableType = t} = t
+nodeType DFunctionCall{functionCalled = f} = returnType f
+
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls.
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
