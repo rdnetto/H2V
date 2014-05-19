@@ -73,6 +73,7 @@ renderBuiltin resID Ternary (cond:tExp:fExp:[]) = (resID, res) where
 vType :: DType -> String
 vType (DUInt n) = printf "[%i:0]" (n - 1)
 vType (DSInt n) = printf "[%i:0]" (n - 1)
+vType DBool = ""                                --1 bit is implied by a blank type
 vType UndefinedType = vType $ DUInt 8           --default
 
 --Filters out key-value pairs which re-use existing keys. Preserves order.
