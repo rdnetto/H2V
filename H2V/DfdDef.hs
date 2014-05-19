@@ -100,23 +100,26 @@ nodeChildren _ = []
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls.
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
-dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM f val}
-dmap f n@(DFunctionCall _ _ args) = f $ n{callArgs = map f args}
+dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM (dmap f) val}
+dmap f n@(DFunctionCall _ _ args) = f $ n{callArgs = map (dmap f) args}
 dmap f x = f x
 
 dmapM :: Monad m => (DNode -> m DNode) -> DNode -> m DNode
 dmapM f n@(DVariable _ _ val) = do
     val' <- if isJust val
-           then (liftM Just) . f $ fromJust val
+           then (liftM Just) . (dmapM f) $ fromJust val
            else return val
     f $ n{variableValue = val'}
 
-dmapM f n@(DFunctionCall _ _ args) = mapM f args >>= (\args' -> f n{callArgs = args'})
+dmapM f n@(DFunctionCall _ _ args) = do
+    args' <- mapM (dmapM f) args
+    f n{callArgs = args'}
+
 dmapM f x = f x
 
 dfold :: (a -> DNode -> a) -> a -> DNode -> a
-dfold f x0 n@(DVariable _ _ (Just val)) = f (f x0 n) val
-dfold f x0 n@(DFunctionCall _ _ args) = foldl f x0 (n:args)
+dfold f x0 n@(DVariable _ _ (Just val)) = dfold f (f x0 n) val
+dfold f x0 n@(DFunctionCall _ _ args) = foldl (dfold f) (f x0 n) args
 dfold f x0 n = f x0 n
 
 --DFD Generation Monad
