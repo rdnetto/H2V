@@ -312,27 +312,28 @@ linkExpr x = return x
 
 --Need to perform 2 passes - one to collect functions, and one to modify function calls
 --The first pass will recurse into function definitions, so it needs to worry about infinite loops from recursion
-type RewriteList = [(NodeId, [DType])]
+type RewriteList = (NodeId, [(NodeId, NodeId)])             --DFD ID, association list of foreign node IDs and the corresponding args
 data NodeLocality = Local | Mixed | Foreign deriving Eq
 
 --First pass: collect functions, and rewrite definitions.
 --Collected functions are stored in the monad, and used to avoid infinite loops due to recursion.
+--Note that the DFDs stored in the function calls will be out of date until we use rewriteDfd
 --Returns: an association list of rewritten DFD IDs and the arguments added to them.
-collectDfds :: DFD -> NodeGen RewriteList
+collectDfds :: DFD -> NodeGen [RewriteList]
 collectDfds func = ifM (funcCollected func) (return []) $ do
-    let (func', rewritten) = rewriteFuncDef func (closedArgs func)
+    --process current function
+    let (func', (_, argAL)) = rewriteFuncDef func $ closedArgs func
     modifyFuncList (func':)
-    return rewritten
+
+    --recurse into other functions
+    let calls = filter isFunctionCall $ dfold (flip (:)) [] (dfdRoot func)
+    rewrites <- concatMapM (collectDfds . functionCalled) calls
+
+    return $ (dfdID func', argAL):rewrites
 
 --second pass: rewrite function calls
 closeOverDFD :: RewriteList -> DFD -> NodeGen DFD
 closeOverDFD rewriteList f = return f
-
---Checks if the function has been collected
-funcCollected :: DFD -> NodeGen Bool
-funcCollected func = do
-    funcs <- liftM (map dfdID . funcList) $ get
-    return $ dfdID func `elem` funcs
 
 --Collects a list of all nodes that are external to the function.
 --Note that what we are effectively doing is drawing a boundary/cut between the two functions' DFDs.
@@ -379,7 +380,13 @@ closedArgs f = closedArgs' $ dfdRoot f where
 
 --Rewrites a function so that its closure is replaced by arguments
 rewriteFuncDef :: DFD -> [DNode] -> (DFD, RewriteList)
-rewriteFuncDef f _ = (f, [])
+rewriteFuncDef f _ = (f, (dfdID f, []))
+
+--Checks if the function has been collected
+funcCollected :: DFD -> NodeGen Bool
+funcCollected func = do
+    funcs <- liftM (map dfdID . funcList) $ get
+    return $ dfdID func `elem` funcs
 
 --utility functions
 
