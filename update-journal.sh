@@ -33,6 +33,7 @@ rm .discussion .footer
 
 #render Lyx files to PDF
 lyx -e pdf docs/Requirements\ Analysis/Requirements\ Analysis.lyx
+lyx -e pdf docs/Design\ Specification/Design\ Specification.lyx
 
 #commit changes
 vim Journal.txt
