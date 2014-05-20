@@ -1,3 +1,36 @@
+================================================================================
+Wednesday 21 May 2014
+Have postponed closure support, as it is non-essential and taking longer than expected to debug.
+Graphviz generation of nested (non-closure) functions now works - refer to H2V/test.png.
+Preliminary Verilog generation is working (see H2V/test.v). Currently only combinatorial functions are supported, and we guess the type a lot. However, it does synthesize correctly in Quartus.
+Need to extend module definitions to include start/done signals for synchronous functions.
+Generation of Verilog for recursive functions fails due to a linking bug - need to fix this later.
+Wrote a rough plan for the design spec, will be expanded upon over the next week (due Wed 30).
+
+Git commits:
+master branch:
+95cae44  2014-05-21 00:41:16 +1000  Wrote rough plan of design specification.
+3131219  2014-05-20 00:19:55 +1000  BUG FIX: changed 'if' from BinaryOP to Ternary. Added DBool type.
+694474c  2014-05-20 00:19:04 +1000  Preliminary Verilog generation
+664aec7  2014-05-19 23:03:49 +1000  Rewrote Graphviz rendering code so that all nodes are defined before edges, to ensure that they are placed in the correct functions.
+70dc45e  2014-05-19 22:01:23 +1000  BUG FIX: dmap, etc. were not recursive
+fdbd7a5  2014-05-19 20:41:09 +1000  BUG FIX: Built-in functions should not be rendered
+a299409  2014-05-19 19:53:00 +1000  Fixed collectedDfds to handle recursive functions.
+ba5b112  2014-05-19 19:45:02 +1000  Helper functions
+9ce1164  2014-05-19 19:42:46 +1000  Added code for identifying foreign nodes
+993c202  2014-05-19 19:41:59 +1000  Added code for collecting nested functions. (Part 1)
+9b3047a  2014-05-17 18:03:30 +1000  Refactored logic for mapping/folding over the DFD into separate functions.
+6f13afd  2014-05-16 22:03:06 +1000  Created a CLI, and a template file for Verilog generation.
+3d9b668  2014-05-16 22:00:16 +1000  Added brackets to quadratic test case as a workaround for a haskell-src bug
+
+closures topic branch:
+cb73f3f  2014-05-19 19:48:10 +1000  WIP: Closure support Code is mostly complete, but needs to be debugged. Leaving on a topic branch until I have enough time to do this properly.
+30563d2  2014-05-19 19:47:12 +1000  Function definition rewriting code
+427a87e  2014-05-19 20:02:27 +1000  Enabled closure rewriting
+a299409  2014-05-19 19:53:00 +1000  Fixed collectedDfds to handle recursive functions.
+
+================================================================================
+Notes from meeting of 14-05-2014:
 For Verilog generation of recursive functions, let there be a synchronous
 module which handles recursive logic, and a combinatorial module that
 implements actual logic. This will greatly simplify loop unrolling.
