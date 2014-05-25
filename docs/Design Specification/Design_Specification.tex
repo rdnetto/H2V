@@ -1,0 +1,188 @@
+\documentclass[english,onecolumn]{article}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{hyperref}
+\lstset{frame=single, language=Haskell}
+
+\begin{document}
+\title{H2V --- Design Specification}
+\author{Reuben D'Netto}
+% TODO: fix footnotes to use correct citation format
+
+\maketitle
+\tableofcontents{}
+\pagebreak{}
+
+\section{Project Overview}
+\subsection{Project Definition \& Objective}
+H2V is a Haskell to Verilog compiler. The high-level objectives of this project are:
+\begin{itemize}
+\item to design and implement a compiler capable of generating equivalent Verilog from a program written in a subset of Haskell
+\item to demonstrate the benefits of generating Verilog from Haskell compared to C
+\end{itemize}
+
+\subsection{Haskell}
+% what is Haskell, and why use it?
+% TODO: expand on this - compare and contrast with C2H
+Haskell is a purely functional language functional language with lazy evaluation. 
+
+\subsection{Comparison to C2H}
+% TODO: expand on this
+\subsubsection{Functional vs. Imperative Paradigms}
+% functional vs imperative; C uses the wrong paradigm. Enables data-level parallelism
+Haskell is a purely functional language; the result of each function is defined purely in terms of its inputs. All variables are immutable, and there is no global state. This may be contrasted with C, which is an imperative language; the program is defined in terms of instructions, most of which alter the program's state. This is demonstrated in the following example:
+
+\begin{lstlisting}[language=C, caption={XORing an array in C.}, label={lst:xorC}]
+int* xorArray(int mask, int* input, int* output, int N){
+    for(int i = 0; i < N; i++){
+        output[i] = input[i] ^ mask;
+    } //end for
+
+    return output;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={XORing an array in Haskell.}, label={lst:xorH}]
+xorArray :: Int -> [Int]
+xorArray mask input = map (xor mask) input
+\end{lstlisting}
+
+In this example, we define a function which XORs each element of an input array with an argument called \textit{mask}. The C function iterates over the contents of the array, setting each value in sequence. The values of \textit{i} and \textit{output[i]} change throughout the function's execution; it is stateful. In contrast, the Haskell function is declarative; it defines the result to be a list of the same length as \textit{input}, where each element is the result of applying the function \textit{xor mask} to the corresponding element from \textit{input}. Note that there is no state, and that we have not defined an order in which the elements are computed.
+
+C is often informally referred to as portable assembly; it offers a similar degree of control to assembly over the processor without being limited to a specific instruction set. While this is desirable when compiling to machine code, it is extremely limiting when compiling to a hardware description language (HDL) such as Verilog.
+The reason for this is that C is designed to express sequential computation, which is most easily expressed in terms of steps which mutate some global or local state. However, the primary advantage of HDLs is that the resulting logic executes in \textit{parallel}. In the context of parallel computation, shared state becomes a bottleneck which limits throughput.
+It is non-trivial to determine from Listing \ref{lst:xorC} whether one iteration of the loop depends on the execution of previous iteration, since it is unknown if the input and output arrays overlap.%
+\footnote{C2H has qualifiers\footnotemark which may be used to state this explicitly, but the need for these increases the difficulty of use.}
+\footnotetext{Pointer Aliasing, C2H user guide, pg 72}
+Even if the function overwrote the input array, determining if one iteration depends on another would be non-trivial. For this reason, C2H simply generates a state machine which executes each iteration sequentially.%
+\footnote{C2H Compiler User Guide, pg 17}
+
+The above limitation does not apply to Haskell; because the result of the function is defined purely in terms of its inputs, it is trivial to interpret the function such that the mapping operation is applied to multiple elements at once, enabling significant increases in throughput.
+
+\subsubsection{Side-effects}
+The mutation of global state in the course of computing a result is referred to as a \textit{side-effect} in functional programming. C functions often rely on side-effects, which limit their parallelism and can introduce bugs. Consider the following:
+\begin{lstlisting}[language=C, label={lst:side-effect}]
+int y = 0;
+
+int foo(int x){
+    return (x > 0 || x < y++) ? 1 : 2;
+}
+\end{lstlisting}
+
+The incrementing of \textit{y} in the condition is a side-effect of \textit{foo}. This means that multiple instances of \textit{foo} cannot be called in parallel, since they all depend on shared, global state.
+
+Listing \ref{lst:side-effect} is particularly interesting because it also demonstrates a limitation of C2H. || is a short-circuit boolean operator; its second argument should not be evaluated if its first is true.%
+\footnote{ISO/IEC 9899, http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf s6.5.14.}
+C2H does not comply with this, evaluating both arguments.%
+\footnote{C2H user guide, Logical Expressions, pg 128}
+This decision was likely made for performance reasons, but means that C2H effectively uses a dialect of C that is syntactically compatible with ANSI C but functions differently.
+In contrast, because Haskell functions are stateless, the same problem cannot arise with H2V. In fact, expressions which do not directly contribute to the result of a function can be discarded completely, enabling optimizations that otherwise be complex to achieve.
+
+\subsubsection{Memory Access and Pipelining}
+The single greatest limitation of C2H is C's reliance on pointers to pass arrays. This is because every array access is mapped directly to a single-port Avalon bus slave.\footnotemark In other words, within any given function, only one element of an array can be accessed at once, and that access will multiple clock cycles as the value must be written directly to the underlying SRAM/DRAM.
+\footnotetext{C2H user guide, Arrays, Structures and Unions, pg 54}
+The same is true of global and static variables,\footnote{Global and Static Variables, pg 55} and even assignments to local variables are registered, requiring a full clock cycle for each one.\footnote{Local vs Non-local variables, pg 53}
+There is also no support for inlining functions, which means that refactoring common functionality into a separate function will result in an additional overhead.\footnote{C2H user guide, subfunction calls, pg 53}
+While this enables pipelining, it is excessive and significantly increases the latency of computing a single result.
+
+H2V uses a completely different approach. Results are computed in purely combinatorial logic by default to maximise the amount of computation per clock cycle. In the future, registers will be inserted automatically to reduce the maximum propagation delay and enable pipelining. Where arrays are used (e.g. Listing \ref{lst:xorH}), multiple values will be read simultaneously, and intermediate values will be stored in registers to avoid the increased latency of memory access.
+
+\subsection{Verilog}
+% what kind of Verilog we generate
+
+% Nios accelerator
+% recursive functions
+% pipelining
+% DMA - sequential vs random, read vs write
+
+\subsection{Additional Output}
+% what else we generate
+
+% QSys template
+% C headers
+% visual DFD
+
+\section{Equipment}
+\subsection{Development Tools}
+GHC, standard desktop, etc. in addition to target platform
+
+\subsection{Target Platform}
+standard desktop, Quartus 12.0, Nios, Cyclone II/IV, etc.
+compilation time should be reasonable for interactive use. i.e. on
+the order of seconds, excluding time waiting on Quartus
+
+\section{Design}
+\subsection{Compilation Process}
+
+{[}flow chart / block diagram of compilation process{]}
+\begin{itemize}
+\item parsing / AST gen
+\item DFD gen
+
+\begin{itemize}
+\item linking
+\item closure rewriting
+\item {[}example DFD from H2V{]}
+\end{itemize}
+\item Verilog gen
+
+\begin{itemize}
+\item recursion {[}block diagram showing how tail recursion will be implemented{]}
+\item loop unrolling {[}block diagram{]}
+\item pipelining (optional)
+\item synchronous functions
+
+\begin{itemize}
+\item discuss the applications of this interface to DMA
+\end{itemize}
+\end{itemize}
+\end{itemize}
+
+\subsection{Design of Generated Verilog}
+
+{[}need to have a simple block diagram for each of these{]}
+\begin{itemize}
+\item function interfaces
+
+\begin{itemize}
+\item each function will have a 3 bit interface consisting of clock, ready,
+and done signals. This will enable synchronous functions to run for
+more than one clock cycle. Combinatorial functions can pass the signals
+through, ensuring no head for that case.
+\end{itemize}
+\item lists
+
+\begin{itemize}
+\item common storage, interface consists of REQ, ACK, EOF. Clock signal
+is provided separately. Interface is used to request the next element,
+EOF indicates list is empty.
+\end{itemize}
+\item DMA
+
+\begin{itemize}
+\item avalon memory mapped slave
+\item sequential --- exposed as list
+
+\begin{itemize}
+\item could read data into buffer while computation occurs, block reads
+which request unavailable data
+\end{itemize}
+\item random
+
+\begin{itemize}
+\item custom monad definition?
+\item unsafe methods with side-effects? -- acceptable for read-only random
+access
+\end{itemize}
+\end{itemize}
+\end{itemize}
+
+\section{Current State}
+description of what has been done, and what remains
+comparison with requirements analysis
+QUESTION: will we have time for Nios intergration? might be better to focus on general purpose compilation and optimizations
+
+% TODO: bibliography
+
+
+\end{document}

@@ -31,9 +31,12 @@ cat .footer >> new_journal
 mv new_journal Journal.txt
 rm .discussion .footer
 
-#render Lyx files to PDF
+#render Lyx/Latex files to PDF
 lyx -e pdf docs/Requirements\ Analysis/Requirements\ Analysis.lyx
-lyx -e pdf docs/Design\ Specification/Design\ Specification.lyx
+
+cd docs/Design Specification/
+pdflatex Design_Specification.tex
+cd -
 
 #commit changes
 vim Journal.txt
