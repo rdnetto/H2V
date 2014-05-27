@@ -3,6 +3,7 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{tabularx}
+\usepackage{multirow}
 \usepackage{tikz-timing}
 \usepackage{graphicx}
 \definecolor{darkgreen}{HTML}{008000}
@@ -65,6 +66,18 @@ xorArray mask input = map (xor mask) input
 \end{lstlisting}
 
 In this example, we define a function which XORs each element of an input array with an argument called \textit{mask}. The C function iterates over the contents of the array, setting each value in sequence. The values of \textit{i} and \textit{output[i]} change throughout the function's execution; it is stateful. In contrast, the Haskell function is declarative; it defines the result to be a list of the same length as \textit{input}, where each element is the result of applying the function \textit{xor mask} to the corresponding element from \textit{input}. Note that there is no state, and that we have not defined an order in which the elements are computed.
+
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c}
+\cline{1-1} \cline{3-3} \cline{5-5} \cline{7-7} \cline{9-9}
+& \multirow{4}{*}{$\longrightarrow$} & $x_0$ & $\longrightarrow$ & XOR & $\longrightarrow$ & $y_0$ & \multirow{4}{*}{$\longrightarrow$} & \\
+\cline{3-3} \cline{5-5} \cline{7-7}
+List & & $x_1$ & $\longrightarrow$ & XOR & $\longrightarrow$ & $y_1$ & & List \\
+\cline{3-3} \cline{5-5} \cline{7-7}
+Reader & & $\vdots$ & $\longrightarrow$ & $\cdots$ & $\longrightarrow$ & $\vdots$ & & Writer \\
+\cline{3-3} \cline{5-5} \cline{7-7}
+& & $x_N$ & $\longrightarrow$ & XOR & $\longrightarrow$ & $y_N$ & & \\
+\cline{1-1} \cline{3-3} \cline{5-5} \cline{7-7} \cline{9-9}
+\end{tabular} 
 
 C is often informally referred to as portable assembly; it offers a similar degree of control to assembly over the processor without being limited to a specific instruction set. While this is desirable when compiling to machine code, it is extremely limiting when compiling to a hardware description language (HDL) such as Verilog.
 The reason for this is that C is designed to express sequential computation, which is most easily expressed in terms of steps which mutate some global or local state. However, the primary advantage of HDL is that the resulting logic executes in \textit{parallel}. In the context of parallel computation, shared state becomes a bottleneck which limits throughput.
