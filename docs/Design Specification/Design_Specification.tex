@@ -3,9 +3,12 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{tabularx}
+\usepackage{tikz-timing}
+\usepackage{graphicx}
 \lstset{frame=single, language=Haskell}
 \def\tabularxcolumn#1{m{#1}}
 \pagenumbering{roman}
+\tikzset{timing/draw grid}
 
 \begin{document}
 \title{H2V --- Design Specification}
@@ -31,7 +34,6 @@ H2V is a Haskell to Verilog compiler. The high-level objectives of this project 
 Haskell is a purely functional language functional language with lazy evaluation. 
 
 \subsection{Comparison to C2H}
-% TODO: expand on this
 \subsubsection{Functional vs. Imperative Paradigms}
 % functional vs imperative; C uses the wrong paradigm. Enables data-level parallelism
 Haskell is a purely functional language; the result of each function is defined purely in terms of its inputs. All variables are immutable, and there is no global state. This may be contrasted with C, which is an imperative language; the program is defined in terms of instructions, most of which alter the program's state. This is demonstrated in the following example:
@@ -55,13 +57,17 @@ In this example, we define a function which XORs each element of an input array 
 
 C is often informally referred to as portable assembly; it offers a similar degree of control to assembly over the processor without being limited to a specific instruction set. While this is desirable when compiling to machine code, it is extremely limiting when compiling to a hardware description language (HDL) such as Verilog.
 The reason for this is that C is designed to express sequential computation, which is most easily expressed in terms of steps which mutate some global or local state. However, the primary advantage of HDL is that the resulting logic executes in \textit{parallel}. In the context of parallel computation, shared state becomes a bottleneck which limits throughput.
+% TODO: discuss the complexity of this - David is unconvinced
 It is non-trivial to determine from Listing \ref{lst:xorC} whether one iteration of the loop depends on the execution of previous iteration, since it is unknown if the input and output arrays overlap.%
+%
 \footnote{C2H has qualifiers\footnotemark which may be used to state this explicitly, but the need for these increases the difficulty of use.}
 \footnotetext{Pointer Aliasing, C2H user guide, pg 72}
 Even if the function overwrote the input array, determining if one iteration depends on another would be non-trivial. For this reason, C2H simply generates a state machine which executes each iteration sequentially.%
 \footnote{C2H Compiler User Guide, pg 17}
 
 The above limitation does not apply to Haskell; because the result of the function is defined purely in terms of its inputs, it is trivial to interpret the function such that the mapping operation is applied to multiple elements at once, enabling significant increases in throughput.
+
+% TODO: show Verilog that could result from this, to demonstrate parallelism
 
 \subsubsection{Side-effects}
 The mutation of global state in the course of computing a result is referred to as a \textit{side-effect} in functional programming. C functions often rely on side-effects, which limit their parallelism and can introduce bugs. Consider the following:
@@ -83,6 +89,7 @@ This decision was likely made for performance reasons, but means that C2H effect
 In contrast, because Haskell functions are stateless, the same problem cannot arise with H2V. In fact, expressions which do not directly contribute to the result of a function can be discarded completely, enabling optimizations that otherwise be complex to achieve.
 
 \subsubsection{Memory Access and Pipelining}
+% TODO: add C example of this
 The single greatest limitation of C2H is C's reliance on pointers to pass arrays. This is because every array access is mapped directly to a single-port Avalon bus slave.\footnotemark In other words, within any given function, only one element of an array can be accessed at once, and that access will multiple clock cycles as the value must be written directly to the underlying SRAM/DRAM.
 \footnotetext{C2H user guide, Arrays, Structures and Unions, pg 54}
 The same is true of global and static variables,\footnote{Global and Static Variables, pg 55} and even assignments to local variables are registered, requiring a full clock cycle for each one.\footnote{Local vs Non-local variables, pg 53}
@@ -110,14 +117,7 @@ Recursive functions will be compiled into two modules --- one encapsulating the 
 The inputs will be written to registers, and then overwritten on each recursion. The combinatorial module will output the new values for the registers, a result, and a signal indicating whether the call has terminated. It may also implement the same interface as other functions (see \ref{s:functionInterface}), if support for nested recursive functions is implemented.
 This approach means that loop unrolling can be implemented easily for functions with simple combinatorial stages.
 
-% TODO: add diagrams
-%                   |=====================================|
-%                   \/                                   /\
-% [input  data] -> |registers| -> [combinatorial logic] -||
-% [output data] <- |         | 
-%
-% combinatorial logic outputs: regular function interface, return (whether to keep recursing)
-% 
+\includegraphics[scale=0.5]{./recursive.png}
 
 \subsubsection{Pipelining}
 At present, H2V translates all non-recursive functions to purely combinatorial logic. This minimizes the no. of cycles a function will take to evaluate, at the cost of a significantly lower upper bound on clock frequency. One optimization that could be made to this would be to insert buffers in long sections of combinatorial logic. The buffers' positions could be determined using the propagation delay of each operation, which would allow us to increase the upper bound on the clock frequency while using only a minimum no. of registers and additional clock cycles.
@@ -141,9 +141,6 @@ H2V is intended to run on a standard desktop computer. A copy of Altera Quartus 
 
 \section{Design}
 \subsection{Compilation Process}
-
-% TODO: flow chart / block diagram of compilation process
-
 \subsubsection{Lexical Analysis \& Parsing}
 \paragraph{Parsing}
 The source code is parsed using the \textit{haskell-src} library.%
@@ -184,9 +181,6 @@ For each scope containing functions, templates of all functions are pushed onto 
 The DFD is transformed into a Verilog file. Each function is converted into a module, and each node into a wire or register. All expressions use either built-in operators or function/module calls. Wrapper logic is generated for recursive functions, lists, etc.
 
 \subsection{Design of Generated Verilog}
-
-% TODO need to have a simple block diagram for each of these
-
 \subsubsection{Function Interface}
 \label{s:functionInterface}
 All functions will be defined with the following interface:
@@ -203,7 +197,13 @@ Done & Output & 1 & Asserted high when the result is valid. \\ \hline
 
 Computation of a synchronous function will begin when \textit{Ready} is asserted high, and signal its completion by driving \textit{Done} high. \textit{Ready} should remain high for the duration of the computation. If \textit{Ready} is unasserted at any point, the module will be reset. Combinatorial functions should pass these signals through to any functions they call. Combinatorial functions without function calls (i.e. leaves in the function call graph) should assign \textit{Done} to \textit{Ready}.
 
-% TODO: insert timing diagram - see tikz-timing
+\begin{tikztimingtable}[scale=2, line width=1]
+    Clock & 9{C} \\
+    Ready & L6H2L \\
+    Arguments & U6D{}2U \\
+    Done & 3L4H2L \\
+    Result & 3U4D{}2U \\
+\end{tikztimingtable}
 
 This definition ensures that synchronous and combinatorial functions can be called in the same manner, and enables speculative evaluation. E.g. Given a ternary expression \lstinline{(c ? t : f)}, the computation of all three terms can be initiated at the same time, and the evaluation of the unused term aborted once \textit{c} has been computed.
 
@@ -226,6 +226,16 @@ Where a list is returned, the following signals shall be used to encapsulate acc
 
 Note that this is a synchronous interface; the clock signal is taken from the function which computes the values in the list.
 The list can only be accessed as long as the function has \textit{Ready} asserted high.
+If \textit{Request} remains high in the clock cycle after \textit{Acknowledge} is asserted, it will be interpreted as a second request.
+\textit{Head} will be valid for the first cycle \textit{Acknowledge} is asserted, and will remain valid until \textit{Request} is asserted.
+
+\begin{tikztimingtable}[scale=1.5, line width=1]
+    Clock & 21{C} \\
+    Request & L1{4H2L}1{6H2L}1{4H2L} \\
+    Acknowledge & 1{L}1{2L2H2L}1{2L4H2L}1{2L2H2L} \\
+    Empty & U2U2L4U4L4U4H \\
+    Head & 3U2D{A}4U4D{B}8U \\
+\end{tikztimingtable}
 
 The list interface does not support indexing, although it can be emulated through repeated requests.\footnotemark Once an element has been advanced past, its value is discarded. As a consequence of this, if multiple values from a list are required they will need to be buffered by the calling function.
 \footnotetext{This is consistent with the behaviour of the indexing operator in Haskell, which has a time complexity of O(N).}
@@ -284,6 +294,8 @@ The haskell-src library used for parsing is licensed under the three clause BSD 
 \section{Appendix --- Source Code}
 % TODO: put source code here
 
+\section{Appendix --- Examples}
+% TODO: include example code and output (both DFD and Verilog). Discuss what each of these demonstrates.
 
 % TODO: bibliography
 
