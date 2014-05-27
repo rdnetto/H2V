@@ -40,10 +40,11 @@ H2V is a Haskell to Verilog compiler. The high-level objectives of this project 
 
 \subsection{Haskell}
 % what is Haskell, and why use it?
-% TODO: expand on this - compare and contrast with C2H
-Haskell is a purely functional language functional language with lazy evaluation. 
+Haskell is a purely functional language functional language with lazy evaluation.
+This may be contrasted with C, which is an imperative language with strict evaluation.
+The following sections discusses the differences between these languages, and the implications for generating logic.
 
-\subsection{Comparison to C2H}
+\subsection{Comparison to C}
 \subsubsection{Functional vs. Imperative Paradigms}
 % functional vs imperative; C uses the wrong paradigm. Enables data-level parallelism
 Haskell is a purely functional language; the result of each function is defined purely in terms of its inputs. All variables are immutable, and there is no global state. This may be contrasted with C, which is an imperative language; the program is defined in terms of instructions, most of which alter the program's state. This is demonstrated in the following example:
@@ -67,17 +68,16 @@ In this example, we define a function which XORs each element of an input array 
 
 C is often informally referred to as portable assembly; it offers a similar degree of control to assembly over the processor without being limited to a specific instruction set. While this is desirable when compiling to machine code, it is extremely limiting when compiling to a hardware description language (HDL) such as Verilog.
 The reason for this is that C is designed to express sequential computation, which is most easily expressed in terms of steps which mutate some global or local state. However, the primary advantage of HDL is that the resulting logic executes in \textit{parallel}. In the context of parallel computation, shared state becomes a bottleneck which limits throughput.
-% TODO: discuss the complexity of this - David is unconvinced
 It is non-trivial to determine from Listing \ref{lst:xorC} whether one iteration of the loop depends on the execution of previous iteration, since it is unknown if the input and output arrays overlap.%
-%
 \footnote{C2H has qualifiers\footnotemark which may be used to state this explicitly, but the need for these increases the difficulty of use.}
 \footnotetext{Pointer Aliasing, C2H user guide, pg 72}
-Even if the function overwrote the input array, determining if one iteration depends on another would be non-trivial. For this reason, C2H simply generates a state machine which executes each iteration sequentially.%
+Note that while there are few real--world scenarios where arrays would be aliased, C2H handles structures in the same way,\footnotemark and it is not uncommon for structures to contain pointers which alias like this.
+\footnotetext{C2H user guide, Arrays, Structures and Unions, pg 54}
+To avoid these issues, C2H simply generates a state machine which executes each iteration sequentially.%
 \footnote{C2H Compiler User Guide, pg 17}
 
 The above limitation does not apply to Haskell; because the result of the function is defined purely in terms of its inputs, it is trivial to interpret the function such that the mapping operation is applied to multiple elements at once, enabling significant increases in throughput.
-
-% TODO: show Verilog that could result from this, to demonstrate parallelism
+This is demonstrated in \ref{s:pipeline}.
 
 \subsubsection{Side-effects}
 The mutation of global state in the course of computing a result is referred to as a \textit{side-effect} in functional programming. C functions often rely on side-effects, which limit their parallelism and can introduce bugs. Consider the following:
@@ -99,7 +99,7 @@ This decision was likely made for performance reasons, but means that C2H effect
 In contrast, because Haskell functions are stateless, the same problem cannot arise with H2V. In fact, expressions which do not directly contribute to the result of a function can be discarded completely, enabling optimizations that otherwise be complex to achieve.
 
 \subsubsection{Memory Access and Pipelining}
-% TODO: add C example of this
+\label{s:pipeline}
 The single greatest limitation of C2H is C's reliance on pointers to pass arrays. This is because every array access is mapped directly to a single-port Avalon bus slave.\footnotemark In other words, within any given function, only one element of an array can be accessed at once, and that access will multiple clock cycles as the value must be written directly to the underlying SRAM/DRAM.
 \footnotetext{C2H user guide, Arrays, Structures and Unions, pg 54}
 The same is true of global and static variables,\footnote{Global and Static Variables, pg 55} and even assignments to local variables are registered, requiring a full clock cycle for each one.\footnote{Local vs Non-local variables, pg 53}
@@ -107,6 +107,29 @@ There is also no support for inlining functions, which means that refactoring co
 While this enables pipelining, it is excessive and significantly increases the latency of computing a single result.
 
 H2V uses a completely different approach. Results are computed in purely combinatorial logic by default to maximise the amount of computation per clock cycle. In the future, registers will be inserted automatically to reduce the maximum propagation delay and enable pipelining. Where arrays are used (e.g. Listing \ref{lst:xorH}), multiple values will be read simultaneously, and intermediate values will be stored in registers to avoid the increased latency of memory access.
+
+Consider Listing \ref{lst:arrayC}, which computes the pairwise difference of the elements of an array.
+(Assume this function is an intermediate step in a computation, such that its data source and sink are other functions rather than RAM.)
+Even with pipelining, no more than one subtraction will be performed per cycle, since C2H uses a single-port Avalon Memory bus for array access. This reflects the imperative structure of the code; the loop's iterations may be pipelined together, but remain in sequence.
+
+\begin{lstlisting}[language=C, caption={Array Bottleneck Example (C).}, label={lst:arrayC}]
+    void diff(int *array, int n){
+        for(int i = 0; i < (n - 1); i++)
+            array[i] = array[i+1] - array[i];
+    }
+\end{lstlisting}
+
+In contrast, Listing \ref{lst:arrayH} defines the n\textsuperscript{th} element of the resulting list as the difference of the
+n\textsuperscript{th} elements of the lists \textit{xs[1..N]} and \textit{xs[0..N-1]}.
+(\textit{zipWith} discards the unused elements of the longer list.)
+Since each element is defined independently of the others, multiple elements in the result can be computed simultaneously.
+Although the current list protocol only supports reading one element at a time,\footnotemark extending it to allow multiple elements to be read/written is trivial. %
+\footnotetext{See \ref{s:lists}.}
+
+\begin{lstlisting}[caption={Array Bottleneck Example (Haskell).}, label={lst:arrayH}]
+    diff :: [Int] -> [Int]
+    diff xs = zipWith (-) (tail xs) xs
+\end{lstlisting}
 
 \subsection{Verilog}
 % what kind of Verilog we generate
