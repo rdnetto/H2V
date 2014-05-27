@@ -34,8 +34,8 @@ rm .discussion .footer
 #render Lyx/Latex files to PDF
 lyx -e pdf docs/Requirements\ Analysis/Requirements\ Analysis.lyx
 
-cd docs/Design Specification/
-pdflatex Design_Specification.tex
+cd docs/Design\ Specification/
+latexmk Design_Specification.tex
 cd -
 
 #commit changes
