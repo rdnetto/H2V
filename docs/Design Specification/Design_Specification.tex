@@ -5,7 +5,17 @@
 \usepackage{tabularx}
 \usepackage{tikz-timing}
 \usepackage{graphicx}
-\lstset{frame=single, language=Haskell}
+\definecolor{darkgreen}{HTML}{008000}
+\lstset{frame=single,
+    language=Haskell,
+    breaklines=true,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    commentstyle=\color{darkgreen},
+    keywordstyle=\color{blue},
+    stringstyle=\color{purple},
+    title=\lstname}
 \def\tabularxcolumn#1{m{#1}}
 \pagenumbering{roman}
 \tikzset{timing/draw grid}
@@ -205,7 +215,7 @@ Computation of a synchronous function will begin when \textit{Ready} is asserted
     Result & 3U4D{}2U \\
 \end{tikztimingtable}
 
-This definition ensures that synchronous and combinatorial functions can be called in the same manner, and enables speculative evaluation. E.g. Given a ternary expression \lstinline{(c ? t : f)}, the computation of all three terms can be initiated at the same time, and the evaluation of the unused term aborted once \textit{c} has been computed.
+This definition ensures that synchronous and combinatorial functions can be called in the same manner, and enables speculative evaluation. E.g. Given a ternary expression \lstinline[language=C]{(c ? t : f)}, the computation of all three terms can be initiated at the same time, and the evaluation of the unused term aborted once \textit{c} has been computed.
 
 Note that the signals for arguments and results are a simplification --- if one of the arguments is a list, additional signals will be added (see \ref{s:lists}).
 
@@ -291,12 +301,21 @@ Implementations of certain use cases have been written in Haskell for the purpos
 The haskell-src library used for parsing is licensed under the three clause BSD license, which does not restrict the license derivative works are published under. There are therefore no impediments to publishing the project under a free software license at this point in time (REQ 3.5.1).
 
 \appendix
-\section{Appendix --- Source Code}
-% TODO: put source code here
+\lstset{basicstyle=\footnotesize}
 
 \section{Appendix --- Examples}
 % TODO: include example code and output (both DFD and Verilog). Discuss what each of these demonstrates.
+\lstinputlisting{../../H2V/test.hs}
+
 
 % TODO: bibliography
 
+\section{Appendix --- Source Code}
+\lstinputlisting{../../H2V/main.hs}
+\lstinputlisting{../../H2V/Common.hs}
+\lstinputlisting{../../H2V/DfdDef.hs}
+\lstinputlisting{../../H2V/GenerateDFD.hs}
+\lstinputlisting{../../H2V/RenderGraphviz.hs}
+\lstinputlisting{../../H2V/RenderVerilog.hs}
+\lstinputlisting{../../H2V/AST_Display.hs}
 \end{document}
