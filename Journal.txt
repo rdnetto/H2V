@@ -1,4 +1,58 @@
 ================================================================================
+Wednesday 28 May 2014
+Have mostly completed draft of design report, except for some minor additions.
+
+Summary of points from email (to be discussed in meeting):
+-benchmarks / test functions with Verilog, DFDs, discussion, etc. - to be added later today
+-expected difficulties - main one would be insufficient time for all of the optimizations. Have already marked QSys integration to be dropped if this is the case - should I discuss this more clearly?
+-code excerpts for core features (C, Haskell, Verilog, block diagrams) is a good idea, but there is probably not enough time to get it done in time for the report
+-RE: listings 1 and 2, I have added a block diagram and reworded the discussion
+-looking at other HDL generating tools is a good idea, but definitely something to think about later.
+
+Git commits:
+a2fced1  2014-05-28 03:57:10 +1000  Minor bug fix
+e674e8b  2014-05-28 03:32:58 +1000  Added block diagram to demonstrate parallel mapping.
+138c996  2014-05-28 02:45:59 +1000  Added some example code to demonstrate parallel list processing.
+e918930  2014-05-28 01:44:10 +1000  Added source code to design spec, defined syntax highlighting rules
+270e7f4  2014-05-28 01:41:48 +1000  Added diagrams
+cd4d8eb  2014-05-27 03:14:03 +1000  Completed draft of design spec. Need to add diagrams, fix citations.
+3a297a1  2014-05-26 02:27:54 +1000  WIP: Design Spec - up to 1.4. Using Latex.
+
+================================================================================
+Notes on C2H:
+
+http://www.altera.com/literature/ug/ug_nios2_c2h_compiler.pdf
+-C to hardware mapping: [pg 17]
+    +"The C2H Compiler translates each element of C syntax to an equivalent
+      hardware structure using straightforward mapping rules. The mapping
+      rules provide a one-to-one association between elements of C syntax and
+      their equivalent hardware structures." - pg. 41, implies the limitations of C syntax are significant
+    +loops become state machines (subject to pipelining)
+    +pointer dereferences, array accesses are direct reads (via avalon); no caching
+    +each function is only mapped to a single hardware instance (per top-level function) [pg 52]
+    +no inline functions; how you organize the code affects the generated logic [pg 53]
+    +structs/arrays are stored in memory, and only one field/element can be accessed per cycle. Local arrays/structs do not consume memory, but still use Avalon bus and are therefore still limited to one element per cycle [pg 54]
+    +global/static variables are passed in as pointers; access is expensive
+    +generates one Avalon master for *each* memory access operation - can result in *significant* bottlenecks memory-side
+    +memory aliases introduce false dependencies; write operations via pointer/array must be completeted before subsequent reads from *any* memory location. This can be corrected with __restrict__, but is easy to forget or apply incorrectly. [pg 76]
+    +functions are represented as sequential state machines; unrelated computations placed in the same state mean that one computation can block another. Cf H2V, where functions are represented as the propagation of data. [pg 81]
+    +C2H has loop pipelining, but because it uses single port Avalon-MM it cannot implement loop unrolling.
+
+-C2H does not support recursion
+-C2H does not replicate side-effects correctly. e.g. short-circuit operators [pg 128]
+-many of the recommended practices for C2H are syntactic requirements of functional languages (e.g. replacing global variables with arguments)
+-do a speed comparison between H2V and C2H for trivial functions - it is likely that C2H is significantly slower
+-more control over integer widths - C2H only provides ANSI C types (8, 16, 32, 64)
+-each assignment is registered; implies significant increase to CPI [pg 43-44]
+    +this is done to increase pipelining, but is excessive
+    +the placement of registers is fixed with respect the syntax [e.g. pg 48-49]. This is inferior to dividing nodes following a timing analysis
+
+TODO: need to add code to flush data cache to wrapper function, to avoid cache coherency issues
+TODO: mention endianness (Nios uses little endian)
+
+paradigm example: for loop vs map
+
+================================================================================
 Wednesday 21 May 2014
 Have postponed closure support, as it is non-essential and taking longer than expected to debug.
 Graphviz generation of nested (non-closure) functions now works - refer to H2V/test.png.
