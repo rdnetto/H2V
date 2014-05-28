@@ -308,7 +308,9 @@ References to specific requirements will use the same numeric identifier as in t
 
 \subsection{Compiler}
 \paragraph{Requirements}
-The compiler is able to generate combinatorial Verilog modules (REQ 3.1.1.1). Function calls are supported, but tail-recursion is not available yet (REQ 3.1.1.1b).
+The compiler is able to generate combinatorial Verilog modules (REQ 3.1.1.1).
+Function calls are supported, but tail-recursion is not available yet (REQ 3.1.1.1b).
+The function interface discussed in \ref{s:functionInterface} has not been implemented yet.
 Once tail-recursion has been completed,\footnotemark the hard requirements for this section will have been met.
 \footnotetext{This is expected to be ready within a week.}
 
@@ -340,9 +342,31 @@ The haskell-src library used for parsing is licensed under the three clause BSD 
 \lstset{basicstyle=\footnotesize}
 
 \section{Appendix --- Examples}
-% TODO: include example code and output (both DFD and Verilog). Discuss what each of these demonstrates.
-\lstinputlisting{../../H2V/test.hs}
+The following section contains examples of Haskell source code that can be compiled by H2V into DFDs and Verilog.
 
+\subsection{Declaration Resolution}
+This example demonstrates the resolution of terms whose values depend on others defined later within the same scope.
+
+\lstinputlisting[firstline=7, lastline=11]{../../H2V/test.hs}
+\includegraphics[scale=0.25]{./examples/f1.png}
+\lstinputlisting[language=Verilog]{./examples/f1.v}
+
+\subsection{Nested Functions \& Closures}
+This example demonstrates the use of nested functions which close over values defined in the parent function.
+Note that as closure rewriting is not fully implemented yet, there are edges between nodes defined in different subgraphs (functions).
+This will be resolved in the near future by converting closure values into additional arguments.
+
+\lstinputlisting[firstline=13, lastline=19]{../../H2V/test.hs}
+\includegraphics[scale=0.25]{./examples/f2.png}
+\lstinputlisting[language=Verilog]{./examples/f2.v}
+
+\subsection{Tail--Recursion}
+This example demonstrates a nested, tail--recursive function.
+All leaf expressions in \textit{fib'} are either combinatorial values or a call to itself.
+Verilog cannot currently be generated for recursive functions due to a bug in H2V.
+
+\lstinputlisting[firstline=21]{../../H2V/test.hs}
+\includegraphics[scale=0.25]{./examples/fib.png}
 
 \section{Appendix --- Source Code}
 \lstinputlisting{../../H2V/main.hs}

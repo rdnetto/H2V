@@ -10,6 +10,14 @@ f1 x = x + c where
     c = d - a
     d = b + 2
 
+--nested function test case
+f2 a b c = z where
+    z = f2c c
+    f2c x = f2a a + f2b d - x
+    f2a x = x + a + d
+    f2b x = x + b
+    d = a + b
+
 -- Test case for nested, recursive functions
 -- Returns the nth fibonnacci number
 -- Could be implemented using an infinite list, but that would be more painful to compile to Verilog
@@ -18,10 +26,3 @@ fib n = fib' 0 1 n where
     fib' x0 _ 0 = x0
     fib' x0 x1 n = fib' x1 (x0 + x1) (n - 1)
 
---nested function test case
-f2 a b c = z where
-    z = f2c c
-    f2c x = f2a a + f2b d - x
-    f2a x = x + a + d
-    f2b x = x + b
-    d = a + b
