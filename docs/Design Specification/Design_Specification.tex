@@ -128,11 +128,11 @@ Even with pipelining, no more than one subtraction will be performed per cycle, 
     }
 \end{lstlisting}
 
-In contrast, Listing \ref{lst:arrayH} defines the n\textsuperscript{th} element of the resulting list as the difference of the
-n\textsuperscript{th} elements of the lists \textit{xs[1..N]} and \textit{xs[0..N-1]}.
-(\textit{zipWith} discards the unused elements of the longer list.)
+In contrast, Listing \ref{lst:arrayH} takes a more functional approach.
+\textit{zipWith} returns a list whose n\textsuperscript{th} element is the result of applying a function to the n\textsuperscript{th} elements of two lists, up to the last element of the shorter list. We specify subtraction as the function to be applied, and use the \textit{tail} function (which converts \textit{xs[0..N]} into \textit{xs[1..N-1]}) to offset the list by one element.
 Since each element is defined independently of the others, multiple elements in the result can be computed simultaneously.
-Although the current list protocol only supports reading one element at a time,\footnotemark extending it to allow multiple elements to be read/written is trivial. %
+
+Although the current list protocol currently only supports reading one element at a time,\footnotemark extending it to allow multiple elements to be read/written at once is trivial.
 \footnotetext{See \ref{s:lists}.}
 
 \begin{lstlisting}[caption={Array Bottleneck Example (Haskell).}, label={lst:arrayH}]
