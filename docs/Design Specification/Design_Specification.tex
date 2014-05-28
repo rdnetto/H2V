@@ -211,10 +211,12 @@ f1 x = z where
 \end{lstlisting}
 
 \begin{lstlisting}[caption={The function from Listing \ref{lst:closure}, rewritten to use arguments.}]
+f1 :: Int -> Int
 f1 x = z where
     y = x + 1
     z = f2 y x
 
+    f2 :: Int -> Int
     f2 yc a = a * yc
 \end{lstlisting}
 
