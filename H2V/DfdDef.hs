@@ -225,9 +225,14 @@ resolveHeader header
         let fName = dfdName header
         ns <- liftM funcNS $ get
 
+        --Return the resolved function, or if the original if it is fully defined.
+        --We give the resolved function precedence since it could have been updated (e.g. closure rewriting).
+        --If the function is not in scope but is fully defined, we can safely assume it has already been updated.
         return $ case filter (\f -> (dfdID . snd) f == fID) ns of
                   (_, x):_ -> x
-                  [] -> throw $ ResolutionException "DFD" (displayFunc header) (unlines $ map (('\t':) . displayFunc . snd) ns)
+                  [] -> if isHeader header
+                        then throw $ ResolutionException "DFD" (displayFunc header) (unlines $ map (('\t':) . displayFunc . snd) ns)
+                        else header
 
 displayFunc :: DFD -> String
 displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "(header)" else "")
