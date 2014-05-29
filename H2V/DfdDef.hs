@@ -225,7 +225,7 @@ resolveHeader header
         let fName = dfdName header
 
         ns <- liftM funcNS $ get
-        let f (_, func) = isHeader func && dfdID func == fID
+        let f (_, func) = dfdID func == fID
 
         return $ case filter f ns of
                   (_, x):_ -> x
