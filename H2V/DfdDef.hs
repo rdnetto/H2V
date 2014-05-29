@@ -223,14 +223,12 @@ resolveHeader header
     | otherwise          = do
         let fID = dfdID header
         let fName = dfdName header
-
         ns <- liftM funcNS $ get
-        let f (_, func) = dfdID func == fID
 
-        return $ case filter f ns of
+        return $ case filter (\f -> (dfdID . snd) f == fID) ns of
                   (_, x):_ -> x
-                  [] -> throw $ ResolutionException "DFD" (printf "%s (id=%i)" fName fID) (unlines $ map f ns) where
-                    f (name, dfd) = printf "\t[%2i] %s %s" (dfdID dfd) name (if isHeader dfd
-                                                                             then "(header)"
-                                                                             else "")
+                  [] -> throw $ ResolutionException "DFD" (displayFunc header) (unlines $ map (('\t':) . displayFunc . snd) ns)
+
+displayFunc :: DFD -> String
+displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "(header)" else "")
 
