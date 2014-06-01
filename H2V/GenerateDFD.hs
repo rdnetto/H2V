@@ -24,7 +24,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         --using nodeID=-1 for built-in functions, since they'll be implemented in handwritten Verilog and won't need assigned IDs
         let f = f' where
             f' op = pushDfdNS (op, DFD (-1) op (take 2 $ repeat (-1, UndefinedType)) UndefinedType False $ DBuiltin (-1) (BinaryOp op)) in
-            mapM f ["+", "-", "*", "/", "=="]
+            mapM f ["+", "-", "*", "/", "==", "<", ">", "<=", ">="]
         pushDfdNS ("if", DFD (-1) "if" ((-1, DBool):(-1, UndefinedType):(-1, UndefinedType):[]) UndefinedType False $ DBuiltin (-1) Ternary)
 
         --local functions
