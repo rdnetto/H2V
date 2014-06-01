@@ -157,7 +157,7 @@ data ResolutionException = ResolutionException String String String             
     deriving (Typeable)
 instance Exception ResolutionException
 instance Show ResolutionException where
-    show (ResolutionException scope name ns) = printf "Unable to resolve %s '%s'. Namespace:\n%s" scope name ns
+    show (ResolutionException scope name ns) = printf "Unable to resolve %s %s. Namespace:\n%s" scope name ns
 
 --Monadic functions
 

@@ -38,7 +38,8 @@ pshow :: Show a => Pretty a => a -> String
 pshow x = "\n" ++ show x ++ "\n" ++ prettyPrint x
 
 --helper function for logging values
-tShow msg x = trace (msg ++ ": " ++ show x) x
+tShow msg x = tShowX show msg x
+tShowX f msg x = trace (msg ++ ": " ++ (f x)) x
 
 --helper function for mapping over tuples
 map2 :: (a -> b) -> (c -> d) -> ((a, c) -> (b, d))

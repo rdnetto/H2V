@@ -49,7 +49,7 @@ renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (appID, res)
     where
-        res =  printf "wire %s node_%i;\n" (vType $ returnType f) appID
+        res =  printf "wire %s node_%i;\n" (vType $ returnType f) appID                     --BUG: there's a header here...
             ++ printf "dfd_%i(%s node_%i);\n" (dfdID f) (concatMap argEdge args) appID
         aDefs = concatMap renderNode args
 
