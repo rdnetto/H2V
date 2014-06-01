@@ -1,6 +1,8 @@
 Need to email David to organize a time to go over the presentation (Monday?)
 Note: projector is 1280x1024
 
+Have to abandon power method for now, as it requires square roots. Maybe use matrix mult? (Still /really/ ugly without lists.)
+
 ================================================================================
 Wednesday 28 May 2014
 Have mostly completed draft of design report, except for some minor additions.

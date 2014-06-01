@@ -1,3 +1,5 @@
+*#
+
 H2V/H2V
 H2V/build/
 H2V/test.v
@@ -9,3 +11,5 @@ scratch/
 *.lyx~
 *.pdf
 docs/Design Specification/
+
+docs/Design Presentation/src/*.rtf
