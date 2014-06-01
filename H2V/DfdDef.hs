@@ -101,6 +101,7 @@ nodeChildren _ = []
 nodeType :: DNode -> DType
 nodeType DVariable{variableType = t} = t
 nodeType DFunctionCall{functionCalled = f} = returnType f
+nodeType DLiteral{} = UndefinedType
 
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls.
 --Does not check for infinite loops, since DFDs are trees.
