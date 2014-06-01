@@ -10,6 +10,16 @@ import DfdDef
 
 --BUG: linking is incomplete; there are still function headers in the DFD. They seem to be for fib' (recursive case) only...
 
+--QUESTION: How do we handle recursive functions in a sane manner?
+--We need special logic for them since the tail-calls will (probably) be defined using their headers.
+--We need to mark them as different, because they're generated differently
+--
+--SOLUTION:
+--Don't need to mark them if we respond immediately on detection
+--Can detect non-mutual case (i.e. a single function) using dmap
+--
+--IDEA: implement closure support using partial application. This simplifies rewriting application, and issues with nested closures
+
 --If there is an (undirected) loop in the graph, all nodes above it are defined and assigned multiple times.
 --Therefore, we tag each node definition with a UID, to eliminate duplicate definitions.
 --This functional approach is cleaner, but less efficient than the monadic/stateful approach.
@@ -54,6 +64,8 @@ recursiveCases f = recExpr [] $ dfdRoot f where
         trueCond = Right cond
         falseCond = Left cond
 
+--Render combinatorial functions.
+--TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD resID name args _ _ root)
     | fCalls dfd True dfd  = renderRecursiveFunc dfd $ recursiveCases dfd
