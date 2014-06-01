@@ -102,7 +102,13 @@ cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
     patternsMatch = foldl1 andConds $ (trueExpr:) $ map patternMatches $ zip genArgs pats
     expr = case rhs of
         HsUnGuardedRhs e -> cleanExpr e
-        _ -> error "Guarded RHSs are not implemented yet"               --Guarded RHS can have multiple expressions?
+        HsGuardedRhss guards -> cleanExpr $ (foldr unguard tailGuardExp $ init guards) where
+            HsGuardedRhs _ _ tailGuardExp = last guards             --TODO: add explicit check for assumption that last case if always true
+
+    --guarded RHSs are basically nested IFs
+    unguard :: HsGuardedRhs -> HsExp -> HsExp
+    unguard (HsGuardedRhs _ con exp) elseExp = HsIf con exp elseExp
+
     --bind args, then subdecls
     trueExp = HsLet (concat $ zipWith bindPattern genArgs pats) $ HsLet (map cleanDecl decls) expr
 
