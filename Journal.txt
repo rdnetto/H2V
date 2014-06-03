@@ -1,7 +1,12 @@
-Need to email David to organize a time to go over the presentation (Monday?)
 Note: projector is 1280x1024
+There's an absolutely fantastic reference here that I should read sometime:
+    http://www.jucs.org/jucs_11_7/hardware_design_and_functional/jucs_11_7_1135_1158_sheeran.pdf
 
-Have to abandon power method for now, as it requires square roots. Maybe use matrix mult? (Still /really/ ugly without lists.)
+
+TODO: create mock up of how the power method would look, and what the structure of its Verilog would look like
+-also consider finding something that doesn't need square roots
+-Taylor series approx of square root could work quite well, as long as we handle the exponents in a sane way
+    Probably should just implement the square root function in Verilog, because it's not going to map nicely to Haskell
 
 ================================================================================
 Wednesday 28 May 2014
