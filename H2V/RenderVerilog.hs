@@ -85,8 +85,8 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD resID name args _ _ root)
-    | fCalls dfd True dfd  = renderRecursiveFunc dfd $ recursiveCases dfd
-    | fCalls dfd False dfd = error "Mutual recursion is not supported"
+    | fCalls dfd False dfd = renderRecursiveFunc dfd $ recursiveCases dfd
+    | fCalls dfd True dfd  = error "Mutual recursion is not supported"
     | otherwise            = unlines [ printf "module dfd_%i(" resID,
                                        "input clock, input ready, output done,",
                                        printf "//%s (%i args)" name $ length args,
