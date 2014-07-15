@@ -54,17 +54,18 @@ dfdToVerilog :: DProgram -> String
 dfdToVerilog dfds = concatMap renderFunc dfds
 
 --Returns True if f calls target. A function which calls itself is recursive.
---This is transitive if indirect is True. i.e. if f1 calls f2 and f2 calls f3, then f1 calls f3.
+--This is not transitive. i.e. if f1 calls f2 and f2 calls f3, then f1 does not call f3.
 --Otherwise, only the calls directly within f are considered. i.e. self-recursion
+--NOTE: need to write a separate function to test for indirect calls, since we recurse infinitely without a stack
 --TODO: need to add check for arguments, once first class functions are in use
-fCalls :: DFD -> Bool -> DFD -> Bool
-fCalls target indirect f = eCalls target indirect $ dfdRoot f
+fCalls :: DFD -> DFD -> Bool
+fCalls target f = eCalls target $ dfdRoot f
 
 --Returns True if an expression or sub-expression calls target.
-eCalls :: DFD -> Bool -> DNode -> Bool
-eCalls target indirect e = dfold (\a -> \b -> a || eCalls' b) False e where
+eCalls :: DFD -> DNode -> Bool
+eCalls target e = dfold (\a -> \b -> a || eCalls' b) False e where
     eCalls' :: DNode -> Bool
-    eCalls' (DFunctionCall _ fc _) = (dfdID fc == dfdID target) || (indirect && fCalls target indirect fc)
+    eCalls' (DFunctionCall _ fc _) = (dfdID fc == dfdID target)
     eCalls' _ = False
 
 --Assumes function is self-recursive - use `calls` to check this.
@@ -74,7 +75,6 @@ recursiveCases f = recExpr [] $ dfdRoot f where
     recExpr conds node
         | isIf node           = (recExpr (trueCond:conds) trueBranch) ++ (recExpr (falseCond:conds) falseBranch)
         | isFunctionCall node = return (conds, Right $ callArgs node)
-        | eCalls f False node = error "Non-tail recursion is not supported"
         | otherwise           = return (conds, Left node)                   --is expression
         where
         [cond, trueBranch, falseBranch] = callArgs node
@@ -85,19 +85,18 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD resID name args _ _ root)
-    | fCalls dfd False dfd = renderRecursiveFunc dfd $ recursiveCases dfd
-    | fCalls dfd True dfd  = error "Mutual recursion is not supported"
-    | otherwise            = unlines [ printf "module dfd_%i(" resID,
-                                       "input clock, input ready, output done,",
-                                       printf "//%s (%i args)" name $ length args,
-                                       concatMap (renderArg "input" "node" True) $ zip [0..] args,
-                                       printf "output [7:0] node_%i" resID,
-                                       ");",
-                                       "assign done = ready;",
-                                       concatMap snd . uniq $ renderNode root,
-                                       printf "assign node_%i = node_%i;" resID (nodeID root),
-                                       "endmodule\n"
-                                     ]
+    | fCalls dfd dfd = renderRecursiveFunc dfd $ recursiveCases dfd
+    | otherwise      = unlines [printf "module dfd_%i(" resID,
+                                "input clock, input ready, output done,",
+                                printf "//%s (%i args)" name $ length args,
+                                concatMap (renderArg "input" "node" True) $ zip [0..] args,
+                                printf "output [7:0] node_%i" resID,
+                                ");",
+                                "assign done = ready;",
+                                concatMap snd . uniq $ renderNode root,
+                                printf "assign node_%i = node_%i;" resID (nodeID root),
+                                "endmodule\n"
+                               ]
 
 --WIP: This function renders a recursive function
 --There are two trees of evaluation for a tail-recursive function:
