@@ -15,8 +15,9 @@ clean:
 test: all
 	clear
 	./H2V -g -v test.hs
+	cp test.v ../scratch/verilog-test/test.v
 	#================================================================================
 	dot -Tpng test.gv > test.png
-	xdg-open test.png
+	less test.v
 
 debug: all test
