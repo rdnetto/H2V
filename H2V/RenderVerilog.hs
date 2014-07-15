@@ -89,7 +89,7 @@ renderFunc dfd@(DFD resID name args _ _ root)
     | otherwise      = unlines [printf "module dfd_%i(" resID,
                                 "input clock, input ready, output done,",
                                 printf "//%s (%i args)" name $ length args,
-                                concatMap (renderArg "input" "node" True) $ zip [0..] args,
+                                joinMap ", " (renderArg "input" "node" True "") $ zip [0..] args,
                                 printf "output [7:0] node_%i" resID,
                                 ");",
                                 "assign done = ready;",
@@ -110,65 +110,76 @@ renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
 renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
     res = unlines [ --Synchronous logic
                     printf "module dfd_%i(" resID,
-                    "input clock, input ready, output reg done,",
-
-                    printf "//%s (%i args)" name $ length args,
-                    concatMap (renderArg "input" "inArg" False) $ zip [0..] args,
-
-                    "output [7:0] result;",
-                    ");",
-                    "wire advance, recurse;",
-                    "reg running;",
-                    concatMap (renderArg "reg" "nextArg" False) $ zip [0..] args,
-
-                    let
-                        inArgs   = concatMap (renderArg "" "inArg"   False) $ zip [0..] args
-                        nextArgs = concatMap (renderArg "" "nextArg" False) $ zip [0..] args
-                    in printf "dfd_%i_cmb(clock, ready, advance, recurse, %s, %s, result);" resID inArgs nextArgs,
-
-                    "always @(posedge clock) begin",
                     indent [
-                        "if(ready ^ running)",
-                        "\trunning <= ready;",
-                        "if(ready & ~running) begin",
-                        --nextArgs <= inArgs
-                        let f i = printf "%s_%i <= %s_%i;" "nextArg" i "inArg" i
-                        in indent $ map f [0 .. length args - 1],
-                        "end",
+                        printf "//%s (%i args)" name $ length args,
+                        "input clock;",
+                        "input ready;",
+                        "output reg done;",
 
-                        "if(running) begin",
-                        "\tdone <= advance & ~recurse;",
-                        --nextArgs <= outArgs
-                        let f i = printf "%s_%i <= %s_%i;" "nextArg" i "outArg" i
-                        in indent $ map f [0 .. length args - 1],
-                        "end else",
-                        "\tdone <= 0;"
+                        unlines $ map (renderArg "input" "inArg" False ";") (zip [0..] args),
+
+                        "output [7:0] result;",
+                        ");",
+                        "",
+                        "wire advance, recurse;",
+                        "reg running;",
+                        unlines $ map (renderArg "reg" "nextArg" False ";") (zip [0..] args),
+                        "",
+
+                        let
+                            inArgs   = unlines . map (renderArg "" "inArg"   False ",") $ zip [0..] args
+                            nextArgs = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
+                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" resID inArgs nextArgs,
+                        "",
+
+                        "always @(posedge clock) begin",
+                        indent [
+                            "if(ready ^ running)",
+                            "\trunning <= ready;",
+                            "if(ready & ~running) begin",
+                            --nextArgs <= inArgs
+                            let
+                                f i = printf "%s_%i <= %s_%i;" "nextArg" i "inArg" i
+                            in  indent $ map f [0 .. length args - 1],
+                            "end",
+
+                            "if(running) begin",
+                            "\tdone <= advance & ~recurse;",
+                            --nextArgs <= outArgs
+                            let
+                                f i = printf "%s_%i <= %s_%i;" "nextArg" i "outArg" i
+                            in  indent $ map f [0 .. length args - 1],
+                            "end else",
+                            "\tdone <= 0;"
+                        ],
+                        "end"
                     ],
-                    "end",
                     "endmodule\n",
 
                     --Combinatorial logic
                     printf "module dfd_%i_cmb(" resID,
-                    "input clock, input ready, output done, output recurse,",
-                    printf "//Input args: %s (%i args)" name $ length args,
-                    concatMap (renderArg "input" "node" True) $ zip [0..] args,
+                    indent [
+                        printf "//Input args: %s (%i args)" name $ length args,
+                        "input clock,",
+                        "input ready,",
+                        "output done,",
+                        "output recurse,",
+                        unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
+                        unlines . map (renderArg "output" "outputArg" False ",") $ zip [0..] args,
+                        printf "output [7:0] node_%i" resID,
+                        ");",
+                        "",
 
-                    "//Args for recursive call",
-                    concatMap (renderArg "output" "outputArg" False) $ zip [0..] args,
-                    printf "output [7:0] node_%i" resID,
-                    ");",
+                        --Define valid_%i, ready_%i, done_%i for each case
+                        "//Control signals",
+                        "assign done = ready;",                                 --TODO: implement
+                        concatMap defineRecCase $ zip [0..] recCases,
 
-                    "assign done = ready;",                                 --TODO: implement
-
-                    --Define valid_%i, ready_%i, done_%i for each case
-                    "//Control signals",
-                    concatMap defineRecCase $ zip [0..] recCases,
-
-                    --Muxing logic
-                    "always @(posedge (clock & ready)) begin",
-                    indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
-                    "end",
-
+                        --Muxing logic
+                        "always @(posedge (clock & ready)) begin",
+                        indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
+                        "end"
+                    ],
                     "endmodule\n"
                   ]
 
@@ -190,11 +201,11 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
 
     --multiplexor logic
     selectRecCase :: (Int, RecursiveCase) -> String
-    selectRecCase (i, rCase) = indent [
+    selectRecCase (i, rCase) = unlines [
                                         printf "if(valid_%i) begin" i,
                                         indent [
-                                            printf "recurse <= %i" $ fromEnum $ isRecursive rCase,
-                                            printf "done <= done_%i" i,
+                                            printf "recurse <= %i;" $ fromEnum $ isRecursive rCase,
+                                            printf "done <= done_%i;" i,
                                             let
                                                 setRes = printf "result <= node_%i;\n" $ nodeID . baseRoot $ rCase
                                             in if isRecursive rCase
@@ -211,12 +222,13 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
 
 
 --Defines an argument to a Verilog module.
---  io: the storage class. e.g. "input"/"output"
---  prefix. e.g. "node"
+--  io: the storage class. e.g. "input"/"output". Type will be omitted if storage class is blank.
+--  prefix. e.g. "node".
 --  useNodeId: whether the numeric identifier used will be the node ID or the argument index
 --  (i, (ai, t): i is the arg index, ai is the node ID, t is the type
-renderArg :: String -> String -> Bool -> (Int, (NodeId, DType)) -> String
-renderArg io prefix useNodeId (i, (argID, t)) = printf "%s %s %s_%i,\n" io (vType t) prefix i
+--  tail: a string to append to the end of the result. Useful for semicolons, etc.
+renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
+renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io (if io == "" then "" else vType t) prefix i tail
 
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return (nodeID, res) where
@@ -270,5 +282,11 @@ uniq xs = reverse $ foldl f [] xs where
 
 --Helper function for indenting blocks of code
 indent :: [String] -> String
-indent = unlines . map ('\t':)
+indent = unlines . map f where
+    f = intercalate "\n" . map ('\t':) . lines
+
+indentN :: Int -> [String] -> String
+indentN n = unlines . map f where
+    f = intercalate "\n" . map (delim ++) . lines
+    delim = take n (repeat '\t')
 
