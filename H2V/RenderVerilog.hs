@@ -90,7 +90,7 @@ renderFunc dfd@(DFD resID name args _ _ root)
     | otherwise            = unlines [ printf "module dfd_%i(" resID,
                                        "input clock, input ready, output done,",
                                        printf "//%s (%i args)" name $ length args,
-                                       concatMap renderArg $ zip [0..] args,
+                                       concatMap (renderArg "input" "node" True) $ zip [0..] args,
                                        printf "output [7:0] node_%i" resID,
                                        ");",
                                        "assign done = ready;",
@@ -99,46 +99,126 @@ renderFunc dfd@(DFD resID name args _ _ root)
                                        "endmodule\n"
                                      ]
 
---This function renders a recursive function
---WIP
+--WIP: This function renders a recursive function
+--There are two trees of evaluation for a tail-recursive function:
+--  -the base case, where the root is the resulting expression.
+--  -the recursive case, where the root is the recursive call.
+--Each element in the list of recursive cases will correspond to one of these.
+--
 --structure: input -> comb logic -> registers -> comb logic ...
+--NOTE: The 'combinatorial' logic may include calls to synchronous functions, so it's not actually combinatorial.
 renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
 renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
     res = unlines [ --Synchronous logic
                     printf "module dfd_%i(" resID,
-                    "input clock, input ready, output done,"
+                    "input clock, input ready, output reg done,",
+
                     printf "//%s (%i args)" name $ length args,
-                    concatMap renderArg $ zip [0..] args,
-                    printf "output [7:0] node_%i" resID,
+                    concatMap (renderArg "input" "inArg" False) $ zip [0..] args,
+
+                    "output [7:0] result;",
                     ");",
+                    "wire advance, recurse;",
+                    "reg running;",
+                    concatMap (renderArg "reg" "nextArg" False) $ zip [0..] args,
 
-                    concatMap snd . uniq $ renderNode root,
-                    printf "assign node_%i = node_%i;" resID (nodeID root),
+                    let
+                        inArgs   = concatMap (renderArg "" "inArg"   False) $ zip [0..] args
+                        nextArgs = concatMap (renderArg "" "nextArg" False) $ zip [0..] args
+                    in printf "dfd_%i_cmb(clock, ready, advance, recurse, %s, %s, result);" resID inArgs nextArgs,
 
+                    "always @(posedge clock) begin",
+                    indent [
+                        "if(ready ^ running)",
+                        "\trunning <= ready;",
+                        "if(ready & ~running) begin",
+                        --nextArgs <= inArgs
+                        let f i = printf "%s_%i <= %s_%i;" "nextArg" i "inArg" i
+                        in indent $ map f [0 .. length args - 1],
+                        "end",
+
+                        "if(running) begin",
+                        "\tdone <= advance & ~recurse;",
+                        --nextArgs <= outArgs
+                        let f i = printf "%s_%i <= %s_%i;" "nextArg" i "outArg" i
+                        in indent $ map f [0 .. length args - 1],
+                        "end else",
+                        "\tdone <= 0;"
+                    ],
+                    "end",
                     "endmodule\n",
 
                     --Combinatorial logic
-                    "module dfd_%i_cmb(" resID,
-                    printf "//%s (%i args)" name $ length args,
-                    concatMap renderArg $ zip [0..] args,
+                    printf "module dfd_%i_cmb(" resID,
+                    "input clock, input ready, output done, output recurse,",
+                    printf "//Input args: %s (%i args)" name $ length args,
+                    concatMap (renderArg "input" "node" True) $ zip [0..] args,
+
                     "//Args for recursive call",
-                    "output recurse,",                                  --if true, then perform another iteration
-                    concatMap renderArg $ zip [0..] args,               --TODO: implement this
+                    concatMap (renderArg "output" "outputArg" False) $ zip [0..] args,
                     printf "output [7:0] node_%i" resID,
                     ");",
-                    "assign done = ready;",
-                    concatMap snd . uniq $ renderNode root,
-                    printf "assign node_%i = node_%i;" resID (nodeID root),
-                    --TODO: add assign statements for recursive call args
+
+                    "assign done = ready;",                                 --TODO: implement
+
+                    --Define valid_%i, ready_%i, done_%i for each case
+                    "//Control signals",
+                    concatMap defineRecCase $ zip [0..] recCases,
+
+                    --Muxing logic
+                    "always @(posedge (clock & ready)) begin",
+                    indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
+                    "end",
+
                     "endmodule\n"
                   ]
 
---Args are defined by the function, so we don't need to worry about duplicates
-renderArg :: (Int, (NodeId, DType)) -> String
-renderArg (i, (argID, t)) = printf "input %s node_%i, //arg %i\n" (vType t) argID i
+    --Define control signals for a recursive case
+    --TODO: assuming that the logic for selecting the case is combinatorial - need to add explicit check for this
+    defineRecCase :: (Int, RecursiveCase) -> String
+    defineRecCase (i, rCase) = unlines [
+            printf "wire valid_%i, ready_%i, done_%i;" i i i,
+            printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
+            printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
+            printf "assign done_%i = 1;" i,                                 --TODO: set this appropriately
+            if isRecursive rCase
+                then concatMap snd . uniq $ concatMap renderNode $ recArgs rCase
+                else concatMap snd . uniq $ renderNode $ baseRoot rCase
+        ] where
+    boolNode :: Either DNode DNode -> String
+    boolNode (Left  n) = printf "~node_%i" $ nodeID n
+    boolNode (Right n) = printf  "node_%i" $ nodeID n
 
---WIP: this function crashes because getting a header for the current function is meaningless;
---we should be using recCases in renderRecursiveFunc() to generate DFDs for the arguments / recursive call
+    --multiplexor logic
+    selectRecCase :: (Int, RecursiveCase) -> String
+    selectRecCase (i, rCase) = indent [
+                                        printf "if(valid_%i) begin" i,
+                                        indent [
+                                            printf "recurse <= %i" $ fromEnum $ isRecursive rCase,
+                                            printf "done <= done_%i" i,
+                                            let
+                                                setRes = printf "result <= node_%i;\n" $ nodeID . baseRoot $ rCase
+                                            in if isRecursive rCase
+                                                then ("result <= 8'hXX;\n" ++) $ (unlines . zipWith setArg [0..]) (recArgs rCase)
+                                                else (setRes ++) $ (concatMap nullArg [0 .. length args - 1])
+                                        ],
+                                        "end"
+                                   ] where
+        nullArg :: Int -> String
+        nullArg i  = printf "outArg_%i <= 8'hXX;\n" i
+
+        setArg :: Int -> DNode -> String
+        setArg i a = printf "outArg_%i <= node_%i;\n" i $ nodeID a
+
+
+--Defines an argument to a Verilog module.
+--  io: the storage class. e.g. "input"/"output"
+--  prefix. e.g. "node"
+--  useNodeId: whether the numeric identifier used will be the node ID or the argument index
+--  (i, (ai, t): i is the arg index, ai is the node ID, t is the type
+renderArg :: String -> String -> Bool -> (Int, (NodeId, DType)) -> String
+renderArg io prefix useNodeId (i, (argID, t)) = printf "%s %s %s_%i,\n" io (vType t) prefix i
+
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return (nodeID, res) where
     res =  printf "wire %s node_%i;\n" (vType UndefinedType) nodeID
@@ -188,3 +268,8 @@ uniq xs = reverse $ foldl f [] xs where
     f res (key, value)
         | key `elem` (map fst res) = res                                    --key already defined; do nothing
         | otherwise                = (key, value):res                       --key not defined; add definition
+
+--Helper function for indenting blocks of code
+indent :: [String] -> String
+indent = unlines . map ('\t':)
+
