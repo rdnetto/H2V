@@ -1,6 +1,7 @@
 module Common where
 
 import Control.Monad.State
+import Data.Either
 import Data.List
 import Debug.Trace
 import Language.Haskell.Pretty (Pretty, prettyPrint)
@@ -51,3 +52,11 @@ splitTuple ts = (as, bs) where
     as = map fst ts
     bs = map snd ts
 
+--The documentation says these should be in Data.Either, but GHC can't find it...
+isLeft :: Either a b -> Bool
+isLeft (Left _) = True
+isLeft (Right _) = False
+
+isRight :: Either a b -> Bool
+isRight (Left _) = False
+isRight (Right _) = True
