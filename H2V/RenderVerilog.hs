@@ -25,6 +25,31 @@ import DfdDef
 --This functional approach is cleaner, but less efficient than the monadic/stateful approach.
 type VNodeDef = (NodeId, String)
 
+--A tail-recursive DFD will be a tree of IFs, where each leaf is a recursive call or a non-recursive expression.
+--Returns a list of 2-tuples representing each leaf.
+--The first element of the tuple is a list of conditions, where left conditions must be negated.
+--    Earlier conditions have higher precedence.
+--The second element of the tuple is:
+--  Left: a non-recursive expression
+--  Right: a list of arguments for the recursive call
+type RecursiveCase = ([Either DNode DNode], Either DNode [DNode])
+
+--Conditions for case to be valid. Left nodes need to be negated.
+recConds :: RecursiveCase -> [Either DNode DNode]
+recConds (x, _) = x
+
+--Returns False if the argument is a base case
+isRecursive :: RecursiveCase -> Bool
+isRecursive (_, x) = isRight x
+
+--NodeId of root node for base case
+baseRoot :: RecursiveCase -> DNode
+baseRoot (_, Left x) = x
+
+--Arguments for the recursive call
+recArgs :: RecursiveCase -> [DNode]
+recArgs (_, Right x) = x
+
 dfdToVerilog :: DProgram -> String
 dfdToVerilog dfds = concatMap renderFunc dfds
 
@@ -42,16 +67,8 @@ eCalls target indirect e = dfold (\a -> \b -> a || eCalls' b) False e where
     eCalls' (DFunctionCall _ fc _) = (dfdID fc == dfdID target) || (indirect && fCalls target indirect fc)
     eCalls' _ = False
 
---A tail-recursion DFD will be a tree of IFs, where each leaf is a recursive call or a non-recursive expression.
---Returns a list of 2-tuples representing each leaf.
---The first element of the tuple is a list of conditions, where left conditions must be negated.
---    Earlier conditions have higher precedence.
---The second element of the tuple is:
---  Left: a non-recursive expression
---  Right: a list of arguments for the recursive call
---
 --Assumes function is self-recursive - use `calls` to check this.
-recursiveCases :: DFD -> [([Either DNode DNode], Either DNode [DNode])]
+recursiveCases :: DFD -> [RecursiveCase]
 recursiveCases f = recExpr [] $ dfdRoot f where
     recExpr :: [Either DNode DNode] -> DNode -> [([Either DNode DNode], Either DNode [DNode])]
     recExpr conds node
@@ -85,7 +102,7 @@ renderFunc dfd@(DFD resID name args _ _ root)
 --This function renders a recursive function
 --WIP
 --structure: input -> comb logic -> registers -> comb logic ...
-renderRecursiveFunc :: DFD -> [([Either DNode DNode], Either DNode [DNode])] -> String
+renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
 renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
     res = unlines [ --Synchronous logic
                     printf "module dfd_%i(" resID,
