@@ -165,7 +165,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         "output done,",
                         "output recurse,",
                         unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
-                        unlines . map (renderArg "output" "outputArg" False ",") $ zip [0..] args,
+                        unlines . map (renderArg "output" "outArg" False ",") $ zip [0..] args,
                         printf "output [7:0] result",
                         ");",
                         "",
