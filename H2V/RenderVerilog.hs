@@ -84,17 +84,17 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 --Render combinatorial functions.
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
-renderFunc dfd@(DFD resID name args _ _ root)
+renderFunc dfd@(DFD dfdID name args _ _ root)
     | fCalls dfd dfd = renderRecursiveFunc dfd $ recursiveCases dfd
-    | otherwise      = unlines [printf "module dfd_%i(" resID,
+    | otherwise      = unlines [printf "module dfd_%i(" dfdID,
                                 "input clock, input ready, output done,",
                                 printf "//%s (%i args)" name $ length args,
                                 unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
-                                printf "output [7:0] node_%i" resID,
+                                "output [7:0] result",
                                 ");",
                                 "assign done = ready;",
                                 concatMap snd . uniq $ renderNode root,
-                                printf "assign node_%i = node_%i;" resID (nodeID root),
+                                printf "assign result = node_%i;" $ nodeID root,
                                 "endmodule\n"
                                ]
 
@@ -107,9 +107,9 @@ renderFunc dfd@(DFD resID name args _ _ root)
 --structure: input -> comb logic -> registers -> comb logic ...
 --NOTE: The 'combinatorial' logic may include calls to synchronous functions, so it's not actually combinatorial.
 renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
-renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
+renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     res = unlines [ --Synchronous logic
-                    printf "module dfd_%i(" resID,
+                    printf "module dfd_%i(" dfdID,
                     indent [
                         printf "//%s (%i args)" name $ length args,
                         "input clock,",
@@ -129,7 +129,7 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
                         let
                             inArgs   = unlines . map (renderArg "" "inArg"   False ",") $ zip [0..] args
                             nextArgs = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
-                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" resID inArgs nextArgs,
+                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs nextArgs,
                         "",
 
                         "always @(posedge clock) begin",
@@ -157,7 +157,7 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
                     "endmodule\n",
 
                     --Combinatorial logic
-                    printf "module dfd_%i_cmb(" resID,
+                    printf "module dfd_%i_cmb(" dfdID,
                     indent [
                         printf "//Input args: %s (%i args)" name $ length args,
                         "input clock,",
@@ -166,7 +166,7 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
                         "output recurse,",
                         unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
                         unlines . map (renderArg "output" "outputArg" False ",") $ zip [0..] args,
-                        printf "output [7:0] node_%i" resID,
+                        printf "output [7:0] result",
                         ");",
                         "",
 
