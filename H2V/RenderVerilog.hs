@@ -89,7 +89,7 @@ renderFunc dfd@(DFD resID name args _ _ root)
     | otherwise      = unlines [printf "module dfd_%i(" resID,
                                 "input clock, input ready, output done,",
                                 printf "//%s (%i args)" name $ length args,
-                                joinMap ", " (renderArg "input" "node" True "") $ zip [0..] args,
+                                unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
                                 printf "output [7:0] node_%i" resID,
                                 ");",
                                 "assign done = ready;",
@@ -112,13 +112,13 @@ renderRecursiveFunc (DFD resID name args _ _ root) recCases = res where
                     printf "module dfd_%i(" resID,
                     indent [
                         printf "//%s (%i args)" name $ length args,
-                        "input clock;",
-                        "input ready;",
-                        "output reg done;",
+                        "input clock,",
+                        "input ready,",
+                        "output reg done,",
 
-                        unlines $ map (renderArg "input" "inArg" False ";") (zip [0..] args),
+                        unlines $ map (renderArg "input" "inArg" False ",") (zip [0..] args),
 
-                        "output [7:0] result;",
+                        "output [7:0] result",
                         ");",
                         "",
                         "wire advance, recurse;",
