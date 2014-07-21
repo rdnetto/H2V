@@ -162,21 +162,30 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         printf "//Input args: %s (%i args)" name $ length args,
                         "input clock,",
                         "input ready,",
-                        "output done,",
-                        "output recurse,",
+                        "output reg done,",
+                        "output reg recurse,",
                         unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
-                        unlines . map (renderArg "output" "outArg" False ",") $ zip [0..] args,
-                        printf "output [7:0] result",
+                        unlines . map (renderArg "output reg" "outArg" False ",") $ zip [0..] args,
+                        printf "output reg [7:0] result",
                         ");",
                         "",
 
                         --Define valid_%i, ready_%i, done_%i for each case
                         "//Control signals",
-                        "assign done = ready;",                                 --TODO: implement
                         concatMap defineRecCase $ zip [0..] recCases,
 
                         --Muxing logic
-                        "always @(posedge (clock & ready)) begin",
+                        let
+                            clause :: (Int, RecursiveCase) -> String
+                            clause (i, rCase)
+                                | isRecursive rCase = commonLine ++ outArgs
+                                | otherwise         = commonLine ++ printf "result_%i" i
+                                where
+                                commonLine = printf "valid_%i or done_%i or " i i
+                                outArgs = joinMap " or " (printf "outArg_%i_%i" i) [0 .. length args - 1]
+
+                        in printf "always @(%s) begin" $ joinMap " or " clause $ zip [0..] recCases,
+
                         indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
                         "end"
                     ],
@@ -191,6 +200,11 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
             printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
             printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
             printf "assign done_%i = 1;" i,                                 --TODO: set this appropriately
+
+            if isRecursive rCase
+                then (unlines . zipWith (setArg i) [0..]) (recArgs rCase)
+                else printf "wire [7:0] result_%i;\nassign result_%i = node_%i;" i i (nodeID . baseRoot $ rCase),
+
             if isRecursive rCase
                 then concatMap snd . uniq $ concatMap renderNode $ recArgs rCase
                 else concatMap snd . uniq $ renderNode $ baseRoot rCase
@@ -199,26 +213,32 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     boolNode (Left  n) = printf "~node_%i" $ nodeID n
     boolNode (Right n) = printf  "node_%i" $ nodeID n
 
+    --i is the arg index, j is the recursive case index, a is the node
+    setArg :: Int -> Int -> DNode -> String
+    setArg j i a = printf "wire [7:0] outArg_%i_%i;\nassign outArg_%i_%i = node_%i;" j i j i $ nodeID a
+
     --multiplexor logic
     selectRecCase :: (Int, RecursiveCase) -> String
     selectRecCase (i, rCase) = unlines [
                                         printf "if(valid_%i) begin" i,
                                         indent [
-                                            printf "recurse <= %i;" $ fromEnum $ isRecursive rCase,
-                                            printf "done <= done_%i;" i,
+                                            printf "recurse = %i;" $ fromEnum $ isRecursive rCase,
+                                            printf "done = done_%i;" i,
+
                                             let
-                                                setRes = printf "result <= node_%i;\n" $ nodeID . baseRoot $ rCase
+                                                setRes = printf "result = result_%i;\n" i
                                             in if isRecursive rCase
-                                                then ("result <= 8'hXX;\n" ++) $ (unlines . zipWith setArg [0..]) (recArgs rCase)
+                                                then ("result = 8'hXX;\n" ++) $ (concatMap (selectArg i) [0 .. length args - 1])
                                                 else (setRes ++) $ (concatMap nullArg [0 .. length args - 1])
                                         ],
                                         "end"
                                    ] where
         nullArg :: Int -> String
-        nullArg i  = printf "outArg_%i <= 8'hXX;\n" i
+        nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
-        setArg :: Int -> DNode -> String
-        setArg i a = printf "outArg_%i <= node_%i;\n" i $ nodeID a
+        --i is the arg index, j is the recursive case index
+        selectArg :: Int -> Int -> String
+        selectArg j i = printf "outArg_%i = outArg_%i_%i;\n" j j i
 
 
 --Defines an argument to a Verilog module.
