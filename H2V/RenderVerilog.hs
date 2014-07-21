@@ -180,7 +180,18 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 
                         --Muxing logic
                         "always @(*) begin",
-                        indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
+                        indent . lines . concatMap ((++ "else ") . selectRecCase) $ zip [0..] recCases,
+                        indent [
+                        "begin",
+                        indent [
+                                "//This should never happen, but is needed to remove latches",
+                                "recurse = 1'bX;",
+                                "done = 1'bX;",
+                                "result = 8'dX;"
+                            ],
+                            indent . lines $ concatMap nullArg [0 .. length args - 1],
+                            "end"
+                        ],
                         "end"
                     ],
                     "endmodule\n"
@@ -230,13 +241,13 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                                         ],
                                         "end"
                                    ] where
-        nullArg :: Int -> String
-        nullArg i  = printf "outArg_%i = 8'hXX;\n" i
-
         --i is the arg index, j is the recursive case index
         selectArg :: Int -> Int -> String
         selectArg j i = printf "outArg_%i = outArg_%i_%i;\n" j j i
 
+--Helper method for removing latches
+nullArg :: Int -> String
+nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
 --Defines an argument to a Verilog module.
 --  io: the storage class. e.g. "input"/"output". Type will be omitted if storage class is blank.
