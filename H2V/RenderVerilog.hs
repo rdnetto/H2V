@@ -255,7 +255,13 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 --  (i, (ai, t): i is the arg index, ai is the node ID, t is the type
 --  tail: a string to append to the end of the result. Useful for semicolons, etc.
 renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
-renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io (if io == "" then "" else vType t) prefix i tail
+renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io hwType prefix index tail where
+    hwType = if io == ""
+             then ""
+             else vType t
+    index = if useNodeId
+            then argID
+            else i
 
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return (nodeID, res) where
