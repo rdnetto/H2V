@@ -179,17 +179,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         "",
 
                         --Muxing logic
-                        let
-                            clause :: (Int, RecursiveCase) -> String
-                            clause (i, rCase)
-                                | isRecursive rCase = commonLine ++ outArgs
-                                | otherwise         = commonLine ++ printf "result_%i" i
-                                where
-                                commonLine = printf "valid_%i or done_%i or " i i
-                                outArgs = joinMap " or " (printf "outArg_%i_%i" i) [0 .. length args - 1]
-
-                        in printf "always @(%s) begin" $ joinMap " or " clause $ zip [0..] recCases,
-
+                        "always @(*) begin",
                         indent . lines . joinMap " else " selectRecCase $ zip [0..] recCases,
                         "end"
                     ],
