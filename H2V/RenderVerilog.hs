@@ -136,12 +136,15 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         indent [
                             "if(ready ^ running)",
                             "\trunning <= ready;",
+                            "",
+
                             "if(ready & ~running) begin",
                             --nextArgs <= inArgs
                             let
                                 f i = printf "%s_%i <= %s_%i;" "nextArg" i "inArg" i
                             in  indent $ map f [0 .. length args - 1],
                             "end",
+                            "",
 
                             "if(running) begin",
                             "\tdone <= advance & ~recurse;",
