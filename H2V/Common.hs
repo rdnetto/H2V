@@ -60,3 +60,9 @@ isLeft (Right _) = False
 isRight :: Either a b -> Bool
 isRight (Left _) = False
 isRight (Right _) = True
+
+both :: [Either a a] -> [a]
+both = map f where
+    f (Left a)  = a
+    f (Right a) = a
+

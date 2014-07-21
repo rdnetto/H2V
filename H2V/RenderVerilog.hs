@@ -174,8 +174,9 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         "",
 
                         --Define valid_%i, ready_%i, done_%i for each case
-                        "//Control signals",
-                        concatMap defineRecCase $ zip [0..] recCases,
+                        "//Control signals & logic",
+                        concatMap snd . uniq $ concatMap defineRecCase $ zip [0..] recCases,
+                        "",
 
                         --Muxing logic
                         let
@@ -197,8 +198,9 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 
     --Define control signals for a recursive case
     --TODO: assuming that the logic for selecting the case is combinatorial - need to add explicit check for this
-    defineRecCase :: (Int, RecursiveCase) -> String
-    defineRecCase (i, rCase) = unlines [
+    defineRecCase :: (Int, RecursiveCase) -> [VNodeDef]
+    defineRecCase (i, rCase) = (-i, core) : vNodes ++ auxNodes where
+        core = unlines [
             printf "wire valid_%i, ready_%i, done_%i;" i i i,
             printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
             printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
@@ -206,12 +208,14 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 
             if isRecursive rCase
                 then (unlines . zipWith (setArg i) [0..]) (recArgs rCase)
-                else printf "wire [7:0] result_%i;\nassign result_%i = node_%i;" i i (nodeID . baseRoot $ rCase),
+                else printf "wire [7:0] result_%i;\nassign result_%i = node_%i;" i i (nodeID . baseRoot $ rCase)
+            ]
 
-            if isRecursive rCase
-                then concatMap snd . uniq $ concatMap renderNode $ recArgs rCase
-                else concatMap snd . uniq $ renderNode $ baseRoot rCase
-        ] where
+        vNodes = concatMap renderNode . both $ recConds rCase
+        auxNodes = if isRecursive rCase
+                   then concatMap renderNode $ recArgs rCase
+                   else renderNode $ baseRoot rCase
+
     boolNode :: Either DNode DNode -> String
     boolNode (Left  n) = printf "~node_%i" $ nodeID n
     boolNode (Right n) = printf  "node_%i" $ nodeID n
