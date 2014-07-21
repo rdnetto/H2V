@@ -127,9 +127,9 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         "",
 
                         let
-                            inArgs   = unlines . map (renderArg "" "inArg"   False ",") $ zip [0..] args
-                            nextArgs = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
-                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs nextArgs,
+                            inArgs  = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
+                            outArgs = unlines . map (renderArg "" "outArg"  False ",") $ zip [0..] args
+                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
                         "",
 
                         "always @(posedge clock) begin",
