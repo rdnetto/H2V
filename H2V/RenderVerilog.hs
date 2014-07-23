@@ -241,9 +241,9 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                                         ],
                                         "end"
                                    ] where
-        --i is the arg index, j is the recursive case index
+        --outArg_i_j is argument j for recursive case i; recursive case is innermost
         selectArg :: Int -> Int -> String
-        selectArg j i = printf "outArg_%i = outArg_%i_%i;\n" j j i
+        selectArg i j = printf "outArg_%i = outArg_%i_%i;\n" j i j
 
 --Helper method for removing latches
 nullArg :: Int -> String
