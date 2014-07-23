@@ -159,6 +159,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         "wire advance, recurse;",
                         "reg running;",
                         unlines $ map (renderArg "reg" "nextArg" False ";") (zip [0..] args),
+                        unlines $ map (renderArg "wire" "outArg" False ";") (zip [0..] args),
                         "",
 
                         let
