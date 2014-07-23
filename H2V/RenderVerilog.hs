@@ -121,7 +121,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         let
                             inArgs  = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
                             outArgs = unlines . map (renderArg "" "outArg"  False ",") $ zip [0..] args
-                        in printf "dfd_%i_cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
+                        in printf "dfd_%i_cmb cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
                         "",
 
                         "always @(posedge clock) begin",
@@ -273,7 +273,7 @@ renderNode (DFunctionCall appID f args)
     | otherwise       = aDefs ++ return (appID, res)
     where
         res =  printf "wire %s node_%i;\n" (vType $ returnType f) appID                     --BUG: there's a header here...
-            ++ printf "dfd_%i(%s node_%i);\n" (dfdID f) (concatMap argEdge args) appID
+            ++ printf "dfd_%i fcall_%i(%s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
         aDefs = concatMap renderNode args
 
         argEdge :: DNode -> String
