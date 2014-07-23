@@ -8,16 +8,8 @@ import Text.Printf
 import Common
 import DfdDef
 
---BUG: linking is incomplete; there are still function headers in the DFD. They seem to be for fib' (recursive case) only...
+--TODO: need to implement ready/done signals
 
---QUESTION: How do we handle recursive functions in a sane manner?
---We need special logic for them since the tail-calls will (probably) be defined using their headers.
---We need to mark them as different, because they're generated differently
---
---SOLUTION:
---Don't need to mark them if we respond immediately on detection
---Can detect non-mutual case (i.e. a single function) using dmap
---
 --IDEA: implement closure support using partial application. This simplifies rewriting application, and issues with nested closures
 
 --If there is an (undirected) loop in the graph, all nodes above it are defined and assigned multiple times.
