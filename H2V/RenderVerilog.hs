@@ -86,7 +86,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                 "output [7:0] result",
                                 ");",
                                 "assign done = ready;",
-                                concatMap snd . uniq $ renderNode root,
+                                concatNodes $ renderNode root,
                                 printf "assign result = node_%i;" $ nodeID root,
                                 "endmodule\n"
                                ]
@@ -117,7 +117,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 
                         --Define valid_%i, ready_%i, done_%i for each case
                         "//Control signals & logic",
-                        concatMap snd . uniq $ concatMap defineRecCase $ zip [0..] recCases,
+                        concatNodes $ concatMap defineRecCase $ zip [0..] recCases,
                         "",
 
                         --Muxing logic
@@ -292,6 +292,10 @@ renderBuiltin resID (BinaryOp op) (a0:a1:[]) = (resID, res) where
 renderBuiltin resID Ternary (cond:tExp:fExp:[]) = (resID, res) where
     res =  printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
         ++ printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
+
+--Helper function for extracting the contents of VNodeDefs
+concatNodes :: [VNodeDef] -> String
+concatNodes = concatMap snd . uniq
 
 --Converts a Haskell type to a Verilog type (i.e. a bus)
 vType :: DType -> String
