@@ -9,6 +9,7 @@ import Common
 import DfdDef
 
 --TODO: need to implement ready/done signals
+--TODO: Modelsim requires modules to be defined before they are used. Need to adjust the DFD generation code to handle this...
 
 --IDEA: implement closure support using partial application. This simplifies rewriting application, and issues with nested closures
 
@@ -100,7 +101,44 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
 --NOTE: The 'combinatorial' logic may include calls to synchronous functions, so it's not actually combinatorial.
 renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
 renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
-    res = unlines [ --Synchronous logic
+    res = unlines [ --Combinatorial logic
+                    printf "module dfd_%i_cmb(" dfdID,
+                    indent [
+                        printf "//Input args: %s (%i args)" name $ length args,
+                        "input clock,",
+                        "input ready,",
+                        "output reg done,",
+                        "output reg recurse,",
+                        unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
+                        unlines . map (renderArg "output reg" "outArg" False ",") $ zip [0..] args,
+                        printf "output reg [7:0] result",
+                        ");",
+                        "",
+
+                        --Define valid_%i, ready_%i, done_%i for each case
+                        "//Control signals & logic",
+                        concatMap snd . uniq $ concatMap defineRecCase $ zip [0..] recCases,
+                        "",
+
+                        --Muxing logic
+                        "always @(*) begin",
+                        indent . lines . concatMap ((++ "else ") . selectRecCase) $ zip [0..] recCases,
+                        indent [
+                        "begin",
+                        indent [
+                                "//This should never happen, but is needed to remove latches",
+                                "recurse = 1'bX;",
+                                "done = 1'bX;",
+                                "result = 8'dX;"
+                            ],
+                            indent . lines $ concatMap nullArg [0 .. length args - 1],
+                            "end"
+                        ],
+                        "end"
+                    ],
+                    "endmodule\n",
+
+                    --Synchronous logic
                     printf "module dfd_%i(" dfdID,
                     indent [
                         printf "//%s (%i args)" name $ length args,
@@ -146,43 +184,6 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                             in  indent $ map f [0 .. length args - 1],
                             "end else",
                             "\tdone <= 0;"
-                        ],
-                        "end"
-                    ],
-                    "endmodule\n",
-
-                    --Combinatorial logic
-                    printf "module dfd_%i_cmb(" dfdID,
-                    indent [
-                        printf "//Input args: %s (%i args)" name $ length args,
-                        "input clock,",
-                        "input ready,",
-                        "output reg done,",
-                        "output reg recurse,",
-                        unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
-                        unlines . map (renderArg "output reg" "outArg" False ",") $ zip [0..] args,
-                        printf "output reg [7:0] result",
-                        ");",
-                        "",
-
-                        --Define valid_%i, ready_%i, done_%i for each case
-                        "//Control signals & logic",
-                        concatMap snd . uniq $ concatMap defineRecCase $ zip [0..] recCases,
-                        "",
-
-                        --Muxing logic
-                        "always @(*) begin",
-                        indent . lines . concatMap ((++ "else ") . selectRecCase) $ zip [0..] recCases,
-                        indent [
-                        "begin",
-                        indent [
-                                "//This should never happen, but is needed to remove latches",
-                                "recurse = 1'bX;",
-                                "done = 1'bX;",
-                                "result = 8'dX;"
-                            ],
-                            indent . lines $ concatMap nullArg [0 .. length args - 1],
-                            "end"
                         ],
                         "end"
                     ],
