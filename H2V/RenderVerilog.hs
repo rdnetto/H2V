@@ -15,8 +15,13 @@ import DfdDef
 
 --If there is an (undirected) loop in the graph, all nodes above it are defined and assigned multiple times.
 --Therefore, we tag each node definition with a UID, to eliminate duplicate definitions.
+--We store the definition and assignment separately, because Modelsim requires the definition to precede all uses.
 --This functional approach is cleaner, but less efficient than the monadic/stateful approach.
-type VNodeDef = (NodeId, String)
+data VNodeDef = VNodeDef{
+                    vNodeId :: NodeId,
+                    vDef :: String,
+                    vAssign :: String
+                }
 
 --A tail-recursive DFD will be a tree of IFs, where each leaf is a recursive call or a non-recursive expression.
 --Returns a list of 2-tuples representing each leaf.
@@ -193,17 +198,23 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     --Define control signals for a recursive case
     --TODO: assuming that the logic for selecting the case is combinatorial - need to add explicit check for this
     defineRecCase :: (Int, RecursiveCase) -> [VNodeDef]
-    defineRecCase (i, rCase) = (-i, core) : vNodes ++ auxNodes where
-        core = unlines [
-            printf "wire valid_%i, ready_%i, done_%i;" i i i,
-            printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
-            printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
-            printf "assign done_%i = 1;" i,                                 --TODO: set this appropriately
+    defineRecCase (i, rCase) = (VNodeDef (-i) defs assigns) : vNodes ++ auxNodes where
+        defs = unlines [
+                    printf "wire valid_%i, ready_%i, done_%i;" i i i,
+                    outDef
+                ]
 
-            if isRecursive rCase
-                then (unlines . zipWith (setArg i) [0..]) (recArgs rCase)
-                else printf "wire [7:0] result_%i;\nassign result_%i = node_%i;" i i (nodeID . baseRoot $ rCase)
-            ]
+        assigns = unlines [
+                    printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
+                    printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
+                    printf "assign done_%i = 1;" i,                                 --TODO: set this appropriately
+                    outAss
+                ]
+
+        (outDef, outAss) = if isRecursive rCase
+                           then map2 unlines unlines . splitTuple . zipWith (setArg i) [0..] $ recArgs rCase
+                           else (printf "wire [7:0] result_%i;" i,
+                                 printf "assign result_%i = node_%i;" i (nodeID . baseRoot $ rCase))
 
         vNodes = concatMap renderNode . both $ recConds rCase
         auxNodes = if isRecursive rCase
@@ -215,8 +226,10 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     boolNode (Right n) = printf  "node_%i" $ nodeID n
 
     --i is the arg index, j is the recursive case index, a is the node
-    setArg :: Int -> Int -> DNode -> String
-    setArg j i a = printf "wire [7:0] outArg_%i_%i;\nassign outArg_%i_%i = node_%i;" j i j i $ nodeID a
+    setArg :: Int -> Int -> DNode -> (String, String)
+    setArg j i a = (def, ass) where
+        def = printf "wire [7:0] outArg_%i_%i;" j i
+        ass = printf "assign outArg_%i_%i = node_%i;" j i $ nodeID a
 
     --multiplexor logic
     selectRecCase :: (Int, RecursiveCase) -> String
@@ -258,44 +271,54 @@ renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io h
             else i
 
 renderNode :: DNode -> [VNodeDef]
-renderNode (DLiteral nodeID value) = return (nodeID, res) where
-    res =  printf "wire %s node_%i;\n" (vType UndefinedType) nodeID
-        ++ printf "assign node_%i = %i;\n" nodeID value
+renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass where
+    def = printf "wire %s node_%i;\n" (vType UndefinedType) nodeID
+    ass = printf "assign node_%i = %i;\n" nodeID value
 
 renderNode (DVariable _ _ Nothing) = []                                     --arguments are defined as part of the function
 
-renderNode (DVariable varID t (Just val)) = valDef ++ return (varID, res) where
+renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass) where
     valDef = renderNode val
-    res =  printf "wire %s node_%i;\n" (vType t) varID
-        ++ printf "assign node_%i = node_%i;\n" varID (nodeID val)
+    def = printf "wire %s node_%i;\n" (vType t) varID
+    ass = printf "assign node_%i = node_%i;\n" varID (nodeID val)
 
 renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
-    | otherwise       = aDefs ++ return (appID, res)
+    | otherwise       = aDefs ++ return (VNodeDef appID def ass)
     where
-        res =  printf "wire %s node_%i;\n" (vType $ returnType f) appID                     --BUG: there's a header here...
-            ++ printf "dfd_%i fcall_%i(%s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
+        --TODO: connect ready/done signals
+        def = printf "wire %s node_%i;\n" (vType $ returnType f) appID                     --BUG: there's a header here...
+        ass = printf "dfd_%i fcall_%i(clock, 1'b1, , %s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
         aDefs = concatMap renderNode args
 
         argEdge :: DNode -> String
         argEdge a = printf "node_%i, " (nodeID a)
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
-renderBuiltin resID BitwiseNot (arg:[]) = (resID, res) where
-    res =  printf "wire %s node_%i;\n" (vType $ nodeType arg) resID
-        ++ printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
+renderBuiltin resID BitwiseNot (arg:[]) = VNodeDef resID def ass where
+    def = printf "wire %s node_%i;\n" (vType $ nodeType arg) resID
+    ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
 
-renderBuiltin resID (BinaryOp op) (a0:a1:[]) = (resID, res) where
-    res =  printf "wire %s node_%i;\n" (vType $ nodeType a0) resID          --TODO: should really use the larger of the two types
-        ++ printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
+renderBuiltin resID (BinaryOp op) (a0:a1:[]) = VNodeDef resID def ass where
+    def = printf "wire %s node_%i;\n" (vType $ nodeType a0) resID          --TODO: should really use the larger of the two types
+    ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
 
-renderBuiltin resID Ternary (cond:tExp:fExp:[]) = (resID, res) where
-    res =  printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
-        ++ printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
+renderBuiltin resID Ternary (cond:tExp:fExp:[]) = VNodeDef resID def ass where
+    def = printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
+    ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
 
 --Helper function for extracting the contents of VNodeDefs
 concatNodes :: [VNodeDef] -> String
-concatNodes = concatMap snd . uniq
+concatNodes ns = defs ++ assigns where
+    (defs, assigns) = foldl f ("", "") $ uniqV ns
+
+    --lift uniq over VNodeDef
+    uniqV :: [VNodeDef] -> [VNodeDef]
+    uniqV = map snd . uniq . map (\v -> (vNodeId v, v))
+
+    --Concatenate definitions and assignments
+    f :: (String, String) -> VNodeDef -> (String, String)
+    f (ds, as) node = (ds ++ vDef node, as ++ vAssign node)
 
 --Converts a Haskell type to a Verilog type (i.e. a bus)
 vType :: DType -> String
