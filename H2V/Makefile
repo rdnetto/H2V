@@ -7,7 +7,7 @@ PROF_FLAGS=-rtsopts -prof -auto-all
 HFLAGS=-XScopedTypeVariables -XDeriveDataTypeable -hide-package=monads-tf
 
 all:
-	ghc --make main.hs -outputdir build -o H2V $(HFLAGS) $(PROF_FLAGS)
+	ghc --make main.hs -outputdir build -o H2V $(HFLAGS)
 
 clean:
 	rm -f build/* H2V
