@@ -287,9 +287,8 @@ renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass)
     where
-        --TODO: connect ready/done signals
-        def = printf "wire %s node_%i;\n" (vType $ returnType f) appID                     --BUG: there's a header here...
-        ass = printf "dfd_%i fcall_%i(clock, 1'b1, , %s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
+        def = printf "wire %s node_%i;\n" (vType $ returnType f) appID
+        ass = printf "dfd_%i fcall_%i(clock, ready, done, %s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
         aDefs = concatMap renderNode args
 
         argEdge :: DNode -> String
