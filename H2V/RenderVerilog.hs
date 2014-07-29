@@ -208,7 +208,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
         assigns = unlines [
                     printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
                     printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
-                    printf "assign done_%i = 1;" i,                                 --TODO: set this appropriately
+                    printf "assign done_%i = %i;" i $ (fromEnum . not . isRecursive) rCase,
                     outAss
                 ]
 
