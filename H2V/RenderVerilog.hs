@@ -90,9 +90,9 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                 unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
                                 "output [7:0] result",
                                 ");",
-                                "assign done = ready;",
                                 concatNodes $ renderNode root,
                                 printf "assign result = node_%i;" $ nodeID root,
+                                printf "assign done = node_%i_done;" $ nodeID root,
                                 "endmodule\n"
                                ]
 
@@ -208,7 +208,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                     outDef
                 ]
 
-        assigns = unlines [
+        assigns = unlines [         --TODO: set ready/done
                     printf "assign valid_%i = %s;" i $ joinMap " & " boolNode $ recConds rCase,
                     printf "assign ready_%i = 1;" i,                                --treating case selection logic as combinatorial
                     printf "assign done_%i = %i;" i $ (fromEnum . not . isRecursive) rCase,
@@ -276,39 +276,66 @@ renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io h
 
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass where
-    def = printf "wire %s node_%i;\n" (vType UndefinedType) nodeID
-    ass = printf "assign node_%i = %i;\n" nodeID value
+    def = unlines [ printf "wire %s node_%i;" (vType UndefinedType) nodeID,
+                    printf "wire node_%i_done;" nodeID
+                  ]
+    ass = unlines [ printf "assign node_%i = %i;" nodeID value,
+                    printf "assign node_%i_done = 1;" nodeID
+                  ]
 
-renderNode (DVariable _ _ Nothing) = []                                     --arguments are defined as part of the function
+--argument - wire/reg is defined with function, but need to manually specify ready/done signals
+renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass where
+    def = printf "wire node_%i_done;\n" nodeID
+    ass = printf "assign node_%i_done = ready;\n" nodeID
 
 renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass) where
     valDef = renderNode val
-    def = printf "wire %s node_%i;\n" (vType t) varID
-    ass = printf "assign node_%i = node_%i;\n" varID (nodeID val)
+    def = unlines [ printf "wire %s node_%i;" (vType t) varID,
+                    printf "wire node_%i_done;" varID
+                  ]
+    ass = unlines [ printf "assign node_%i = node_%i;" varID (nodeID val),
+                    printf "assign node_%i_done = node_%i_done;" varID (nodeID val)
+                  ]
 
 renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass)
     where
-        def = printf "wire %s node_%i;\n" (vType $ returnType f) appID
-        ass = printf "dfd_%i fcall_%i(clock, ready, done, %s node_%i);\n" (dfdID f) appID (concatMap argEdge args) appID
+        def = unlines [ printf "wire %s node_%i;" (vType $ returnType f) appID,
+                        printf "wire node_%i_ready, node_%i_done;" appID appID
+                      ]
+        ass = unlines [
+                        printf "assign node_%i_ready = %s;" appID ready,
+                        printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s node_%i);\n" (dfdID f) appID appID appID aAsses appID
+                      ]
+        ready = joinMap " & " (printf "node_%i_done" . nodeID) args
         aDefs = concatMap renderNode args
+        aAsses = concatMap argEdge args
 
         argEdge :: DNode -> String
         argEdge a = printf "node_%i, " (nodeID a)
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
-renderBuiltin resID BitwiseNot (arg:[]) = VNodeDef resID def ass where
+renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
     def = printf "wire %s node_%i;\n" (vType $ nodeType arg) resID
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
+    (ds, as) = genericDone resID args
 
-renderBuiltin resID (BinaryOp op) (a0:a1:[]) = VNodeDef resID def ass where
+renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
     def = printf "wire %s node_%i;\n" (vType $ nodeType a0) resID          --TODO: should really use the larger of the two types
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
+    (ds, as) = genericDone resID args
 
-renderBuiltin resID Ternary (cond:tExp:fExp:[]) = VNodeDef resID def ass where
+renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
     def = printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
     ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
+    (ds, as) = genericDone resID args
+
+--generates ready/done signals for builtin functions
+genericDone :: NodeId -> [DNode] -> (String, String)
+genericDone resID args = (def, ass) where
+    def = printf "wire node_%i_done;\n" resID
+    ass = printf "assign node_%i_done = %s;\n" resID $ joinMap " & " (printf "node_%i_done" . nodeID) args
 
 --Helper function for extracting the contents of VNodeDefs
 concatNodes :: [VNodeDef] -> String
