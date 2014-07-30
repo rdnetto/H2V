@@ -1,0 +1,274 @@
+module dfd_57(
+	//fib' (3 args)
+	input clock,
+	input ready,
+	output reg done,
+	input [7:0] inArg_0,
+	input [7:0] inArg_1,
+	input [7:0] inArg_2,
+	output [7:0] result
+	);
+
+	wire advance, recurse;
+	reg running;
+	reg [7:0] nextArg_0;
+	reg [7:0] nextArg_1;
+	reg [7:0] nextArg_2;
+
+	dfd_57_cmb(clock, ready, advance, recurse,
+	  inArg_0,
+	  inArg_1,
+	  inArg_2,
+	  nextArg_0,
+	  nextArg_1,
+	  nextArg_2,
+	 result);
+
+	always @(posedge clock) begin
+		if(ready ^ running)
+			running <= ready;
+		if(ready & ~running) begin
+			nextArg_0 <= inArg_0;
+			nextArg_1 <= inArg_1;
+			nextArg_2 <= inArg_2;
+		end
+		if(running) begin
+			done <= advance & ~recurse;
+			nextArg_0 <= outArg_0;
+			nextArg_1 <= outArg_1;
+			nextArg_2 <= outArg_2;
+		end else
+			done <= 0;
+	end
+
+endmodule
+
+module dfd_57_cmb(
+	//Input args: fib' (3 args)
+	input clock,
+	input ready,
+	output reg done,
+	output reg recurse,
+	input [7:0] node_0,
+	input [7:0] node_1,
+	input [7:0] node_2,
+	output reg [7:0] outArg_0,
+	output reg [7:0] outArg_1,
+	output reg [7:0] outArg_2,
+	output reg [7:0] result
+	);
+
+	//Control signals
+	wire valid_0, ready_0, done_0;
+	assign valid_0 = node_62;
+	assign ready_0 = 1;
+	assign done_0 = 1;
+	wire [7:0] result_0;
+	assign result_0 = node_64;
+	wire [7:0] node_64;
+	assign node_64 = node_58;
+	
+	wire valid_1, ready_1, done_1;
+	assign valid_1 = ~node_62;
+	assign ready_1 = 1;
+	assign done_1 = 1;
+	wire [7:0] outArg_1_0;
+	 assign outArg_1_0 = node_66;
+	wire [7:0] outArg_1_1;
+	 assign outArg_1_1 = node_69;
+	wire [7:0] outArg_1_2;
+	 assign outArg_1_2 = node_70;
+	
+	wire [7:0] node_66;
+	assign node_66 = node_59;
+	wire [7:0] node_65;
+	assign node_65 = node_58;
+	wire [7:0] node_69;
+	assign node_69 = node_65 + node_66;
+	wire [7:0] node_67;
+	assign node_67 = node_60;
+	wire [7:0] node_71;
+	assign node_71 = 1;
+	wire [7:0] node_70;
+	assign node_70 = node_67 - node_71;
+	
+	always @(valid_0 or done_0 or result_0 or valid_1 or done_1 or outArg_1_0 or outArg_1_1 or outArg_1_2) begin
+		if(valid_0) begin
+			recurse = 0;
+			done = done_0;
+			result = result_0;
+			outArg_0 = 8'hXX;
+			outArg_1 = 8'hXX;
+			outArg_2 = 8'hXX;
+	
+		end
+		 else if(valid_1) begin
+			recurse = 1;
+			done = done_1;
+			result = 8'hXX;
+			outArg_1 = outArg_1_0;
+			outArg_1 = outArg_1_1;
+			outArg_1 = outArg_1_2;
+	
+		end
+	end
+
+endmodule
+
+module dfd_4(
+input clock, input ready, output done,
+//fib (1 args)
+input [7:0] node_0,
+
+output [7:0] result
+);
+assign done = ready;
+wire [7:0] node_73;
+assign node_73 = 0;
+wire [7:0] node_74;
+assign node_74 = 1;
+wire [7:0] node_56;
+assign node_56 = node_55;
+wire [7:0] node_72;
+dfd_57(node_73, node_74, node_56,  node_72);
+
+assign result = node_72;
+endmodule
+
+module dfd_3(
+input clock, input ready, output done,
+//f4 (1 args)
+input [7:0] node_0,
+
+output [7:0] result
+);
+assign done = ready;
+wire [7:0] node_45;
+assign node_45 = node_44;
+wire [7:0] node_48;
+assign node_48 = 0;
+wire [7:0] node_47;
+assign node_47 = node_45 < node_48;
+wire [7:0] node_49;
+assign node_49 = 0;
+wire [7:0] node_52;
+assign node_52 = 0;
+wire [7:0] node_51;
+assign node_51 = node_45 > node_52;
+wire [7:0] node_53;
+assign node_53 = 1;
+wire [7:0] node_54;
+assign node_54 = 2;
+wire [7:0] node_50;
+assign node_50 = node_51 ? node_53 : node_54;
+wire [7:0] node_46;
+assign node_46 = node_47 ? node_49 : node_50;
+
+assign result = node_46;
+endmodule
+
+module dfd_2(
+input clock, input ready, output done,
+//f3 (1 args)
+input [7:0] node_0,
+
+output [7:0] result
+);
+assign done = ready;
+wire [7:0] node_34;
+assign node_34 = 0;
+wire [7:0] node_33;
+assign node_33 = node_31 == node_34;
+wire [7:0] node_35;
+assign node_35 = 0;
+wire [7:0] node_36;
+assign node_36 = node_31;
+wire [7:0] node_39;
+assign node_39 = 0;
+wire [7:0] node_38;
+assign node_38 = node_36 < node_39;
+wire [7:0] node_41;
+assign node_41 = 0;
+wire [7:0] node_42;
+assign node_42 = 1;
+wire [7:0] node_40;
+assign node_40 = node_41 - node_42;
+wire [7:0] node_43;
+assign node_43 = 1;
+wire [7:0] node_37;
+assign node_37 = node_38 ? node_40 : node_43;
+wire [7:0] node_32;
+assign node_32 = node_33 ? node_35 : node_37;
+
+assign result = node_32;
+endmodule
+
+module dfd_1(
+input clock, input ready, output done,
+//f1 (1 args)
+input [7:0] node_0,
+
+output [7:0] result
+);
+assign done = ready;
+wire [7:0] node_20;
+assign node_20 = node_19;
+wire [7:0] node_23;
+assign node_23 = 2;
+wire [7:0] node_24;
+assign node_24 = node_23;
+wire [7:0] node_26;
+assign node_26 = 2;
+wire [7:0] node_25;
+assign node_25 = node_24 + node_26;
+wire [7:0] node_27;
+assign node_27 = node_25;
+wire [7:0] node_21;
+assign node_21 = 1;
+wire [7:0] node_22;
+assign node_22 = node_21;
+wire [7:0] node_28;
+assign node_28 = node_27 - node_22;
+wire [7:0] node_29;
+assign node_29 = node_28;
+wire [7:0] node_30;
+assign node_30 = node_20 + node_29;
+
+assign result = node_30;
+endmodule
+
+module dfd_0(
+input clock, input ready, output done,
+//f (4 args)
+input [7:0] node_0,
+input [7:0] node_1,
+input [7:0] node_2,
+input [7:0] node_3,
+
+output [7:0] result
+);
+assign done = ready;
+wire [7:0] node_10;
+assign node_10 = node_6;
+wire [7:0] node_13;
+assign node_13 = node_10 * node_10;
+wire [7:0] node_14;
+assign node_14 = node_13;
+wire [7:0] node_9;
+assign node_9 = node_5;
+wire [7:0] node_17;
+assign node_17 = node_14 * node_9;
+wire [7:0] node_11;
+assign node_11 = node_7;
+wire [7:0] node_18;
+assign node_18 = node_11 * node_9;
+wire [7:0] node_16;
+assign node_16 = node_17 + node_18;
+wire [7:0] node_12;
+assign node_12 = node_8;
+wire [7:0] node_15;
+assign node_15 = node_16 + node_12;
+
+assign result = node_15;
+endmodule
+
