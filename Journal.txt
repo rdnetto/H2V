@@ -1,3 +1,48 @@
+================================================================================
+Wednesday 30 July 2014
+Simulated and debugged Fibonacci generator test case (see Functional-Sim.vwf). Now working, apart from some minor issues.
+There is currently a bug where the value of the done signal lags the expected value by 1 clock cycle.
+There also seems to be some slight weirdness with the function not resetting correctly.
+
+Using ModelSim via Quartus' Simulation Waveform Editor, since it is *much* easier to use.
+
+
+Git commits:
+ad279f2  2014-07-30 23:36:26 +1000  Updated journal uploading script
+09688ed  2014-07-30 23:32:35 +1000  Added Quartus project used for simulations
+445442f  2014-07-29 16:25:48 +1000  Partially implement ready/done signalling. Need to do this for the cases of a recursive function later.
+f276e78  2014-07-29 15:17:18 +1000  BUG: We were performing an extra iteration since done lagged by one cycle (Also, we weren't ceasing iteration at all).
+d7031be  2014-07-29 15:10:47 +1000  BUG: ready/done signals were disconnected
+fba63f7  2014-07-29 15:10:27 +1000  BUG: If we're not recursing, we need to set done to stop iterating
+fc640da  2014-07-29 11:45:14 +1000  Makefile: disabled profiling
+cf86b06  2014-07-23 22:13:07 +1000  Modelsim assumes implicit nets are 1 bit wide, so we need to define them explicitly.
+7a42a20  2014-07-23 22:02:48 +1000  Refactored VNodeDef into a record, since we need to store definitions and assignments seperately.
+aeb767b  2014-07-23 20:59:03 +1000  Refactored VNode extraction logic into a separate function
+1a71de9  2014-07-23 20:45:45 +1000  Modelsim requires modules be defined before they are used This corrects the generation of recursive functions. Still need to fix the generation order of regular functions
+94f020a  2014-07-23 20:32:28 +1000  Modelsim treats unnamed modules as an error, so give them names.
+d67100b  2014-07-23 20:39:50 +1000  Removed obsolete comment
+2e35e6d  2014-07-23 18:34:10 +1000  BUG FIX: mixed up indices
+b43232a  2014-07-21 22:15:52 +1000  Added an explicit default branch with don't cares to prevent latches from being inferred.
+3a988dd  2014-07-21 21:58:33 +1000  Modified code to use an implicit sensitivity list (less error prone).
+e404804  2014-07-21 21:34:18 +1000  BUG FIX: wasn't actually checking the value of useNodeId
+7948f4e  2014-07-21 21:33:48 +1000  BUG FIX: different recursive cases may share DFD subgraphs, so we need to return VNodeDefs
+28aa0fd  2014-07-21 20:10:42 +1000  Added some newlines for readability
+328327c  2014-07-21 19:57:17 +1000  BUG FIX: mixed up the input and output args
+3e9e6cc  2014-07-21 19:53:17 +1000  Corrected generated combinatorial modules so that they were actually combinatorial (i.e. not clocked). Note that the reg keyword must be used for any output variable set via an always block (but not via assign). Also refactored the muxing logic to be cleaner.
+3306835  2014-07-21 19:05:57 +1000  Corrected typo
+982f22b  2014-07-21 19:00:43 +1000  BUG FIX: DFD and Node IDs exist in separate namespaces, so we can't just use the DFD ID to describe the result node
+fba9dae  2014-07-21 18:52:04 +1000  BUG FIX: mixed up semicolons and commas
+a388b5a  2014-07-15 23:01:21 +1000  Corrected formatting errors in generated Verilog
+d561871  2014-07-15 23:00:55 +1000  Changed Makefile's test target, since we're now focusing on Verilog
+c0c75cd  2014-07-15 21:51:57 +1000  BUG FIX: removed code performing testing for indirect recursion, since it was buggy and only used to check for error conditions.
+100c2da  2014-07-15 21:40:20 +1000  BUG FIX: mixed up which was supposed to be true
+7dd7f8d  2014-07-15 21:38:56 +1000  WIP: Added code for handling recursive cases (assumes combinatorial case selection)
+c585aa8  2014-07-15 21:37:12 +1000  Refactored Verilog rendering code to use a typedef for the recursive case record
+897147e  2014-07-15 21:35:29 +1000  Added definitions for isLeft, isRight, because GHC can't find them
+56fcb2b  2014-06-02 00:05:08 +1000  WIP
+c707988  2014-05-31 23:13:47 +1000  Implemented logic for detecting recursive functions.
+
+================================================================================
 Note: projector is 1280x1024
 There's an absolutely fantastic reference here that I should read sometime:
     http://www.jucs.org/jucs_11_7/hardware_design_and_functional/jucs_11_7_1135_1158_sheeran.pdf
