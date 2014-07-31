@@ -1,4 +1,14 @@
 ================================================================================
+Meeting notes:
+-to use Modelsim, go Tools -> Waves, add signals, then use the command 'run 1000ns'
+-need to generate a decent block diagram, which shows parallel constructs, sequential loops, etc.
+-should research pipelining DFDs
+-loop unrolling is pointless for seq logic - it's only applicable to map-reduce
+-add examples of higher order functions to journal/email to David
+
+-TODO: finish ready/done signals, higher order funcs -> lists -> DMA
+
+================================================================================
 Wednesday 30 July 2014
 Simulated and debugged Fibonacci generator test case (see Functional-Sim.vwf). Now working, apart from some minor issues.
 There is currently a bug where the value of the done signal lags the expected value by 1 clock cycle.
