@@ -149,7 +149,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         printf "//%s (%i args)" name $ length args,
                         "input clock,",
                         "input ready,",
-                        "output reg done,",
+                        "output done,",
 
                         unlines $ map (renderArg "input" "inArg" False ",") (zip [0..] args),
 
@@ -157,7 +157,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         ");",
                         "",
                         "wire advance, recurse;",
-                        "reg running;",
+                        "reg wasReady;",
                         unlines $ map (renderArg "reg" "nextArg" False ";") (zip [0..] args),
                         unlines $ map (renderArg "wire" "outArg" False ";") (zip [0..] args),
                         "",
@@ -165,20 +165,16 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                         let
                             inArgs  = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
                             outArgs = unlines . map (renderArg "" "outArg"  False ",") $ zip [0..] args
-                        in printf "dfd_%i_cmb cmb(clock, ready, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
-                        "wire nowDone;",
-                        "assign nowDone = advance & ~recurse;",
+                        in printf "dfd_%i_cmb cmb(clock, wasReady, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
+                        "assign done = ready & advance & ~recurse;",
                         "",
 
                         "always @(posedge clock) begin",
                         indent [
-                            "if(ready ^ running) begin",
-                            "\trunning <= ready;",
-                            "\tdone <= 0;",
-                            "end",
+                            "wasReady <= ready;",
                             "",
 
-                            "if(ready & ~running) begin",
+                            "if(ready & ~wasReady) begin",
                             --nextArgs <= inArgs
                             let
                                 f i = printf "%s_%i <= %s_%i;" "nextArg" i "inArg" i
@@ -186,13 +182,12 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                             "end",
                             "",
 
-                            "if(running & ~nowDone) begin",
+                            "if(wasReady & ~done) begin",
                             --nextArgs <= outArgs
                             let
                                 f i = printf "%s_%i <= %s_%i;" "nextArg" i "outArg" i
                             in  indent $ map f [0 .. length args - 1],
-                            "end",
-                            "done <= nowDone;"
+                            "end"
                         ],
                         "end"
                     ],
