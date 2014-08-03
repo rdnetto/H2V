@@ -18,6 +18,5 @@ test: all
 	cp test.v ../scratch/verilog-test/test.v
 	#================================================================================
 	dot -Tpng test.gv > test.png
-	less test.v
 
 debug: all test
