@@ -35,7 +35,7 @@ rm .discussion .footer
 lyx -e pdf docs/Requirements\ Analysis/Requirements\ Analysis.lyx
 
 cd docs/Design\ Specification/
-latexmk Design_Specification.tex
+latexmk Design_Specification.tex </dev/null
 cd -
 
 #commit changes
