@@ -1,4 +1,45 @@
 ================================================================================
+Wednesday 06 August 2014
+Fixed issue with done signal using SignalTap (couldn't get ModelSim to work).
+Attempting to get closure rewriting working before higher order functions, because they both involve the same kind of expression rewriting. Have rebased an experimental topic branch from May and making headway on it. (Compare test-master.png and test.png.)
+
+Current state of closure rewriting:
+f2c: both definition and call is correct
+f2b: redef'd correctly, missing an arg (node_4)
+f2a: some references are not being updated correctly. Also, the Graphviz rendering code is buggy
+possible issue: what if a subgraph moved into a different scope contains an expression that needs to be rewritten?
+
+Ideas for block diagram:
+-each function is a box
+-each box contains a graph representing parallelism. e.g. maps are expanded into a column
+-function calls are shown as boxes
+-all other expressions not shown, in order to simplify rendering (they're combinatorial anyway, so they can be neglected)
+
+NOTE: parallel folds require monoids. i.e. an associative function and its identity. The built-in notation for this is a pain, so we should probably define a foldP that makes it easier to do this as a one-liner.
+http://en.wikibooks.org/wiki/Haskell/Monoids
+
+How to create a Modelsim simulation:
+-right click on module -> Create Wave
+-delete the output signals; only input signals should begin with 'Edit:'
+-right click on the input signals and click Edit -> Create/Modify Waveform
+    -define the input signals. If you switch to Edit mode, you can select and invert specific parts of the signal
+-drag the output signals from the object window into wave window. They will begin with the prefix 'sim:'
+use the command 'run -all'
+-ISSUE: the output signals are shown as being undefined/'XXXXX'
+-WORKAROUND: using SignalTap instead.
+
+Git commits:
+f012700  2014-08-06 23:35:53 +1000  Modified update-journal.sh to be non-interactive.
+29301f8  2014-08-06 22:54:18 +1000  BUG FIX: we can't assume that the only nodes in the closure are variables
+c701b37  2014-05-19 19:48:10 +1000  WIP: Closure support Code is mostly complete, but needs to be debugged. Leaving on a topic branch until I have enough time to do this properly.
+d33bd20  2014-05-19 19:47:12 +1000  Function definition rewriting code
+2198b5f  2014-05-19 20:02:27 +1000  Enabled closure rewriting
+86686b6  2014-08-03 16:36:38 +1000  Added generated file to gitignore
+2eb3f49  2014-08-03 16:34:50 +1000  Added testbench module for use with SignalTap, because unlike ModelSim its actually usable.
+21caa5e  2014-08-03 16:30:42 +1000  BUG: done signal was late by one period, as it was being incorrectly clocked. Also renamed running to wasReady, since it's just ready delayed by a cycle.
+4bfe819  2014-08-03 16:24:39 +1000  Removed less invocation from makefile
+
+================================================================================
 Meeting notes:
 -to use Modelsim, go Tools -> Waves, add signals, then use the command 'run 1000ns'
 -need to generate a decent block diagram, which shows parallel constructs, sequential loops, etc.
