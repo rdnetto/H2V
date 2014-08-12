@@ -219,7 +219,7 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
 
 --generates/resolves nodes for expressions
 defineExpr :: HsExp -> NodeGen DNode
-defineExpr (HsVar (UnQual name)) = resolveNode $ fromHsName name
+defineExpr (HsVar (UnQual name)) = resolve $ fromHsName name
 defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
     return $ DLiteral nodeID $ fromIntegral val

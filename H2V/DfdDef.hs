@@ -69,6 +69,10 @@ data DNode = DLiteral{
                 functionCalled :: DFD,
                 callArgs :: [DNode]
             }
+            | DFunction{
+                nodeID :: NodeId,
+                functionCalled :: DFD
+            }
     deriving (Show, Eq)
 
 data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
@@ -164,6 +168,10 @@ instance Exception ResolutionException
 instance Show ResolutionException where
     show (ResolutionException scope name ns) = printf "Unable to resolve %s %s. Namespace:\n%s" scope name ns
 
+unwrapEither :: (Either ResolutionException a) -> a
+unwrapEither (Left e) = throw e
+unwrapEither (Right x) = x
+
 --Monadic functions
 
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
@@ -205,19 +213,36 @@ popNS :: Either (String, DNode) (String, DFD) -> NodeGen ()
 popNS (Left n) = popNodeNS n
 popNS (Right n) = popDfdNS n
 
+--resolve a token, which could be a variable or a function
+resolve :: String -> NodeGen DNode
+resolve name = do
+    nodeCase <- resolveNode_ name
+    funcCase <- resolveDFD_ name
+
+    return $ case (nodeCase, funcCase) of
+        (Right n, _) -> n
+        (_, Right f) -> DFunction (dfdID f) f
+        (Left (ResolutionException _ n1 n2), _) -> throw $ ResolutionException "node or DFD" n1 n2
+
 resolveNode :: String -> NodeGen DNode
-resolveNode name = do
-    ns <- liftM nodeNS $ get
-    return $ case filter (\(n, _) -> n == name) ns of
-        (_, x):_ -> x
-        [] -> throw $ ResolutionException "node" name (show $ map fst ns)
+resolveNode n = resolveNode_ n >>= (\x -> return $ unwrapEither x)
 
 resolveDFD :: String -> NodeGen DFD
-resolveDFD name = do
+resolveDFD n = resolveDFD_ n >>= (\x -> return $ unwrapEither x)
+
+resolveNode_ :: String -> NodeGen (Either ResolutionException DNode)
+resolveNode_ name = do
+    ns <- liftM nodeNS $ get
+    return $ case filter (\(n, _) -> n == name) ns of
+        (_, x):_ -> Right x
+        [] -> Left $ ResolutionException "node" name (show $ map fst ns)
+
+resolveDFD_ :: String -> NodeGen (Either ResolutionException DFD)
+resolveDFD_ name = do
     ns <- liftM funcNS $ get
     return $ case filter (\(n, _) -> n == name) ns of
-              (_, x):_ -> x
-              [] -> throw $ ResolutionException "DFD" name (unlines $ map f ns) where
+              (_, x):_ -> Right x
+              [] -> Left $ ResolutionException "DFD" name (unlines $ map f ns) where
                 f (name, dfd) = printf "\t%s %s" name (if isHeader dfd
                                                        then "(header)"
                                                        else "")
