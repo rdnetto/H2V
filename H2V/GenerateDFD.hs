@@ -69,6 +69,11 @@ cleanExpr (HsInfixApp arg1 op arg2) = case op of
 cleanExpr (HsNegApp exp) = cleanExpr $ HsInfixApp (HsLit $ HsInt $ 0) (HsQVarOp $ UnQual $ HsSymbol "-") (cleanExpr exp)
 --remove parentheses, since they're redundant
 cleanExpr (HsParen exp) = cleanExpr exp
+--convert lambdas to regular functions, folding nested lambdas into a single one
+cleanExpr (HsLambda s p0 (HsLambda _ p1 e1)) = cleanExpr $ HsLambda s (p0 ++ p1) e1
+cleanExpr (HsLambda s p e) = cleanExpr $ HsLet [f] (HsVar . UnQual $ lambdaName) where
+    lambdaName = HsIdent $ printf "lambda_%s_%i:%i" (srcFilename s) (srcLine s) (srcColumn s)
+    f = HsFunBind [HsMatch s lambdaName p (HsUnGuardedRhs e) []]
 
 cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 
