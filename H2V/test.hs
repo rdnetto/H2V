@@ -22,6 +22,10 @@ f4 x
     | x > 0     = 1
     | otherwise = 2
 
+--higher order functions
+f5 x = (flip (-)) 2 7 where
+    flip f = \a -> \b -> f b a
+
 -- Test case for nested, recursive functions
 -- Returns the nth fibonnacci number
 -- Could be implemented using an infinite list, but that would be more painful to compile to Verilog
