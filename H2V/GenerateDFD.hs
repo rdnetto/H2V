@@ -152,7 +152,8 @@ createDfdHeaders (HsFunBind [HsMatch _ name _ _ _]) = do
     let res = DfdHeader rootID name'
     pushDfdNS (name', res)
     return $ Just (name', res)
-createDfdHeaders (HsPatBind _ _ _ _) = return Nothing                         --pattern bindings are CAFs, so they don't need headers
+--need to create a header for the results of higher order functions
+createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl) = createDfdHeaders $ HsFunBind [HsMatch src name [pat] rhs decl]
 createDfdHeaders d = error $ pshow d
 
 --defines a function argument. Similar to definePat, but without binding
