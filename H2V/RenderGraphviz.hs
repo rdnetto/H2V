@@ -60,6 +60,9 @@ renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
     argEdge :: (Int, DNode) -> String
     argEdge (i, a) = printf "node_%i -> node_%i [ label = \"arg_%i\" ];\n" (nodeID a) appID i
 
+renderNode (DFunction fID f) = (GNodeDef fID node ""):[] where
+    node = printf "node_%i [ label = \"Function: %s\", color=darkgreen ];\n" fID (dfdName f)
+
 extractGnode :: [GNodeDef] -> (String, String)
 extractGnode ns = (concatMap nodeDefs ns', concatMap edgeDefs ns') where
     ns' = uniqWith f ns
