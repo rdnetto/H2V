@@ -261,9 +261,8 @@ foldApp (HsApp f x) = (f, [x])
 
 --Resolves an expression into a function (DFD).
 --The expression may simply be the name of a known function, or it may be a lambda or curried expression.
---TODO: add support for lambdas, etc.
 resolveFunc :: HsExp -> NodeGen DFD
-resolveFunc (HsVar name) = resolveDFD $ fromHsQName name
+resolveFunc (HsVar name) = liftM functionCalled . resolve $ fromHsQName name
 
 --This function re-orders declarations so that their data dependencies are met.
 --This is necessary because the order of the declarations does not affect resolution; a term defined later in the list can shadow
