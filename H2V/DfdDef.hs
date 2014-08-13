@@ -47,7 +47,8 @@ data DFD = DFD{
             }
             | DfdHeader{                            --Used as a placeholder during generation
                 dfdID :: NodeId,
-                dfdName ::String
+                dfdName ::String,
+                dfdArgs :: [(NodeId, DType)]
             }
     deriving (Show, Eq)
 
@@ -81,6 +82,10 @@ data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
 -- supported data types: D_Int width. (May add fixed point support in the future)
 -- Note that Haskell types for signed and unsigned integers are Int32 and Word32
 data DType = DSInt Int | DUInt Int | DBool | UndefinedType
+            | DFunc{
+                funcArgs :: [DType],
+                funcRT :: DType
+            }
     deriving (Show, Eq)
 
 isBuiltin :: DNode -> Bool
@@ -88,7 +93,7 @@ isBuiltin (DBuiltin _ _) = True
 isBuiltin _ = False
 
 isHeader :: DFD -> Bool
-isHeader (DfdHeader _ _) = True
+isHeader (DfdHeader{}) = True
 isHeader _ = False
 
 isFunctionCall :: DNode -> Bool

@@ -147,15 +147,38 @@ bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 --DFD generation logic
 
 createDfdHeaders :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DFD))
-createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], _) = do
+createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], sig) = do
     rootID <- newId
     let name' = fromHsName name
-    let res = DfdHeader rootID name'
+
+    --convert from AST types to DTypes
+    let extractTypes (HsTypeSig _ _ (HsQualType [] t)) = toDTypes t
+
+    --assign each arg an ID
+    let assignIDs t = newId >>= \i -> return (i, t)
+
+    args <- mapM assignIDs $ maybe [] extractTypes sig
+
+    let res = DfdHeader rootID name' args
     pushDfdNS (name', res)
     return $ Just (name', res)
 --need to create a header for the results of higher order functions
 createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl, s) = createDfdHeaders (HsFunBind [HsMatch src name [pat] rhs decl], s)
 createDfdHeaders (d, _) = error $ pshow d
+
+toDTypes :: HsType -> [DType]
+toDTypes f@(HsTyFun _ _) = unfold f where
+
+    unfold :: HsType -> [DType]
+    unfold (HsTyFun t1 t2) = (toDT t1) : (unfold t2)
+    unfold t@(HsTyVar _) = return $ toDT t
+    unfold t@(HsTyCon _) = return $ toDT t
+
+    toDT :: HsType -> DType
+    toDT (HsTyVar _) = UndefinedType
+    toDT (HsTyCon _) = UndefinedType
+    toDT f@(HsTyFun _ _) = DFunc (init ts) (last ts) where
+        ts = unfold f
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
