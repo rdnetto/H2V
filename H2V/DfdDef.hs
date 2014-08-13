@@ -221,8 +221,8 @@ resolve name = do
     funcCase <- resolveDFD_ name
 
     return $ case (nodeCase, funcCase) of
-        (Right n, _) -> n
         (_, Right f) -> DFunction (dfdID f) f
+        (Right n, _) -> n
         (Left (ResolutionException _ n1 n2), _) -> throw $ ResolutionException "node or DFD" n1 n2
 
 resolveNode :: String -> NodeGen DNode
