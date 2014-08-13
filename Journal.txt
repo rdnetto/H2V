@@ -1,4 +1,31 @@
 ================================================================================
+Wednesday 13 August 2014
+Attempting to use the fledgling closure code proved unsuccessful. Closures and higher order functions are sufficiently different that they are best handled separately.
+I have decided to pass signals from functions, instead of evaluating them at compile-time. This is because compile-time evaluation is harder than originally predicted, and will make it almost impossible to handle user defined higher order functions. It is best handled as an optimization later, if necessary. This imposes the constraint that the result of a higher order function can only be called at one point in its function.
+
+I have decided to require type-signatures for higher order functions, due to syntactic ambiguity. e.g. it cannot be determined whether
+    f = foo x
+returns a value or a function without knowing the type of foo. Since introspection of foo would be difficult, it is much easier to simply require foo has a type signature. Code for processing type signatures has been implemented.
+
+Rendering of higher order functions in Verilog is currently a work in progress.
+
+Git commits:
+67bd0bc  2014-08-13 23:27:22 +1000  Revert "BUG FIX: give priority to functions" This breaks first-order functions.
+a0721e9  2014-08-13 23:17:27 +1000  Changed header generation to use information present in the type signature, if available
+8c058a7  2014-08-13 22:49:12 +1000  Added code to collect types from signatures and store them in the headers
+88fb7d9  2014-08-13 22:48:14 +1000  Added support for collecting type signatures and matching them to functions. TODO: use these to define headers and identify higher order functions
+abd2ec4  2014-08-13 21:26:03 +1000  Modified test case to explicitly use a functional alias
+4e370a9  2014-08-13 21:25:22 +1000  Added Graphviz rendering support for lambdas
+924245c  2014-08-13 21:12:29 +1000  BUG FIX: pattern bindings aren't necessarily CAFs
+2f67192  2014-08-13 21:12:01 +1000  BUG FIX: resolveFunc wasn't checking the node namespace
+f654bd0  2014-08-13 21:11:35 +1000  BUG FIX: give priority to functions This is only a short-term solution; we really should be keeping both nodes and functions in the same namespace
+e03ad1f  2014-08-13 21:09:35 +1000  Refactored defineDecl so that nodes can exist in both namespaces.
+a47e297  2014-08-12 22:09:42 +1000  Added support for lambda functions
+72b7e59  2014-08-12 22:07:35 +1000  Created resolve(), and refactored resolution logic to have pure and impure variants. Catching exceptions can only be done in the IO monad, which is complex as resolution must be performed in the NodeGen monad. Splitting the code for throwing exceptions and performing resolution fixes this.
+f76059e  2014-08-12 22:08:14 +1000  Added test case for higher order functions
+794f622  2014-08-12 20:12:30 +1000  Temporarily removed closure test case
+
+================================================================================
 Wednesday 06 August 2014
 Fixed issue with done signal using SignalTap (couldn't get ModelSim to work).
 Attempting to get closure rewriting working before higher order functions, because they both involve the same kind of expression rewriting. Have rebased an experimental topic branch from May and making headway on it. (Compare test-master.png and test.png.)
