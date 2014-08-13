@@ -45,10 +45,10 @@ data DFD = DFD{
                 isSync :: Bool,
                 dfdRoot :: DNode
             }
-            | DfdHeader{                            --Used as a placeholder during generation
+            | DfdHeader{                            --Used as a placeholder during generation. TypeInfo is args ++ return type.
                 dfdID :: NodeId,
                 dfdName ::String,
-                dfdArgs :: [(NodeId, DType)]
+                dfdTypeInfo :: Maybe ([(NodeId, DType)], DType)
             }
     deriving (Show, Eq)
 

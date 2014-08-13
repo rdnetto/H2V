@@ -157,9 +157,14 @@ createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], sig) = do
     --assign each arg an ID
     let assignIDs t = newId >>= \i -> return (i, t)
 
-    args <- mapM assignIDs $ maybe [] extractTypes sig
+    typeInfo <- ifM (return $ isJust sig)
+        (do
+            let types = extractTypes $ fromJust sig
+            args <- mapM assignIDs $ init types
+            return $ Just (args, last types)
+        ) (return Nothing)
 
-    let res = DfdHeader rootID name' args
+    let res = DfdHeader rootID name' typeInfo
     pushDfdNS (name', res)
     return $ Just (name', res)
 --need to create a header for the results of higher order functions
@@ -182,10 +187,14 @@ toDTypes f@(HsTyFun _ _) = unfold f where
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
-defineArg :: HsPat -> NodeGen (String, DNode)
-defineArg (HsPVar name) = do
+defineUntypedArg :: HsPat -> NodeGen (String, DNode)
+defineUntypedArg p@(HsPVar name) = do
     nodeID <- newId
-    let res = (fromHsName name, DVariable nodeID UndefinedType Nothing)
+    defineTypedArg p (nodeID, UndefinedType)
+
+defineTypedArg :: HsPat -> (NodeId, DType) -> NodeGen (String, DNode)
+defineTypedArg (HsPVar name) (nodeID, t) = do
+    let res = (fromHsName name, DVariable nodeID t Nothing)
     pushNodeNS res
     return res
 
@@ -225,10 +234,12 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     return $ (Just lhs, Nothing)
 
 defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
-    args <- mapM defineArg pats
-
     --use the same ID as the header. This avoids issues related to shadowing.
-    DfdHeader rootID _ <- resolveFunc $ HsVar $ UnQual name
+    DfdHeader rootID _ typeInfo <- resolveFunc $ HsVar $ UnQual name
+
+    args <- case typeInfo of
+                Nothing           -> mapM defineUntypedArg pats
+                Just (oldArgs, _) -> zipWithM defineTypedArg pats oldArgs
 
     --headers are needed in case we have recursive functions
     let decls' = matchDecls $ sortDecls decls
@@ -245,7 +256,11 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
     --id, name, returnType, isSync, root
     let name' = fromHsName name
     let args' = (flip map) args $ (\x -> (x, UndefinedType)) . nodeID . snd
-    let res = DFD rootID name' args' UndefinedType False root
+
+    let res = case typeInfo of
+                Nothing             -> DFD rootID name' args' UndefinedType False root
+                Just (oldArgs, ret) -> DFD rootID name' oldArgs ret False root
+
     pushDfdNS (name', res)
     return $ (Nothing, Just (name', res))
 
