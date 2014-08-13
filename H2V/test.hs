@@ -25,7 +25,8 @@ f4 x
 --higher order functions
 f5 x = x + (revsub 2 7) + (revsub 9 10) where
     revsub = flip (-)
-    flip f = \a -> \b -> f b a
+    flip :: (a -> b -> c) -> (b -> a -> c)
+    flip f = \a b -> f b a
 
 -- Test case for nested, recursive functions
 -- Returns the nth fibonnacci number

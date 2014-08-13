@@ -29,7 +29,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
 
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
-        let decls' = sortDecls $ map cleanDecl decls
+        let decls' = matchDecls . sortDecls $ map cleanDecl decls
         headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
 
         -- [(Maybe a, Maybe b)] -> ([Maybe a], [Maybe b]) -> ([a], [b])
@@ -93,6 +93,7 @@ cleanDecl (HsFunBind matches) = HsFunBind [res] where
     (HsMatch src name pats _ _):_ = matches
     m0 = \expr -> HsMatch src name args (HsUnGuardedRhs expr) []
     args = take (length pats) $ map HsPVar $ genArgs
+cleanDecl s@(HsTypeSig _ _ _) = s
 
 cleanDecl d = error $ "Unknown declaration: " ++ pshow d
 
@@ -145,16 +146,16 @@ bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 
 --DFD generation logic
 
-createDfdHeaders :: HsDecl -> NodeGen (Maybe (String, DFD))
-createDfdHeaders (HsFunBind [HsMatch _ name _ _ _]) = do
+createDfdHeaders :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DFD))
+createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], _) = do
     rootID <- newId
     let name' = fromHsName name
     let res = DfdHeader rootID name'
     pushDfdNS (name', res)
     return $ Just (name', res)
 --need to create a header for the results of higher order functions
-createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl) = createDfdHeaders $ HsFunBind [HsMatch src name [pat] rhs decl]
-createDfdHeaders d = error $ pshow d
+createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl, s) = createDfdHeaders (HsFunBind [HsMatch src name [pat] rhs decl], s)
+createDfdHeaders (d, _) = error $ pshow d
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
@@ -181,10 +182,10 @@ definePat (HsPVar name) value = do
 --  pop them afterwards. This is necessary so that multiple declarations which refer to each other can be handled with mapM.
 --
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
-defineDecl :: HsDecl -> NodeGen (Maybe (String, DNode), Maybe (String, DFD))
-defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
+defineDecl :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DNode), Maybe (String, DFD))
+defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     --subterms are automatically pushed on creation
-    let decls' = sortDecls decls
+    let decls' = matchDecls $ sortDecls decls
     headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
     terms <- mapM defineDecl $ decls'
 
@@ -200,14 +201,14 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     pushNodeNS lhs
     return $ (Just lhs, Nothing)
 
-defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
+defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
     args <- mapM defineArg pats
 
     --use the same ID as the header. This avoids issues related to shadowing.
     DfdHeader rootID _ <- resolveFunc $ HsVar $ UnQual name
 
     --headers are needed in case we have recursive functions
-    let decls' = sortDecls decls
+    let decls' = matchDecls $ sortDecls decls
     headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
     terms <- mapM defineDecl $ decls'
 
@@ -233,7 +234,7 @@ defineExpr (HsLit (HsInt val)) = do
     return $ DLiteral nodeID $ fromIntegral val
 
 defineExpr (HsLet decls exp) = do
-    let decls' = sortDecls decls
+    let decls' = matchDecls $ sortDecls decls
     headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
     terms <- mapM defineDecl $ decls'                       --locals are pushed on creation
 
@@ -291,15 +292,12 @@ sortDecls decls = res where
     ds = filter (/= -1) . reverse $ topSort g
     res = map (decls !!) ds
 
-    declName :: HsDecl -> String
-    declName (HsFunBind ((HsMatch _ n _ _ _):_)) = fromHsName n
-    declName (HsPatBind _ (HsPVar n) _ _) = fromHsName n
-
     --these functions are for collecting a list of functions/variables which each declaration depends on
     declDeps :: HsDecl -> [String]
     declDeps (HsPatBind _ _ rhs _) = rhsDeps rhs
     declDeps (HsFunBind ms) = concatMap f ms where
         f (HsMatch _ _ _ rhs _) = rhsDeps rhs
+    declDeps (HsTypeSig _ _ _) = []
 
     exprDeps :: HsExp -> [String]
     exprDeps (HsVar n) = return $ fromHsQName n
@@ -312,6 +310,24 @@ sortDecls decls = res where
     rhsDeps (HsUnGuardedRhs e) = exprDeps e
     rhsDeps (HsGuardedRhss gs) = concatMap f gs where
         f (HsGuardedRhs _ e1 e2) = concatMap exprDeps [e1, e2]
+
+--This function pairs type signatures to their functions
+matchDecls :: [HsDecl] -> [(HsDecl, Maybe HsDecl)]
+matchDecls decls = map findSig funcs where
+    (sigs, funcs) = partition isTypeSig decls
+
+    isTypeSig :: HsDecl -> Bool
+    isTypeSig (HsTypeSig _ _ _) = True
+    isTypeSig _ = False
+
+    findSig :: HsDecl -> (HsDecl, Maybe HsDecl)
+    findSig decl = (decl, sig) where
+        sig = find (\s -> declName decl == declName s) sigs
+
+declName :: HsDecl -> String
+declName (HsFunBind ((HsMatch _ n _ _ _):_)) = fromHsName n
+declName (HsPatBind _ (HsPVar n) _ _) = fromHsName n
+declName (HsTypeSig _ [n] _) = fromHsName n
 
 --linking logic - replaces function headers with DFDs
 
