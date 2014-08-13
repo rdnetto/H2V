@@ -31,7 +31,9 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = sortDecls $ map cleanDecl decls
         headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
-        dfds <- (liftM rights) . mapM defineDecl $ decls'
+
+        -- [(Maybe a, Maybe b)] -> ([Maybe a], [Maybe b]) -> ([a], [b])
+        (nodes, dfds) <- liftM (map2 catMaybes catMaybes . splitTuple) . mapM defineDecl $ decls'
 
         --replace headers with completed functions
         res <- mapM linkDFD $ map snd dfds
@@ -178,7 +180,7 @@ definePat (HsPVar name) value = do
 --  pop them afterwards. This is necessary so that multiple declarations which refer to each other can be handled with mapM.
 --
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
-defineDecl :: HsDecl -> NodeGen (Either (String, DNode) (String, DFD))
+defineDecl :: HsDecl -> NodeGen (Maybe (String, DNode), Maybe (String, DFD))
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
     --subterms are automatically pushed on creation
     let decls' = sortDecls decls
@@ -195,7 +197,7 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls) = do
 
     --Push term, now that we've created it. This is necessary as other terms within the same list may refer to it.
     pushNodeNS lhs
-    return $ Left lhs
+    return $ (Just lhs, Nothing)
 
 defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     args <- mapM defineArg pats
@@ -220,7 +222,7 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls]) = do
     let args' = (flip map) args $ (\x -> (x, UndefinedType)) . nodeID . snd
     let res = DFD rootID name' args' UndefinedType False root
     pushDfdNS (name', res)
-    return $ Right (name', res)
+    return $ (Nothing, Just (name', res))
 
 --generates/resolves nodes for expressions
 defineExpr :: HsExp -> NodeGen DNode
