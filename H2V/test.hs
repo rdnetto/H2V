@@ -23,7 +23,8 @@ f4 x
     | otherwise = 2
 
 --higher order functions
-f5 x = (flip (-)) 2 7 where
+f5 x = x + (revsub 2 7) + (revsub 9 10) where
+    revsub = flip (-)
     flip f = \a -> \b -> f b a
 
 -- Test case for nested, recursive functions
