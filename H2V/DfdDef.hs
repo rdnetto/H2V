@@ -100,6 +100,9 @@ isFunctionCall :: DNode -> Bool
 isFunctionCall (DFunctionCall _ _ _) = True
 isFunctionCall _ = False
 
+isHigherOrderFunc :: DFD -> Bool
+isHigherOrderFunc (DfdHeader{dfdTypeInfo = Just (args, ret)}) = any isFunc $ ret:(map snd args)
+
 isIf :: DNode -> Bool
 isIf (DFunctionCall _ f _) = dfdID f == -1 && dfdName f == "if"
 isIf _ = False
@@ -115,6 +118,10 @@ nodeType :: DNode -> DType
 nodeType DVariable{variableType = t} = t
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
+
+isFunc :: DType -> Bool
+isFunc DFunc{} = True
+isFunc _ = False
 
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls.
 --Does not check for infinite loops, since DFDs are trees.

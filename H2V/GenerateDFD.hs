@@ -36,7 +36,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         (nodes, dfds) <- liftM (map2 catMaybes catMaybes . splitTuple) . mapM defineDecl $ decls'
 
         --replace headers with completed functions
-        res <- mapM linkDFD $ map snd dfds
+        res <- mapM (inlineHOFuncs <=< linkDFD) $ map snd dfds
 
         --cleanup
         mapM popDfdNS $ reverse dfds
@@ -375,6 +375,26 @@ linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
 linkExpr :: DNode -> NodeGen DNode
 linkExpr (DFunctionCall id f args) = liftM (\f' -> DFunctionCall id f' args) (resolveHeader f)
 linkExpr x = return x
+
+--inline higher order functions
+inlineHOFuncs :: DFD -> NodeGen DFD
+inlineHOFuncs dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM inlineExpr (dfdRoot dfd)
+
+inlineExpr :: DNode -> NodeGen DNode
+inlineExpr (DFunctionCall _ macro mArgs)
+    --change node IDs and substitute args
+    | isHigherOrderFunc macro = dmapM cloneNodes . dmap (subArgs args) $ dfdRoot macro
+    where
+        args = zip (map fst $ dfdArgs macro) mArgs
+inlineExpr x = return x
+
+--replace nodes
+subArgs :: [(NodeId, DNode)] -> DNode -> DNode
+subArgs dict node = maybe node id $ lookup (nodeID node) dict
+
+--gives each node a new ID
+cloneNodes :: DNode -> NodeGen DNode
+cloneNodes node = newId >>= \n -> return node{nodeID = n}
 
 --WIP: Closure logic - converts closures to function arguments
 
