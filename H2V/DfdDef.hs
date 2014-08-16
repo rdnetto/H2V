@@ -101,7 +101,8 @@ isFunctionCall (DFunctionCall _ _ _) = True
 isFunctionCall _ = False
 
 isHigherOrderFunc :: DFD -> Bool
-isHigherOrderFunc (DfdHeader{dfdTypeInfo = Just (args, ret)}) = any isFunc $ ret:(map snd args)
+isHigherOrderFunc DfdHeader{dfdTypeInfo = Just (args, ret)} = any isFunc $ ret:(map snd args)
+isHigherOrderFunc DFD{dfdArgs = args, returnType = ret} = any isFunc $ ret:(map snd args)
 
 isIf :: DNode -> Bool
 isIf (DFunctionCall _ f _) = dfdID f == -1 && dfdName f == "if"
