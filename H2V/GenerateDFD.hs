@@ -187,16 +187,26 @@ toDTypes f@(HsTyFun _ _) = unfold f where
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
-defineUntypedArg :: HsPat -> NodeGen (String, DNode)
+defineUntypedArg :: HsPat -> NodeGen (String, DNode, Maybe DFD)
 defineUntypedArg p@(HsPVar name) = do
     nodeID <- newId
     defineTypedArg p (nodeID, UndefinedType)
 
-defineTypedArg :: HsPat -> (NodeId, DType) -> NodeGen (String, DNode)
-defineTypedArg (HsPVar name) (nodeID, t) = do
-    let res = (fromHsName name, DVariable nodeID t Nothing)
-    pushNodeNS res
-    return res
+defineTypedArg :: HsPat -> (NodeId, DType) -> NodeGen (String, DNode, Maybe DFD)
+defineTypedArg (HsPVar name') (nodeID, DFunc args ret) = do
+    --[arg] -> [(id, arg)]
+    args' <- (flip mapM) args $ \a -> newId >>= \i -> return (i, a)
+    let name = fromHsName name'
+    let dfd = DfdHeader nodeID name $ Just (args', ret)
+    let node = DFunction nodeID dfd
+    pushNodeNS (name, node)
+    pushDfdNS (name, dfd)
+    return (name, node, Just dfd)
+defineTypedArg (HsPVar name') (nodeID, t) = do
+    let name = fromHsName name'
+    let node = DVariable nodeID t Nothing
+    pushNodeNS (name, node)
+    return (name, node, Nothing)
 
 --Generates a node for a variable bound to a pattern.
 --This may need to be able to return multiple nodes, due to destructuring, etc.
@@ -237,9 +247,14 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
     --use the same ID as the header. This avoids issues related to shadowing.
     DfdHeader rootID _ typeInfo <- resolveFunc $ HsVar $ UnQual name
 
+    --[(name, node, Maybe dfd)]
     args <- case typeInfo of
                 Nothing           -> mapM defineUntypedArg pats
                 Just (oldArgs, _) -> zipWithM defineTypedArg pats oldArgs
+    let nodeArgs = (flip map) args $ \(name, node, _) -> (name, node)
+    let dfdArgs  = catMaybes $ map dfdArg args where
+        dfdArg (name, _, Just dfd) = Just (name, dfd)
+        dfdArg (_, _, Nothing) = Nothing
 
     --headers are needed in case we have recursive functions
     let decls' = matchDecls $ sortDecls decls
@@ -251,11 +266,12 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
 
     mapM popNS $ reverse terms
     mapM popDfdNS $ reverse headers
-    mapM popNodeNS $ reverse args
+    mapM popDfdNS $ reverse dfdArgs
+    mapM popNodeNS $ reverse nodeArgs
 
     --id, name, returnType, isSync, root
     let name' = fromHsName name
-    let args' = (flip map) args $ (\x -> (x, UndefinedType)) . nodeID . snd
+    let args' = (flip map) nodeArgs $ (\x -> (x, UndefinedType)) . nodeID . snd
 
     let res = case typeInfo of
                 Nothing             -> DFD rootID name' args' UndefinedType False root
