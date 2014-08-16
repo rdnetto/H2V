@@ -43,7 +43,7 @@ renderArg :: (Int, (NodeId, DType)) -> String
 renderArg (i, (argID, _)) = printf "node_%i [ label = \"arg_%i\", color=red ];\n" argID i
 
 renderNode :: DNode -> [GNodeDef]
-renderNode (DLiteral nodeID value) = return $ GNodeDef nodeID (printf "node_%i [ label = \"%i\"];\n" nodeID value) ""
+renderNode (DLiteral nodeID value) = return $ GNodeDef nodeID (printf "node_%i [ label = \"%i\n[node_%i]\"];\n" nodeID value nodeID) ""
 renderNode (DVariable _ _ Nothing) = []                                     --arguments are defined as part of the function
 
 renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef where
@@ -52,16 +52,15 @@ renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef wh
     edge = printf "node_%i -> node_%i;\n" (nodeID val) varID
 
 renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
-    node = printf "node_%i [ label = \"Function call: %s\", color=darkgreen ];\n" appID (dfdName f)
+    node = printf "node_%i [ label = \"Function call: %s\n[node_%i]\", color=darkgreen ];\n" appID (dfdName f) appID
     edge = concatMap argEdge $ zip [0..] args
-
     aDefs = concatMap renderNode args
 
     argEdge :: (Int, DNode) -> String
     argEdge (i, a) = printf "node_%i -> node_%i [ label = \"arg_%i\" ];\n" (nodeID a) appID i
 
 renderNode (DFunction fID f) = (GNodeDef fID node ""):[] where
-    node = printf "node_%i [ label = \"Function: %s\", color=darkgreen ];\n" fID (dfdName f)
+    node = printf "node_%i [ label = \"Function: %s\n[node_%i]\", color=darkgreen ];\n" fID (dfdName f) fID
 
 extractGnode :: [GNodeDef] -> (String, String)
 extractGnode ns = (concatMap nodeDefs ns', concatMap edgeDefs ns') where
