@@ -1,4 +1,19 @@
 ================================================================================
+Tuesday 19 August 2014
+Implemented macro evaluation, fixed some related bugs. There is currently a
+bug where lambdas are returned instead of being called - in the process of
+debugging this now. (See test.png)
+
+Git commits:
+553bbab  2014-08-19 22:38:36 +1000  Added support for printing DFD
+a4d64e2  2014-08-17 03:19:33 +1000  Added node IDs to Graphviz output, to facilitate debugging
+ce6b4ed  2014-08-17 03:01:28 +1000  BUG FIX: defineTypedArg was not pushing functions on the namespace stack
+a7188fd  2014-08-17 03:00:35 +1000  BUG FIX: resolveFunc was not handling functions inside variables correctly
+17b91ca  2014-08-17 02:59:46 +1000  BUG FIX: isHigherOrderFunc was missing a case
+2fdb03a  2014-08-17 02:31:24 +1000  Implemented higher order functions via macro evaluation
+5a152f2  2014-08-14 14:34:05 +1000  BUG FIX: upload script assumed that there were no other tar archives present
+
+================================================================================
 Wednesday 13 August 2014
 Attempting to use the fledgling closure code proved unsuccessful. Closures and higher order functions are sufficiently different that they are best handled separately.
 I have decided to pass signals from functions, instead of evaluating them at compile-time. This is because compile-time evaluation is harder than originally predicted, and will make it almost impossible to handle user defined higher order functions. It is best handled as an optimization later, if necessary. This imposes the constraint that the result of a higher order function can only be called at one point in its function.
