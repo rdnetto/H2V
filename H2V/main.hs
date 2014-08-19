@@ -49,6 +49,10 @@ main = do
     let dfd = astToDfd ast
     let gvFile = replaceExtension hsFile ".gv"
 
+    if OutputDFD `elem` args
+        then putStrLn . show $ dfd
+        else return ()
+
     if OutputGV `elem` args
         then putStrLn "Generating Graphiviz..." >> writeFile gvFile (dfdToGraphviz dfd)
         else return ()
@@ -65,6 +69,7 @@ displayHelp = putStrLn $ unlines [
         "Usage: H2V [OPTION] FILE",
         "    -h | --help        Display usage information.",
         "    -a | --ast         Display AST for file. Printed to stdout.",
+        "    -d | --dfd         Display DFD for file. Printed to stdout.",
         "    -g | --graphviz    Convert DFD to Graphviz file. Saved as FILE.gv.",
         "    -v | --verilog     Convert file to Verilog. Saved as FILE.v.",
         ""
@@ -72,11 +77,13 @@ displayHelp = putStrLn $ unlines [
 
 --Code for parsing command-line arguments
 
-data Args = ShowHelp | OutputAST | OutputGV | OutputVerilog | ProcessFile String deriving Eq
+data Args = ShowHelp | OutputAST | OutputDFD | OutputGV | OutputVerilog | ProcessFile String deriving Eq
 argDefs = [ ("-h", ShowHelp),
             ("--help", ShowHelp),
             ("-a", OutputAST),
             ("--ast", OutputAST),
+            ("-d", OutputDFD),
+            ("--dfd", OutputDFD),
             ("-g", OutputGV),
             ("--graphviz", OutputGV),
             ("-v", OutputVerilog),
