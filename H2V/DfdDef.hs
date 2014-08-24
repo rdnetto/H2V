@@ -40,14 +40,14 @@ type NodeId = Int                                           --Used to assign nod
 data DFD = DFD{
                 dfdID :: NodeId,                    --This is the ID of the *function* - it is distinct from the ID of the root node.
                 dfdName :: String,
-                dfdArgs :: [(NodeId, DType)],
-                returnType :: DType,
+                dfdArgs_ :: [(NodeId, DType)],
+                returnType_ :: DType,
                 isSync :: Bool,
                 dfdRoot :: DNode
             }
             | DfdHeader{                            --Used as a placeholder during generation. TypeInfo is args ++ return type.
                 dfdID :: NodeId,
-                dfdName ::String,
+                dfdName :: String,
                 dfdTypeInfo :: Maybe ([(NodeId, DType)], DType)
             }
     deriving (Show, Eq)
@@ -101,8 +101,17 @@ isFunctionCall (DFunctionCall _ _ _) = True
 isFunctionCall _ = False
 
 isHigherOrderFunc :: DFD -> Bool
-isHigherOrderFunc DfdHeader{dfdTypeInfo = Just (args, ret)} = any isFunc $ ret:(map snd args)
-isHigherOrderFunc DFD{dfdArgs = args, returnType = ret} = any isFunc $ ret:(map snd args)
+isHigherOrderFunc f = any isFunc $ ret:(map snd args) where
+    args = dfdArgs f
+    ret = returnType f
+
+dfdArgs :: DFD -> [(NodeId, DType)]
+dfdArgs dfd@DFD{} = dfdArgs_ dfd
+dfdArgs DfdHeader{dfdTypeInfo = Just (args, ret)} = args
+
+returnType :: DFD -> DType
+returnType dfd@DFD{} = returnType_ dfd
+returnType DfdHeader{dfdTypeInfo = Just (args, ret)} = ret
 
 isIf :: DNode -> Bool
 isIf (DFunctionCall _ f _) = dfdID f == -1 && dfdName f == "if"
