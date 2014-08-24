@@ -25,6 +25,10 @@ f4 x
 
 fLambda _ = (\a b -> a + b) 1 2
 
+f6a :: Int -> (Int -> Int)
+f6a a = \b -> a + b
+f6 x = (f6a 1) x
+
 --higher order functions
 f5 x = x + (revsub 2 7) + (revsub 9 10) where
     revsub = flip (-)
