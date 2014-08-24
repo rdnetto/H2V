@@ -36,7 +36,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         (nodes, dfds) <- liftM (map2 catMaybes catMaybes . splitTuple) . mapM defineDecl $ decls'
 
         --replace headers with completed functions
-        res <- mapM (inlineHOFuncs <=< linkDFD) $ map snd dfds
+        res <- mapM linkDFD $ map snd dfds
 
         --cleanup
         mapM popDfdNS $ reverse dfds
@@ -224,6 +224,7 @@ definePat (HsPVar name) value = do
 --  pop them afterwards. This is necessary so that multiple declarations which refer to each other can be handled with mapM.
 --
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
+--We can neglect the signatures here because they are used to generate the headers.
 defineDecl :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DNode), Maybe (String, DFD))
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     --subterms are automatically pushed on creation
@@ -388,25 +389,36 @@ declName (HsPatBind _ (HsPVar n) _ _) = fromHsName n
 declName (HsTypeSig _ [n] _) = fromHsName n
 
 --linking logic - replaces function headers with DFDs
+--FIX: now that we have access to function headers, we need to make sure foldApp wasn't too aggressive.
+--e.g. (f a) b should be two separate applications if we have f :: Int -> (Int -> Int)
 
 linkDFD :: DFD -> NodeGen DFD
 linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
 
 linkExpr :: DNode -> NodeGen DNode
-linkExpr (DFunctionCall id f args) = liftM (\f' -> DFunctionCall id f' args) (resolveHeader f)
+linkExpr fc@(DFunctionCall _ f _) = resolveHeader f >>= \f' -> checkArgs fc{functionCalled = f'}
 linkExpr x = return x
 
---inline higher order functions
-inlineHOFuncs :: DFD -> NodeGen DFD
-inlineHOFuncs dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM inlineExpr (dfdRoot dfd)
+--Check that the no. of args matches the function signature.
+--This may not be the case if we've combined the applications of args to a higher order function and its result.
+checkArgs :: DNode -> NodeGen DNode
+checkArgs (DFunctionCall id f args)
+    | length args == funcArgCount = return $ DFunctionCall id f args
+    | length args <  funcArgCount = error $ printf "Incorrect no. of args.\nFunction: %s\nArgs: %s" (show f) (show args)
+    | length args >  funcArgCount = do
+        let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order func
+        f1' <- evalMacro f1
+        let f2 = DFunctionCall id f1' (drop funcArgCount args)             --lower order func
+        return f2
+    where
+        funcArgCount = length $ dfdArgs f
 
-inlineExpr :: DNode -> NodeGen DNode
-inlineExpr (DFunctionCall _ macro mArgs)
-    --change node IDs and substitute args
-    | isHigherOrderFunc macro = dmapM cloneNodes . dmap (subArgs args) $ dfdRoot macro
+--change node IDs and substitute args
+evalMacro :: DNode -> NodeGen DFD
+evalMacro (DFunctionCall _ macro mArgs)
+    | isHigherOrderFunc macro = liftM functionCalled . dmapM cloneNodes . dmap (subArgs args) $ dfdRoot macro
     where
         args = zip (map fst $ dfdArgs macro) mArgs
-inlineExpr x = return x
 
 --replace nodes
 subArgs :: [(NodeId, DNode)] -> DNode -> DNode
