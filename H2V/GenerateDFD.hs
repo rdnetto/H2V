@@ -175,7 +175,7 @@ toDTypes :: HsType -> [DType]
 toDTypes f@(HsTyFun _ _) = unfold f where
 
     unfold :: HsType -> [DType]
-    unfold (HsTyFun t1 t2) = (toDT t1) : (unfold t2)
+    unfold (HsTyFun t1 t2) = (unfold t1) ++ [toDT t2]
     unfold t@(HsTyVar _) = return $ toDT t
     unfold t@(HsTyCon _) = return $ toDT t
 
