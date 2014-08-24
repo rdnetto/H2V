@@ -22,20 +22,20 @@ dfdToGraphviz dfds = printf "digraph G{\n%s}\n" (concat ns ++ concat es) where
 
 --node definitions and edges are returned separately, to ensure nodes are placed in the correct subgraph
 renderFunc :: DFD -> (String, String)
-renderFunc (DFD resID name args _ _ root) = (nDefs, edges) where
+renderFunc (DFD dfdID name args _ _ root) = (nDefs, edges) where
     (subNs, subEs) = extractGnode $ renderNode root
 
-    nDefs = unlines [ printf "subgraph cluster_dfd_%i{" resID,
+    nDefs = unlines [ printf "subgraph cluster_dfd_%i{" dfdID,
                     printf "label = \"%s (%i args)\";" name $ length args,
                     "color = black;",
                     concatMap renderArg $ zip [0..] args,
                     subNs,
-                    printf "node_%i [ label = \"Result\", color=red ];" resID,
+                    printf "node_%i [ label = \"Result\", color=red ];" (nodeID root),
                     "}\n"
                 ]
     edges = unlines [
                     subEs,
-                    printf "node_%i -> node_%i;" (nodeID root) resID
+                    printf "node_%i -> node_%i;" (nodeID root) dfdID
                 ]
 
 --Args are defined by the function, so we don't need to worry about duplicates
