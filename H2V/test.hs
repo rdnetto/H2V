@@ -23,6 +23,8 @@ f4 x
     | x > 0     = 1
     | otherwise = 2
 
+fLambda _ = (\a b -> a + b) 1 2
+
 --higher order functions
 f5 x = x + (revsub 2 7) + (revsub 9 10) where
     revsub = flip (-)
