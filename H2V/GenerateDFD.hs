@@ -418,13 +418,14 @@ checkArgs (DFunctionCall id f args)
 instantiateLambda :: DNode -> NodeGen DFD
 instantiateLambda (DFunctionCall _ macro mArgs)
     | isHigherOrderFunc macro = do
+        id' <- newId
         let f = functionCalled $ dfdRoot macro
         let macroArgs = zip (map fst $ dfdArgs macro) mArgs                --args from higher order func - substitute these for literals
         let oldArgs = map fst $ dfdArgs f                                  --args native to lambda - can't just clone them
         newArgs <- mapM cloneArg (dfdArgs f)                               --  since they're stored in the DFD as well
         let args' = map (\n -> (nodeID n, variableType n)) newArgs
         root' <- liftM (dmap (subArgs $ zip oldArgs newArgs)) . dmapM (cloneNodes oldArgs) . dmap (subArgs macroArgs) $ dfdRoot f
-        return f{dfdRoot = root', dfdArgs_ = args'}
+        return f{dfdID = id', dfdRoot = root', dfdArgs_ = args'}
 
 --replace nodes
 subArgs :: [(NodeId, DNode)] -> DNode -> DNode
