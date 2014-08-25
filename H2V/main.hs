@@ -114,7 +114,7 @@ parseArgs args = if any isNothing res || (length . filter isFile $ catMaybes res
             res = lookup a argDefs
 
     --make sure we're actually doing something
-    forceOutput args =  if null $ intersect [OutputAST, OutputGV, OutputVerilog] args
-                        then OutputVerilog:args
+    forceOutput args =  if null $ intersect [OutputAST, OutputDFD, OutputGV, OutputVerilog] args
+                        then ShowHelp:args
                         else args
 

@@ -12,9 +12,19 @@ all:
 clean:
 	rm -f build/* H2V
 
-test: all
+testD: all
 	clear
-	./H2V -g -v test.hs
+	./H2V -d test.hs
+
+testG: all
+	clear
+	./H2V -g test.hs
+	#================================================================================
+	dot -Tpng test.gv > test.png
+
+testV: all
+	clear
+	./H2V -v test.hs
 	cp test.v ../scratch/verilog-test/test.v
 	#================================================================================
 	dot -Tpng test.gv > test.png
