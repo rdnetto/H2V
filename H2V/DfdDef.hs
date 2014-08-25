@@ -133,7 +133,7 @@ isFunc :: DType -> Bool
 isFunc DFunc{} = True
 isFunc _ = False
 
---Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls.
+--Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls or DFunctions.
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
 dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM (dmap f) val}

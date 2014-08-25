@@ -417,17 +417,29 @@ checkArgs (DFunctionCall id f args)
 --Change node IDs and substitute args
 defineLambda :: DNode -> NodeGen DFD
 defineLambda (DFunctionCall _ macro mArgs)
-    | isHigherOrderFunc macro = liftM functionCalled . dmapM cloneNodes . dmap (subArgs args) $ dfdRoot macro
-    where
-        args = zip (map fst $ dfdArgs macro) mArgs
+    | isHigherOrderFunc macro = do
+        let f = functionCalled $ dfdRoot macro
+        let macroArgs = zip (map fst $ dfdArgs macro) mArgs                --args from higher order func - substitute these for literals
+        let oldArgs = map fst $ dfdArgs f                                  --args native to lambda - can't just clone them
+        newArgs <- mapM cloneArg (dfdArgs f)                               --  since they're stored in the DFD as well
+        let args' = map (\n -> (nodeID n, variableType n)) newArgs
+        root' <- liftM (dmap (subArgs $ zip oldArgs newArgs)) . dmapM (cloneNodes oldArgs) . dmap (subArgs macroArgs) $ dfdRoot f
+        return f{dfdRoot = root', dfdArgs_ = args'}
 
 --replace nodes
 subArgs :: [(NodeId, DNode)] -> DNode -> DNode
 subArgs dict node = maybe node id $ lookup (nodeID node) dict
 
---gives each node a new ID
-cloneNodes :: DNode -> NodeGen DNode
-cloneNodes node = newId >>= \n -> return node{nodeID = n}
+--gives each node a new ID (except for those in the list)
+cloneNodes :: [NodeId] -> DNode -> NodeGen DNode
+cloneNodes whitelist node
+    | (nodeID node) `elem` whitelist = return node
+    | otherwise                      = newId >>= \n -> return node{nodeID = n}
+
+cloneArg :: (NodeId, DType) -> NodeGen DNode
+cloneArg (_, t) = do
+    i <- newId
+    return $ DVariable i t Nothing
 
 --WIP: Closure logic - converts closures to function arguments
 
