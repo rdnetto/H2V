@@ -87,7 +87,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
     | otherwise             = unlines [printf "module dfd_%i(" dfdID,
                                        "input clock, input ready, output done,",
-                                       printf "//%s (%i args)" name $ length args,
+                                       printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                        unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
                                        "output [7:0] result",
                                        ");",
@@ -147,7 +147,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
                     --Synchronous logic
                     printf "module dfd_%i(" dfdID,
                     indent [
-                        printf "//%s (%i args)" name $ length args,
+                        printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                         "input clock,",
                         "input ready,",
                         "output done,",

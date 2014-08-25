@@ -29,7 +29,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
         (subNs, subEs) = extractGnode $ renderNode root
 
         nDefs = unlines [ printf "subgraph cluster_dfd_%i{" dfdID,
-                        printf "label = \"%s (%i args)\";" name $ length args,
+                        printf "label = \"%s [dfd_%i] (%i args)\";" name dfdID $ length args,
                         "color = black;",
                         concatMap renderArg $ zip [0..] args,
                         subNs,
@@ -55,7 +55,10 @@ renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef wh
     edge = printf "node_%i -> node_%i;\n" (nodeID val) varID
 
 renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
-    node = printf "node_%i [ label = \"Function call: %s\n[node_%i]\", color=darkgreen ];\n" appID (dfdName f) appID
+    fID = if   (dfdID f) == -1
+          then ""
+          else printf "(dfd_%i)" $ dfdID f
+    node = printf "node_%i [ label = \"Function call: %s %s\n[node_%i]\", color=darkgreen ];\n" appID (dfdName f) fID appID
     edge = concatMap argEdge $ zip [0..] args
     aDefs = concatMap renderNode args
 
