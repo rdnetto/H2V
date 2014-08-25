@@ -30,12 +30,12 @@ renderFunc (DFD dfdID name args _ _ root) = (nDefs, edges) where
                     "color = black;",
                     concatMap renderArg $ zip [0..] args,
                     subNs,
-                    printf "node_%i [ label = \"Result\", color=red ];" (nodeID root),
+                    printf "result_%i [ label = \"Result\", color=red ];" dfdID,
                     "}\n"
                 ]
     edges = unlines [
                     subEs,
-                    printf "node_%i -> node_%i;" (nodeID root) dfdID
+                    printf "node_%i -> result_%i;" (nodeID root) dfdID
                 ]
 
 --Args are defined by the function, so we don't need to worry about duplicates
