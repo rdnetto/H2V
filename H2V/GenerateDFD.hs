@@ -407,16 +407,16 @@ checkArgs (DFunctionCall id f args)
     | length args <  funcArgCount = error $ printf "Incorrect no. of args.\nFunction: %s\nArgs: %s" (show f) (show args)
     | length args >  funcArgCount = do
         let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order function - returns lambda
-        f1' <- defineLambda f1
+        f1' <- instantiateLambda f1
         let f2 = DFunctionCall id f1' (drop funcArgCount args)             --call to lambda
         return f2
     where
         funcArgCount = length $ dfdArgs f
 
---Defines the DFD of the lambda function
---Change node IDs and substitute args
-defineLambda :: DNode -> NodeGen DFD
-defineLambda (DFunctionCall _ macro mArgs)
+--Defines the DFD of an instance of a lambda function.
+--Clones nodes and substitutes args so that it is independent of other instances.
+instantiateLambda :: DNode -> NodeGen DFD
+instantiateLambda (DFunctionCall _ macro mArgs)
     | isHigherOrderFunc macro = do
         let f = functionCalled $ dfdRoot macro
         let macroArgs = zip (map fst $ dfdArgs macro) mArgs                --args from higher order func - substitute these for literals
