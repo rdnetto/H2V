@@ -406,16 +406,17 @@ checkArgs (DFunctionCall id f args)
     | length args == funcArgCount = return $ DFunctionCall id f args
     | length args <  funcArgCount = error $ printf "Incorrect no. of args.\nFunction: %s\nArgs: %s" (show f) (show args)
     | length args >  funcArgCount = do
-        let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order func
-        f1' <- evalMacro f1
-        let f2 = DFunctionCall id f1' (drop funcArgCount args)             --lower order func
+        let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order function - returns lambda
+        f1' <- defineLambda f1
+        let f2 = DFunctionCall id f1' (drop funcArgCount args)             --call to lambda
         return f2
     where
         funcArgCount = length $ dfdArgs f
 
---change node IDs and substitute args
-evalMacro :: DNode -> NodeGen DFD
-evalMacro (DFunctionCall _ macro mArgs)
+--Defines the DFD of the lambda function
+--Change node IDs and substitute args
+defineLambda :: DNode -> NodeGen DFD
+defineLambda (DFunctionCall _ macro mArgs)
     | isHigherOrderFunc macro = liftM functionCalled . dmapM cloneNodes . dmap (subArgs args) $ dfdRoot macro
     where
         args = zip (map fst $ dfdArgs macro) mArgs
