@@ -83,18 +83,19 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD dfdID name args _ _ root)
-    | fCalls dfd dfd = renderRecursiveFunc dfd $ recursiveCases dfd
-    | otherwise      = unlines [printf "module dfd_%i(" dfdID,
-                                "input clock, input ready, output done,",
-                                printf "//%s (%i args)" name $ length args,
-                                unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
-                                "output [7:0] result",
-                                ");",
-                                concatNodes $ renderNode root,
-                                printf "assign result = node_%i;" $ nodeID root,
-                                printf "assign done = node_%i_done;" $ nodeID root,
-                                "endmodule\n"
-                               ]
+    | isHigherOrderFunc dfd = ""
+    | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
+    | otherwise             = unlines [printf "module dfd_%i(" dfdID,
+                                       "input clock, input ready, output done,",
+                                       printf "//%s (%i args)" name $ length args,
+                                       unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
+                                       "output [7:0] result",
+                                       ");",
+                                       concatNodes $ renderNode root,
+                                       printf "assign result = node_%i;" $ nodeID root,
+                                       printf "assign done = node_%i_done;" $ nodeID root,
+                                       "endmodule\n"
+                                      ]
 
 --WIP: This function renders a recursive function
 --There are two trees of evaluation for a tail-recursive function:
