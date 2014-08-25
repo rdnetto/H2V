@@ -40,7 +40,7 @@ renderFunc (DFD dfdID name args _ _ root) = (nDefs, edges) where
 
 --Args are defined by the function, so we don't need to worry about duplicates
 renderArg :: (Int, (NodeId, DType)) -> String
-renderArg (i, (argID, _)) = printf "node_%i [ label = \"arg_%i\", color=red ];\n" argID i
+renderArg (i, (argID, _)) = printf "node_%i [ label = \"arg_%i\n[node_%i]\", color=red ];\n" argID i argID
 
 renderNode :: DNode -> [GNodeDef]
 renderNode (DLiteral nodeID value) = return $ GNodeDef nodeID (printf "node_%i [ label = \"%i\n[node_%i]\"];\n" nodeID value nodeID) ""
