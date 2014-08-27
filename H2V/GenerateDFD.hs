@@ -60,13 +60,16 @@ cleanExpr (HsApp e1 e2) = HsApp (cleanExpr e1) (cleanExpr e2)
 cleanExpr (HsIf cond tExp fExp) = cleanExpr $ HsApp (HsApp (HsApp f cond) tExp) fExp where
     f = HsVar $ UnQual $ HsIdent "if"
 --convert infix application to prefix application
-cleanExpr (HsInfixApp arg1 op arg2) = case op of
-                                        HsQVarOp opName -> newExpr opName
-                                        HsQConOp opName -> newExpr opName
-                                      where
-    newExpr opName = HsApp (HsApp (HsVar opName) arg1') arg2'
-    arg1' = cleanExpr arg1
-    arg2' = cleanExpr arg2
+cleanExpr (HsInfixApp arg1 op arg2)
+    | op == dollarOp = HsApp (cleanExpr arg1) (cleanExpr arg2)
+    | otherwise      = case op of
+                         HsQVarOp opName -> newExpr opName
+                         HsQConOp opName -> newExpr opName
+    where
+        dollarOp = HsQVarOp (UnQual (HsSymbol "$"))
+        newExpr opName = HsApp (HsApp (HsVar opName) arg1') arg2'
+        arg1' = cleanExpr arg1
+        arg2' = cleanExpr arg2
 --convert the unary negation operator to subtraction. e.g. -x => 0 - x => (-) 0 x
 cleanExpr (HsNegApp exp) = cleanExpr $ HsInfixApp (HsLit $ HsInt $ 0) (HsQVarOp $ UnQual $ HsSymbol "-") (cleanExpr exp)
 --remove parentheses, since they're redundant
