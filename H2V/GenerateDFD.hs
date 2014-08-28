@@ -141,7 +141,7 @@ patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show n
 
 --Performs pattern binding. Note that each pattern can result in multiple bindings due to destructuring
 bindPattern :: HsName -> HsPat -> [HsDecl]
-bindPattern argName pat@(HsPVar _) = return $ HsPatBind (SrcLoc "" 0 0) pat rhs [] where
+bindPattern argName pat@(HsPVar _) = return $ HsPatBind nullSrcLoc pat rhs [] where
     rhs = HsUnGuardedRhs . HsVar . UnQual $ argName
 bindPattern _ (HsPLit _) = []
 bindPattern _ HsPWildCard = []
@@ -543,6 +543,9 @@ genArgs = map (\a -> HsIdent $ "_arg_" ++ (show a)) [0..]
 --TODO: this should return an expression equal to True
 trueExpr :: HsExp
 trueExpr = unit_con
+
+nullSrcLoc :: SrcLoc
+nullSrcLoc = SrcLoc "" 0 0
 
 --Returns False if any element appears the in the list more than once.
 unique :: Ord a => [a] -> Bool
