@@ -1,4 +1,4 @@
-module Test (f) where
+module Test where
 
 --due to a bug in haskell-src, this line is parsed incorrectly as (a2*x + b)*x + c without brackets
 f x a b c = (a2 * x) + (b * x) + c where
@@ -25,15 +25,28 @@ f4 x
 
 fLambda _ = (\a b -> a + b) 1 2
 
+--higher order functions
+--return a function
 f6a :: Int -> (Int -> Int)
 f6a a = \b -> a + b
 f6 x = (f6a 1) x + (f6a 2) (x + 1)
 
---higher order functions
+--partial application
+plus x y = x + y
+add1 = plus 1
+add2 = (+2)
+f7 x = (add1 x) + (add2 x)
+
+--accept a function
+applyTwice :: (Int -> Int) -> (Int -> Int)
+applyTwice f = \x -> f (f x)
+f8 x = applyTwice (\x -> x + 1) 0
+
+--both
 f5 x = x + (revsub 2 7) + (revsub 9 10) where
-    revsub = flip (-)
-    flip :: (a -> b -> c) -> (b -> a -> c)
-    flip f = \a b -> f b a
+flip :: (a -> b -> c) -> (b -> a -> c)
+flip f = \a b -> f b a
+revsub = flip (-)
 
 -- Test case for nested, recursive functions
 -- Returns the nth fibonnacci number
