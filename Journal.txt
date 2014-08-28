@@ -1,4 +1,37 @@
 ================================================================================
+Thursday 28 August 2014
+Have partially achieved higher order function support, but more work is needed.
+Most of the issues this week have stemmed from problems handling type signatures correctly, or bugs in the rendering code.
+
+Test case for returning a function works, but not for accepting a function as an argument (which is the important one).
+Haskell type signatures are trees of signatures, where a scalar type is a leaf node. A node of height n is a (n + 1)th order function. .e.g a leaf is 0th order, (a -> b) is 1st order, (a -> b) -> c and a -> (b -> c) are both 2nd order. i.e. a function of n + 1 arguments is effectively an nth order function.
+It is also worth noting there is no syntactic difference between a -> b -> c and a -> (b -> c).
+Therefore, in order to handle the general case appropriately, we need to treat functions which return functions as if they have extra parameters, and then interpret the lack of those parameters as partial application. Otherwise, it will be impossible to correctly handle arguments which are functions.
+
+Git commits:
+060b48c  2014-08-28 11:16:06 +1000  Defined nullSrcLoc
+6b688d4  2014-08-28 11:14:57 +1000  Added test cases
+722d747  2014-08-28 09:58:05 +1000  Added support for the function application operator ($)
+6b9fc34  2014-08-25 22:37:02 +1000  Modified test case to include multiple calls to the same higher order function
+92dae60  2014-08-25 22:36:14 +1000  Added dfd IDs to output labels to facilitate debugging
+d4197ad  2014-08-25 22:30:51 +1000  Disabled rendering of higher order functions, since we don't use them at runtime
+17e6d28  2014-08-25 22:30:35 +1000  BUG FIX: each instance of a lambda should have a unique id
+928e464  2014-08-25 22:30:20 +1000  Renamed defineLambda to better reflect its purpose
+91fb6ab  2014-08-25 22:24:47 +1000  BUG FIX: was not cloning nodes correctly
+80d32bb  2014-08-25 21:40:57 +1000  Graphviz: Added node IDs to argument nodes to facilitate debugging
+6dde353  2014-08-25 20:48:27 +1000  Renamed variables to better reflect what they're doing
+66bb8a6  2014-08-25 20:36:46 +1000  BUG FIX: we were having collisions between definitions of the result node, so let's just give it a unique definition and point it to the root node
+7944b60  2014-08-25 20:35:29 +1000  BUG FIX: was assigning the same ID to DFunctions as the enclosed DFDs
+949b77c  2014-08-25 19:57:02 +1000  Added more specific targets for testing, and fixed a corner case in main
+036c611  2014-08-25 00:00:35 +1000  BUG FIX: was conflating the IDs of the DFD and its root node
+e947cb6  2014-08-24 23:42:12 +1000  Added basic test case for higher order functions
+d957bb9  2014-08-24 23:41:15 +1000  Combined macro evaluation code with linking code, since it fits better there
+d8cb422  2014-08-24 23:15:05 +1000  BUG FIX: function args in type signatures are folded on the left; a function type on the right indicates a higher order function
+c38c42c  2014-08-24 22:32:30 +1000  Refactored DFD type so that we can use the same accessor functions for both DFD and DfdHeader
+ea1adbf  2014-08-24 19:31:16 +1000  BUG FIX: Added missing case to resolveFunc
+6ae9a7a  2014-08-19 23:17:51 +1000  BUG FIX: upload script contained wrong URL
+
+================================================================================
 Tuesday 19 August 2014
 Implemented macro evaluation, fixed some related bugs. There is currently a
 bug where lambdas are returned instead of being called - in the process of
