@@ -35,7 +35,8 @@ f6 x = (f6a 1) x + (f6a 2) (x + 1)
 plus x y = x + y
 add1 = plus 1
 add2 = (+2)
-f7 x = (add1 x) + (add2 x)
+add3 = (3+)
+f7 x = (add1 x) + (add2 x) + (add3 x)
 
 --accept a function
 applyTwice :: (Int -> Int) -> (Int -> Int)

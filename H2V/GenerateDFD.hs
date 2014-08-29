@@ -74,6 +74,13 @@ cleanExpr (HsInfixApp arg1 op arg2)
 cleanExpr (HsNegApp exp) = cleanExpr $ HsInfixApp (HsLit $ HsInt $ 0) (HsQVarOp $ UnQual $ HsSymbol "-") (cleanExpr exp)
 --remove parentheses, since they're redundant
 cleanExpr (HsParen exp) = cleanExpr exp
+--partial application of infix operators. Left/Right section refers to the applied side of the operator.
+cleanExpr (HsLeftSection e op) = cleanExpr $ HsLambda nullSrcLoc [HsPVar argName] (HsInfixApp e op arg) where
+    argName = HsIdent "__x"
+    arg = HsVar $ UnQual argName
+cleanExpr (HsRightSection op e) = cleanExpr $ HsLambda nullSrcLoc [HsPVar argName] (HsInfixApp arg op e) where
+    argName = HsIdent "__x"
+    arg = HsVar $ UnQual argName
 --convert lambdas to regular functions, folding nested lambdas into a single one
 cleanExpr (HsLambda s p0 (HsLambda _ p1 e1)) = cleanExpr $ HsLambda s (p0 ++ p1) e1
 cleanExpr (HsLambda s p e) = cleanExpr $ HsLet [f] (HsVar . UnQual $ lambdaName) where
