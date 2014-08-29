@@ -410,18 +410,39 @@ linkExpr fc@(DFunctionCall _ f _) = resolveHeader f >>= \f' -> checkArgs fc{func
 linkExpr x = return x
 
 --Check that the no. of args matches the function signature.
---This may not be the case if we've combined the applications of args to a higher order function and its result.
+--If we have too many args, we've combined the applications of args to a higher order function and its result.
+--If we have too few, it means we have a partial application - needs to be rewritten as a lambda.
 checkArgs :: DNode -> NodeGen DNode
 checkArgs (DFunctionCall id f args)
     | length args == funcArgCount = return $ DFunctionCall id f args
-    | length args <  funcArgCount = error $ printf "Incorrect no. of args.\nFunction: %s\nArgs: %s" (show f) (show args)
+    | length args <  funcArgCount = do
+        fID <- newId
+        fArgs <- mapM cloneArg $ drop appliedArgs (dfdArgs f)
+        let args' = map createArg fArgs
+        fRootID <- newId
+        let fRoot = DFunctionCall fRootID f (args ++ args')
+        let f' = DFD fID fName fArgs (returnType f) (isSync f) fRoot
+        return $ DFunction id f'
+
     | length args >  funcArgCount = do
         let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order function - returns lambda
         f1' <- instantiateLambda f1
         let f2 = DFunctionCall id f1' (drop funcArgCount args)             --call to lambda
         return f2
+
     where
         funcArgCount = length $ dfdArgs f
+
+        --partial application definitions
+        appliedArgs = length args
+        missingArgs = funcArgCount - appliedArgs
+        fName = printf "%s_pa_%i" (dfdName f) missingArgs
+
+        cloneArg :: (NodeId, DType) -> NodeGen (NodeId, DType)
+        cloneArg (_, t) = newId >>= \i -> return (i, t)
+
+        createArg :: (NodeId, DType) -> DNode
+        createArg (i, t) = DVariable i t Nothing
 
 --Defines the DFD of an instance of a lambda function.
 --Clones nodes and substitutes args so that it is independent of other instances.
