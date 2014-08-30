@@ -34,6 +34,7 @@ main = do
 
     --Read file
     let hsFile = argFile . head . filter isFile $ args
+    putStrLn $ "Reading from " ++ hsFile ++ "..."
     src <- readFile hsFile
 
     --Parse AST
