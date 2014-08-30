@@ -420,7 +420,8 @@ linkExpr x = return x
 --If we have too many args, we've combined the applications of args to a higher order function and its result.
 --If we have too few, it means we have a partial application - needs to be rewritten as a lambda.
 checkArgs :: DNode -> NodeGen DNode
-checkArgs (DFunctionCall id f args)
+checkArgs fc@(DFunctionCall id f args)
+    | isHeader f = return fc                                                            --skip recursive function calls
     | length args <  funcArgCount = do
         fID <- newId
         fArgs <- mapM cloneArg $ drop appliedArgs (dfdArgs f)
