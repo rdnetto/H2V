@@ -465,9 +465,14 @@ instantiateLambda (DFunctionCall _ macro mArgs)
         root' <- liftM (dmap (subArgs $ zip oldArgs newArgs)) . dmapM (cloneNodes oldArgs) . dmap (subArgs macroArgs) $ dfdRoot f
         return f{dfdID = id', dfdRoot = root', dfdArgs_ = args'}
 
---replace nodes
+--replace nodes (also need to replace functions called)
 subArgs :: [(NodeId, DNode)] -> DNode -> DNode
-subArgs dict node = maybe node id $ lookup (nodeID node) dict
+subArgs dict node = subFunc dict . maybe node id $ lookup (nodeID node) dict
+
+subFunc :: [(NodeId, DNode)] -> DNode -> DNode
+subFunc dict node@DFunctionCall{functionCalled = f} = node{functionCalled = f'} where
+    f' = maybe f functionCalled $ lookup (dfdID f) dict
+subFunc dict node = node
 
 --gives each node a new ID (except for those in the list)
 cloneNodes :: [NodeId] -> DNode -> NodeGen DNode
