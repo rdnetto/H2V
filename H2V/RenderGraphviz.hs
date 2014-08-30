@@ -22,24 +22,21 @@ dfdToGraphviz dfds = printf "digraph G{\n%s}\n" (concat ns ++ concat es) where
 
 --node definitions and edges are returned separately, to ensure nodes are placed in the correct subgraph
 renderFunc :: DFD -> (String, String)
-renderFunc dfd@(DFD dfdID name args _ _ root)
-    | isHigherOrderFunc dfd = ("", "")
-    | otherwise             = (nDefs, edges)
-    where
-        (subNs, subEs) = extractGnode $ renderNode root
+renderFunc dfd@(DFD dfdID name args _ _ root) = (nDefs, edges) where
+    (subNs, subEs) = extractGnode $ renderNode root
 
-        nDefs = unlines [ printf "subgraph cluster_dfd_%i{" dfdID,
-                        printf "label = \"%s [dfd_%i] (%i args)\";" name dfdID $ length args,
-                        "color = black;",
-                        concatMap renderArg $ zip [0..] args,
-                        subNs,
-                        printf "result_%i [ label = \"Result\", color=red ];" dfdID,
-                        "}\n"
-                    ]
-        edges = unlines [
-                        subEs,
-                        printf "node_%i -> result_%i;" (nodeID root) dfdID
+    nDefs = unlines [ printf "subgraph cluster_dfd_%i{" dfdID,
+                    printf "label = \"%s [dfd_%i] (%i args)\";" name dfdID $ length args,
+                    "color = black;",
+                    concatMap renderArg $ zip [0..] args,
+                    subNs,
+                    printf "result_%i [ label = \"Result\", color=red ];" dfdID,
+                    "}\n"
                 ]
+    edges = unlines [
+                    subEs,
+                    printf "node_%i -> result_%i;" (nodeID root) dfdID
+            ]
 
 --Args are defined by the function, so we don't need to worry about duplicates
 renderArg :: (Int, (NodeId, DType)) -> String

@@ -44,7 +44,9 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
 
         --collect functions
         concatMapM collectDfds res
-        return <=< liftM funcList $ get
+
+        --return first-order functions (higher order functions are only needed during compilation)
+        liftM (filter (not . isHigherOrderFunc) . funcList) get
 
 --cleaning logic
 

@@ -83,7 +83,6 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD dfdID name args _ _ root)
-    | isHigherOrderFunc dfd = ""
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
     | otherwise             = unlines [printf "module dfd_%i(" dfdID,
                                        "input clock, input ready, output done,",
