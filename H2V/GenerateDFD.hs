@@ -421,7 +421,6 @@ linkExpr x = return x
 --If we have too few, it means we have a partial application - needs to be rewritten as a lambda.
 checkArgs :: DNode -> NodeGen DNode
 checkArgs (DFunctionCall id f args)
-    | length args == funcArgCount = return $ DFunctionCall id f args
     | length args <  funcArgCount = do
         fID <- newId
         fArgs <- mapM cloneArg $ drop appliedArgs (dfdArgs f)
@@ -431,12 +430,11 @@ checkArgs (DFunctionCall id f args)
         let f' = DFD fID fName fArgs (returnType f) (isSync f) fRoot
         return $ DFunction id f'
 
-    | length args >  funcArgCount = do
-        let f1 = DFunctionCall id f   (take funcArgCount args)             --higher order function - returns lambda
-        f1' <- instantiateLambda f1
-        let f2 = DFunctionCall id f1' (drop funcArgCount args)             --call to lambda
-        return f2
+    | length args >  funcArgCount || isHigherOrderFunc f = do                           --arg counts can match if result is assigned
+        f' <- instantiateLambda $ DFunctionCall id f (take funcArgCount args)           --higher order function - returns lambda
+        return $ DFunctionCall id f' (drop funcArgCount args)                           --call to lambda
 
+    | length args == funcArgCount = return $ DFunctionCall id f args
     where
         funcArgCount = length $ dfdArgs f
 
