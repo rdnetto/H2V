@@ -157,7 +157,7 @@ bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
 --DFD generation logic
 
 createDfdHeaders :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DFD))
-createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], sig) = do
+createDfdHeaders (HsFunBind [HsMatch _ name pats _ _], sig) = do
     rootID <- newId
     let name' = fromHsName name
 
@@ -167,11 +167,18 @@ createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], sig) = do
     --assign each arg an ID
     let assignIDs t = newId >>= \i -> return (i, t)
 
+    --because there's no syntactic difference between a first-order function and one which returns a function,
+    --we need to check if the no. of args matches the type signature
+    let types = extractTypes $ fromJust sig
+    let argTypes = take (length pats) types
+    let retType = case drop (length pats) types of
+                    [t] -> t
+                    ts  -> DFunc (init ts) (last ts)
+
     typeInfo <- ifM (return $ isJust sig)
         (do
-            let types = extractTypes $ fromJust sig
-            args <- mapM assignIDs $ init types
-            return $ Just (args, last types)
+            args <- mapM assignIDs argTypes
+            return $ Just (args, retType)
         ) (return Nothing)
 
     let res = DfdHeader rootID name' typeInfo
@@ -181,19 +188,19 @@ createDfdHeaders (HsFunBind [HsMatch _ name _ _ _], sig) = do
 createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl, s) = createDfdHeaders (HsFunBind [HsMatch src name [pat] rhs decl], s)
 createDfdHeaders (d, _) = error $ pshow d
 
+--This function converts type signatures to a list of arguments by unfolding the tree.
+--Type signatures are binary trees, which are completely unbalanced (to the right) for first-order functions.
+--This means that non-leaf left-children are functions.
 toDTypes :: HsType -> [DType]
-toDTypes f@(HsTyFun _ _) = unfold f where
-
-    unfold :: HsType -> [DType]
-    unfold (HsTyFun t1 t2) = (unfold t1) ++ [toDT t2]
-    unfold t@(HsTyVar _) = return $ toDT t
-    unfold t@(HsTyCon _) = return $ toDT t
-
-    toDT :: HsType -> DType
-    toDT (HsTyVar _) = UndefinedType
-    toDT (HsTyCon _) = UndefinedType
-    toDT f@(HsTyFun _ _) = DFunc (init ts) (last ts) where
-        ts = unfold f
+toDTypes (HsTyFun leftChild rightChild)
+    | (length t1) == 1 = (head t1) : t2
+    | otherwise        = f1 : t2
+    where
+        t2 = toDTypes rightChild
+        t1 = toDTypes leftChild
+        f1 = DFunc (init t1) (last t1)
+toDTypes t@(HsTyVar _) = [UndefinedType]
+toDTypes t@(HsTyCon _) = [UndefinedType]
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
