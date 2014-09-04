@@ -1,4 +1,22 @@
 ================================================================================
+Thursday 04 September 2014
+Higher order functions are now fully debugged (this took a surprisingly large amount of time for such a small amount of code).
+Also moved each test case into a separate file, since the DFD was getting quite crowded.
+Now starting work on list support.
+
+Git commits:
+fedee53  2014-08-30 16:15:48 +1000  Moved exclusion of higher order functions to DFD code from rendering, since it's common to both
+c2fb6d2  2014-08-30 15:59:33 +1000  Rewrote test, since we don't support dependency resolution for higher order functions
+33c0556  2014-08-30 15:56:43 +1000  BUG FIX: Commit d957bb (Combined macro eval code) broke recursive functions. This makes higher order and recursive functions mutually exclusive.
+ed6066d  2014-08-30 15:32:03 +1000  Moved tests into a dedicated folder
+1555210  2014-08-30 13:06:46 +1000  BUG FIX: function calls with the correct no. of args can still return functions if the function called is higher order
+226ec40  2014-08-30 13:05:19 +1000  BUG FIX: subArgs was only replacing scalar nodes, not functions This facilitates higher order functions which take functional arguments
+cfff239  2014-08-30 12:06:01 +1000  Fixed type signature parsing logic
+d882846  2014-08-29 22:17:16 +1000  Added HsAlign.d to facilitate debugging
+a7fbe5f  2014-08-29 17:58:41 +1000  Implemented support for partial application
+f94fddb  2014-08-29 17:57:21 +1000  Added support for partial application of operators (AST rewriting)
+
+================================================================================
 Thursday 28 August 2014
 Have partially achieved higher order function support, but more work is needed.
 Most of the issues this week have stemmed from problems handling type signatures correctly, or bugs in the rendering code.
