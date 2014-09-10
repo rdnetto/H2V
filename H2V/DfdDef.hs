@@ -82,6 +82,7 @@ data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
 -- supported data types: D_Int width. (May add fixed point support in the future)
 -- Note that Haskell types for signed and unsigned integers are Int32 and Word32
 data DType = DSInt Int | DUInt Int | DBool | UndefinedType
+            | DList DType
             | DFunc{
                 funcArgs :: [DType],
                 funcRT :: DType

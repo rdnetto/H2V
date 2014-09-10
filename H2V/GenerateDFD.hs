@@ -57,6 +57,7 @@ cleanExpr exp@(HsVar _) = exp
 cleanExpr exp@(HsLit _) = exp
 cleanExpr (HsLet decls exp) = HsLet (map cleanDecl decls) $ cleanExpr exp
 cleanExpr (HsApp e1 e2) = HsApp (cleanExpr e1) (cleanExpr e2)
+cleanExpr (HsList es) = HsList $ map cleanExpr es
 --replace IFs with a function call
 --TODO: add support for qualified function names, so that we can avoid if being overloaded
 cleanExpr (HsIf cond tExp fExp) = cleanExpr $ HsApp (HsApp (HsApp f cond) tExp) fExp where
@@ -203,6 +204,8 @@ toDTypes (HsTyFun leftChild rightChild)
         f1 = DFunc (init t1) (last t1)
 toDTypes t@(HsTyVar _) = [UndefinedType]
 toDTypes t@(HsTyCon _) = [UndefinedType]
+toDTypes (HsTyApp (HsTyCon (Special HsListCon)) (HsTyCon _)) = [DList UndefinedType]
+toDTypes t = error $ "Unknown type: " ++ show t
 
 --defines a function argument. Similar to definePat, but without binding
 --Populates the namespace immediately on creation, for consistency with defineDecl.
@@ -382,6 +385,7 @@ sortDecls decls = res where
     exprDeps (HsLit _) = []
     exprDeps (HsApp a b) = exprDeps a ++ exprDeps b
     exprDeps (HsLet d e) = concatMap declDeps d ++ exprDeps e
+    exprDeps (HsList es) = concatMap exprDeps es
     exprDeps (HsIf a b c) = exprDeps a ++ exprDeps b ++ exprDeps c
 
     rhsDeps :: HsRhs -> [String]
@@ -576,6 +580,8 @@ fromHsName (HsSymbol x) = x
 fromHsQName :: HsQName -> String
 fromHsQName (UnQual n) = fromHsName n
 fromHsQName (Qual (Module m) n) = m ++ "." ++ fromHsName n
+fromHsQName (Special HsListCon) = "__emptyList"
+fromHsQName (Special HsCons) = ":"
 
 --yields an infinite list of arg names
 genArgs :: [HsName]
