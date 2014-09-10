@@ -31,6 +31,17 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) Ternary
          in pushDfdNS ("if", DFD (-1) "if" args UndefinedType False root)
 
+        --list operators and functions
+        let op = ":"
+            args = [(-1, UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) (BinaryOp op)
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
+        let op = "++"
+            args = [(-1, UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) (BinaryOp op)
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
