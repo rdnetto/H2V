@@ -1,4 +1,18 @@
 ================================================================================
+Wednesday 10 September 2014
+Syntax and DFD level support for lists is now complete, including rendering to Graphviz.
+Now working on Verilog level support.
+
+Git commits:
+2f5b105  2014-09-10 20:37:57 +1000  Added Graphviz rendering support for lists
+5bd7a90  2014-09-10 20:57:28 +1000  Added DFD support for enumeration literals.
+088fd4f  2014-09-10 20:21:51 +1000  Added DFD support for list literals
+6c6b50c  2014-09-10 20:14:21 +1000  Added definitions for cons and concat builtins.
+6f813c0  2014-09-10 20:10:45 +1000  Refactored the definitions of built-in functions, so that they're actually readable.
+8133c0d  2014-09-10 20:16:18 +1000  Added basic syntax support for lists.
+cf5ab3b  2014-09-10 20:15:15 +1000  Refactored code for generating AST identifiers into a convenience function.
+
+================================================================================
 Thursday 04 September 2014
 Higher order functions are now fully debugged (this took a surprisingly large amount of time for such a small amount of code).
 Also moved each test case into a separate file, since the DFD was getting quite crowded.
