@@ -51,19 +51,27 @@ renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef wh
     node = printf "node_%i [ fontcolor=dimgray ];\n" varID
     edge = printf "node_%i -> node_%i;\n" (nodeID val) varID
 
+renderNode (DListLiteral listID elements) = (GNodeDef listID node edge):eDefs where
+    node = printf "node_%i [ label = \"List\n[node_%i]\", color=blue ];\n" listID listID
+    edge = concatMap (subEdge listID "[%i]") $ zip [0..] elements
+    eDefs = concatMap renderNode elements
+
 renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
     fID = if   (dfdID f) == -1
           then ""
           else printf "(dfd_%i)" $ dfdID f
     node = printf "node_%i [ label = \"Function call: %s %s\n[node_%i]\", color=darkgreen ];\n" appID (dfdName f) fID appID
-    edge = concatMap argEdge $ zip [0..] args
+    edge = concatMap (subEdge appID "arg_%i") $ zip [0..] args
     aDefs = concatMap renderNode args
-
-    argEdge :: (Int, DNode) -> String
-    argEdge (i, a) = printf "node_%i -> node_%i [ label = \"arg_%i\" ];\n" (nodeID a) appID i
 
 renderNode (DFunction fID f) = (GNodeDef fID node ""):[] where
     node = printf "node_%i [ label = \"Function: %s\n[node_%i]\", color=darkgreen ];\n" fID (dfdName f) fID
+
+--Helper function for generating edges from a node to its children.
+--iFmt is a printf format string used for the edge's indexed label
+subEdge :: NodeId -> String -> (Int, DNode) -> String
+subEdge parentID iFmt (i, a) = printf "node_%i -> node_%i [ label = \"%s\" ];\n" (nodeID a) parentID indexStr where
+    indexStr :: String = printf iFmt i
 
 extractGnode :: [GNodeDef] -> (String, String)
 extractGnode ns = (concatMap nodeDefs ns', concatMap edgeDefs ns') where
