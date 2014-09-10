@@ -325,6 +325,11 @@ defineExpr (HsLit (HsInt val)) = do
     nodeID <- newId
     return $ DLiteral nodeID $ fromIntegral val
 
+defineExpr (HsList es) = do
+    nodeID <- newId
+    es' <- mapM defineExpr es
+    return $ DListLiteral nodeID es'
+
 defineExpr (HsLet decls exp) = do
     let decls' = matchDecls $ sortDecls decls
     headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'

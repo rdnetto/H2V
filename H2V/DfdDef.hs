@@ -56,6 +56,10 @@ data DNode = DLiteral{
                 nodeID :: NodeId,
                 literalValue :: Int
             }
+            | DListLiteral {
+                nodeID :: NodeId,
+                elements :: [DNode]
+            }
             | DVariable{
                 nodeID :: NodeId,
                 variableType :: DType,
