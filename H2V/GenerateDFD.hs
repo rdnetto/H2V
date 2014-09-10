@@ -42,6 +42,16 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) (BinaryOp op)
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
+        let op = "__unboundedEnum"                                      --__unboundedEnum x0 step = [x0, step ..]
+            args = [(-1, UndefinedType), (-1, UndefinedType)]
+            root = DBuiltin (-1) EnumList
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
+        let op = "__boundedEnum"                                        --__boundedEnum x0 step max = [x0, step .. max]
+            args = [(-1, UndefinedType), (-1, UndefinedType), (-1, UndefinedType)]
+            root = DBuiltin (-1) EnumList
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
@@ -77,6 +87,17 @@ cleanExpr (HsList es) = HsList $ map cleanExpr es
 --TODO: add support for qualified function names, so that we can avoid if being overloaded
 cleanExpr (HsIf cond tExp fExp) = cleanExpr $ HsApp (HsApp (HsApp f cond) tExp) fExp where
     f = astVar "if"
+--replace enums with function calls: __enum(x0, step, [max])
+cleanExpr (HsEnumFrom e) = cleanExpr $ HsApp (HsApp f e) (HsLit $ HsInt 1) where
+    f = astVar "__unboundedEnum"
+cleanExpr (HsEnumFromThen e0 e1) = cleanExpr $ HsApp (HsApp f e0) step where
+    f = astVar "__unboundedEnum"
+    step = HsApp (HsApp (astVar "-") e0) e1
+cleanExpr (HsEnumFromTo e0 e1) = cleanExpr $ HsApp (HsApp (HsApp f e0) (HsLit $ HsInt 1)) e1 where
+    f = astVar "__boundedEnum"
+cleanExpr (HsEnumFromThenTo e0 e1 e2) = cleanExpr $ HsApp (HsApp (HsApp f e0) step) e2 where
+    f = astVar "__boundedEnum"
+    step = HsApp (HsApp (astVar "-") e0) e1
 --convert infix application to prefix application
 cleanExpr (HsInfixApp arg1 op arg2)
     | op == dollarOp = HsApp (cleanExpr arg1) (cleanExpr arg2)

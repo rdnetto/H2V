@@ -80,7 +80,7 @@ data DNode = DLiteral{
             }
     deriving (Show, Eq)
 
-data BuiltinOp = BitwiseNot | BinaryOp String | Ternary
+data BuiltinOp = BitwiseNot | BinaryOp String | Ternary | EnumList
     deriving (Show, Eq)
 
 -- supported data types: D_Int width. (May add fixed point support in the future)
