@@ -60,7 +60,7 @@ cleanExpr (HsApp e1 e2) = HsApp (cleanExpr e1) (cleanExpr e2)
 --replace IFs with a function call
 --TODO: add support for qualified function names, so that we can avoid if being overloaded
 cleanExpr (HsIf cond tExp fExp) = cleanExpr $ HsApp (HsApp (HsApp f cond) tExp) fExp where
-    f = HsVar $ UnQual $ HsIdent "if"
+    f = astVar "if"
 --convert infix application to prefix application
 cleanExpr (HsInfixApp arg1 op arg2)
     | op == dollarOp = HsApp (cleanExpr arg1) (cleanExpr arg2)
@@ -587,6 +587,10 @@ trueExpr = unit_con
 
 nullSrcLoc :: SrcLoc
 nullSrcLoc = SrcLoc "" 0 0
+
+--Convenience function for creating a function when processing the AST
+astVar :: String -> HsExp
+astVar n = HsVar $ UnQual $ HsIdent n
 
 --Returns False if any element appears the in the list more than once.
 unique :: Ord a => [a] -> Bool
