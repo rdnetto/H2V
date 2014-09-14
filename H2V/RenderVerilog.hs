@@ -8,9 +8,6 @@ import Text.Printf
 import Common
 import DfdDef
 
---TODO: need to implement ready/done signals
---TODO: Modelsim requires modules to be defined before they are used. Need to adjust the DFD generation code to handle this...
-
 --IDEA: implement closure support using partial application. This simplifies rewriting application, and issues with nested closures
 
 --If there is an (undirected) loop in the graph, all nodes above it are defined and assigned multiple times.
@@ -96,7 +93,6 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        "endmodule\n"
                                       ]
 
---WIP: This function renders a recursive function
 --There are two trees of evaluation for a tail-recursive function:
 --  -the base case, where the root is the resulting expression.
 --  -the recursive case, where the root is the recursive call.
