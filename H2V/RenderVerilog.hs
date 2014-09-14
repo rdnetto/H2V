@@ -13,11 +13,13 @@ import DfdDef
 --If there is an (undirected) loop in the graph, all nodes above it are defined and assigned multiple times.
 --Therefore, we tag each node definition with a UID, to eliminate duplicate definitions.
 --We store the definition and assignment separately, because Modelsim requires the definition to precede all uses.
+--vModDeps contains the definition of any modules used by this node. (Needed because modules can't be nested.)
 --This functional approach is cleaner, but less efficient than the monadic/stateful approach.
 data VNodeDef = VNodeDef{
                     vNodeId :: NodeId,
                     vDef :: String,
-                    vAssign :: String
+                    vAssign :: String,
+                    vModDeps :: String
                 }
 
 --A tail-recursive DFD will be a tree of IFs, where each leaf is a recursive call or a non-recursive expression.
@@ -81,17 +83,20 @@ recursiveCases f = recExpr [] $ dfdRoot f where
 renderFunc :: DFD -> String
 renderFunc dfd@(DFD dfdID name args _ _ root)
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
-    | otherwise             = unlines [printf "module dfd_%i(" dfdID,
+    | otherwise             = unlines [concatMap vModDeps defs,
+                                       printf "module dfd_%i(" dfdID,
                                        "input clock, input ready, output done,",
                                        printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                        unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
                                        "output [7:0] result",
                                        ");",
-                                       concatNodes $ renderNode root,
+                                       concatNodes defs,
                                        printf "assign result = node_%i;" $ nodeID root,
                                        printf "assign done = node_%i_done;" $ nodeID root,
                                        "endmodule\n"
                                       ]
+    where
+        defs = renderNode root
 
 --There are two trees of evaluation for a tail-recursive function:
 --  -the base case, where the root is the resulting expression.
@@ -193,7 +198,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     --Define control signals for a recursive case
     --TODO: assuming that the logic for selecting the case is combinatorial - need to add explicit check for this
     defineRecCase :: (Int, RecursiveCase) -> [VNodeDef]
-    defineRecCase (i, rCase) = (VNodeDef (-i) defs assigns) : vNodes ++ auxNodes where
+    defineRecCase (i, rCase) = (VNodeDef (-i) defs assigns "") : vNodes ++ auxNodes where
         defs = unlines [
                     printf "wire valid_%i, ready_%i, done_%i;" i i i,
                     outDef
@@ -266,7 +271,7 @@ renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io h
             else i
 
 renderNode :: DNode -> [VNodeDef]
-renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass where
+renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
     def = unlines [ printf "wire %s node_%i;" (vType UndefinedType) nodeID,
                     printf "wire node_%i_done;" nodeID
                   ]
@@ -275,11 +280,11 @@ renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass where
                   ]
 
 --argument - wire/reg is defined with function, but need to manually specify ready/done signals
-renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass where
+renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass "" where
     def = printf "wire node_%i_done;\n" nodeID
     ass = printf "assign node_%i_done = ready;\n" nodeID
 
-renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass) where
+renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
     valDef = renderNode val
     def = unlines [ printf "wire %s node_%i;" (vType t) varID,
                     printf "wire node_%i_done;" varID
@@ -290,7 +295,7 @@ renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def
 
 renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
-    | otherwise       = aDefs ++ return (VNodeDef appID def ass)
+    | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
         def = unlines [ printf "wire %s node_%i;" (vType $ returnType f) appID,
                         printf "wire node_%i_ready, node_%i_done;" appID appID
@@ -307,17 +312,17 @@ renderNode (DFunctionCall appID f args)
         argEdge a = printf "node_%i, " (nodeID a)
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
-renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
+renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
     def = printf "wire %s node_%i;\n" (vType $ nodeType arg) resID
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     (ds, as) = genericDone resID args
 
-renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
+renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
     def = printf "wire %s node_%i;\n" (vType $ nodeType a0) resID          --TODO: should really use the larger of the two types
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     (ds, as) = genericDone resID args
 
-renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID (def ++ ds) (ass ++ as) where
+renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
     def = printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
     ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
     (ds, as) = genericDone resID args
