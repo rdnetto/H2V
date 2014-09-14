@@ -200,7 +200,7 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
     defineRecCase :: (Int, RecursiveCase) -> [VNodeDef]
     defineRecCase (i, rCase) = (VNodeDef (-i) defs assigns "") : vNodes ++ auxNodes where
         defs = unlines [
-                    printf "wire valid_%i, ready_%i, done_%i;" i i i,
+                    printfAll "wire valid_%i, ready_%i, done_%i;" i,
                     outDef
                 ]
 
@@ -369,4 +369,8 @@ indentN :: Int -> [String] -> String
 indentN n = unlines . map f where
     f = intercalate "\n" . map (delim ++) . lines
     delim = take n (repeat '\t')
+ 
+--like printf, but replaces all %i with a single value.
+printfAll :: String -> Int -> String
+printfAll f i = replace "%i" (show i) f
 
