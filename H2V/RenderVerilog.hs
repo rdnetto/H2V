@@ -279,6 +279,20 @@ renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
                     printf "assign node_%i_done = 1;" nodeID
                   ]
 
+--arguments which are lists are already defined
+renderNode (DVariable nodeID (DList _) Nothing) = []
+
+renderNode (DVariable varID (DList t) (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
+    valDef = renderNode val
+    def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" varID varID varID,
+                    printf "wire %s node_%i_value;" (vType t) varID
+                  ]
+    ass = unlines [ printf "assign node_%i_req = node_%i_req;" varID (nodeID val),
+                    printf "assign node_%i_ack = node_%i_ack;" varID (nodeID val),
+                    printf "assign node_%i_eol = node_%i_eol;" varID (nodeID val),
+                    printf "assign node_%i_value = node_%i_value;" varID (nodeID val)
+                  ]
+
 --argument - wire/reg is defined with function, but need to manually specify ready/done signals
 renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass "" where
     def = printf "wire node_%i_done;\n" nodeID
@@ -308,8 +322,83 @@ renderNode (DFunctionCall appID f args)
         aDefs = concatMap renderNode args
         aAsses = concatMap argEdge args
 
-        argEdge :: DNode -> String
-        argEdge a = printf "node_%i, " (nodeID a)
+--List literals are handled by generating a module to implement the list interface
+renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod where
+    def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID nodeID nodeID,
+                    printf "wire [7:0] node_%i_value;" nodeID
+                  ]
+    ass = printf "listLiteral_%i(clock, %s node_%i_req, node_%i_ack, node_%i_eol, node_%i_value);\n" nodeID elems nodeID nodeID nodeID nodeID
+    elems = concatMap argEdge items
+    elemIndices = [0 .. length items - 1]
+    mod = unlines [ printf "module listLiteral_%i(" nodeID,
+                    indent [
+                        "input clock,",
+                        "input reset,",
+                        unlines $ map (printfAll $ unlines [
+                                "input [7:0] x_%i,",
+                                "output [7:0] x_%i_ready,",
+                                "input [7:0] x_%i_done,"
+                                ]) elemIndices,
+                        "input req,",
+                        "output reg ack,",
+                        "output reg eol,",
+                        "output reg [7:0] value",
+                        ");\n",
+
+                        "wire ready, done;",
+                        "reg [7:0] index;",
+                        "reg dummy;",
+                        "reg lastAck;",
+
+                        printf "assign eol = (index >= %i);" (length items - 1),
+                        "assign ready = req;",
+                        "assign ack = done;",
+                        "",
+
+                        "always @(*) begin",
+                        indent [
+                            concatMap (printfAll "x_%i_ready = (index == %i ? ready : 0);") elemIndices,
+                            "",
+
+                            "case (index)",
+                            indent [
+                                concatMap elemCase elemIndices,
+                                "default: begin",
+                                "\tdone = 1;",
+                                "\tvalue = 8'hXX;",
+                                "end"
+                            ],
+                            "endcase"
+                        ],
+                        "end\n",
+
+                        "always @(clock) begin",
+                        indent [
+                            "lastAck <= ack;\n",
+
+                            "if(reset)",
+                            "\tindex <= 0;",
+                            "else if(req & lastAck & ~eol)",
+                            "\tindex <= index + 1;"
+                        ],
+                        "end"
+                    ],
+                    "endmodule"
+                  ]
+
+    elemCase :: Int -> String
+    elemCase i = printfAll fmt i where
+        fmt = unlines [
+                "%i: begin",
+                indent [
+                    "done = x_%i_done;",
+                    "value = x_%i"
+                ],
+                "   end"
+              ]
+
+argEdge :: DNode -> String
+argEdge a = printf "node_%i, " (nodeID a)
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
