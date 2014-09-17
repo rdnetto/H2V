@@ -289,6 +289,20 @@ assignNode lhs rhs = line1 ++ line2 where
 --  (i, (ai, t): i is the arg index, ai is the node ID, t is the type
 --  tail: a string to append to the end of the result. Useful for semicolons, etc.
 renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
+renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
+    lines = [ printf "%s %s_%i_req%s"    io    prefix index tail,
+              printf "%s %s_%i_ack%s"    invIo prefix index tail,
+              printf "%s %s_%i_eol%s"    invIo prefix index tail,
+              printf "%s %s %s_%i_req%s" io hwType prefix index tail
+            ]
+    hwType = if io == ""
+             then ""
+             else scalarVType t
+    index = if useNodeId
+            then argID
+            else i
+    invIo = maybe io id (lookup io [("input", "output"), ("output", "input")])
+
 renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io hwType prefix index tail where
     hwType = if io == ""
              then ""
@@ -317,7 +331,6 @@ renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID
     def = defineNode varID t
     ass = assignNode var val
 
---WIP: refactor this to work for lists
 renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
@@ -325,10 +338,10 @@ renderNode (DFunctionCall appID f args)
         def = unlines [ defineNode appID (returnType f),
                         printf "wire node_%i_ready;" appID
                       ]
-        ass = unlines [
-                        printf "assign node_%i_ready = %s;" appID ready,
-                        printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s node_%i);\n" (dfdID f) appID appID appID aAsses appID
+        ass = unlines [ printf "assign node_%i_ready = %s;" appID ready,
+                        printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s node_%i);\n" fID appID appID appID aAsses appID
                       ]
+        fID = dfdID f
         ready = joinMap " & " (printf "node_%i_done" . nodeID) args
         aDefs = concatMap renderNode args
         aAsses = concatMap argEdge args
@@ -409,7 +422,7 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
               ]
 
 argEdge :: DNode -> String
-argEdge a = printf "node_%i, " (nodeID a)
+argEdge a = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
