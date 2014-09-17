@@ -257,12 +257,12 @@ nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
 --Defines the wires for a node, but doesn't connect them to anything
 defineNode :: NodeId -> DType -> String
-defineNode nodeID (DList t) = line1 ++ line2 where
+defineNode nodeID (DList t) = unlines [line1, line2] where
     line1 = printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID
     line2 = printf    "wire %s node_%i_value;" (scalarVType t) nodeID
 
-defineNode nodeID t = line1 ++ line2 where
-    line1 = printf    "wire %s node_%i;\n" (scalarVType t) nodeID
+defineNode nodeID t = unlines [line1, line2] where
+    line1 = printf    "wire %s node_%i;" (scalarVType t) nodeID
     line2 = printfAll "wire node_%i_done;" nodeID
 
 --Generates the assign statements needed to connect two nodes. LHS is set to RHS.
@@ -278,7 +278,7 @@ assignNode lhs rhs
                 "assign node_%i_value = node_%i_value;"
               ]
 
-assignNode lhs rhs = line1 ++ line2 where
+assignNode lhs rhs = unlines [line1, line2] where
     line1 = printf "assign node_%i = node_%i;" (nodeID lhs) (nodeID rhs)
     line2 = printf "assign node_%i_done = node_%i_done;" (nodeID lhs) (nodeID rhs)
 
