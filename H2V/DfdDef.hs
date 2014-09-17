@@ -299,3 +299,8 @@ resolveHeader header
 displayFunc :: DFD -> String
 displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "(header)" else "")
 
+--retrieve value expected to be known at compile-time
+getConstant :: DNode -> Int
+getConstant DLiteral{literalValue = x} = x
+getConstant DVariable{variableValue = Just x} = getConstant x
+
