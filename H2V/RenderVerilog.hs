@@ -435,9 +435,7 @@ renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ d
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     doneAs = genericDone resID args
 
-renderBuiltin resID Ternary args@(cond:tExp:fExp:[])
-    | isList (nodeType tExp) = VNodeDef resID def (ass ++ doneAs) ""
-    where
+renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
         def = defineNode resID (nodeType tExp)
         ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
         doneAs = genericDone resID args
