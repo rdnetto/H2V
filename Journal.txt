@@ -1,4 +1,27 @@
 ================================================================================
+Thursday 18 September 2014
+Implemented support for rendering list code to Verilog.
+Performed regression testing and eliminated associated bugs. (Generated code for all (non-list) tests is equivalent to output from last week's code.)
+Need to write Verilog modules for enums (trivial) and test the list code.
+Should be able to start on map/reduce code this week.
+
+Git commits:
+5a456e6  2014-09-18 00:29:00 +1000  Defined getConstant (preliminary)
+b7d2da8  2014-09-18 00:43:59 +1000  BUG FIX: Forgot to remove the constraint from the generalised code
+5f72e07  2014-09-18 00:28:05 +1000  BUG FIX: was generating extraneous done declarations
+4e43362  2014-09-18 00:27:45 +1000  BUG FIX: was omitting newlines
+a1637dc  2014-09-18 00:50:31 +1000  Patch 3 of 3: Verilog List Support Implemented enumeration logic.
+fa5d64d  2014-09-18 00:49:36 +1000  Patch 2 of 3: Verilog List Support Refactored function call code to work with lists
+9b658cf  2014-09-17 23:15:53 +1000  Patch 1 of 3: Verilog List Support Refactored node definition/assignment logic into separate functions
+5ea1acc  2014-09-18 00:53:24 +1000  Created an include directory to hold Haskell and Verilog dependencies
+41d941d  2014-09-18 00:33:26 +1000  Added Verilog compilation to test script
+1d4ca1a  2014-09-17 21:16:37 +1000  Whitespace fixups
+92ce16f  2014-09-14 21:46:15 +1000  Added support for rendering list literals to Verilog
+4afc949  2014-09-14 21:44:18 +1000  Refactoring: added printfAll, since it simplifies a common pattern
+b0a3349  2014-09-14 20:17:59 +1000  Refactoring: added vModDeps to VNodeDef, so that we can define modules on a per-node basis
+f9f345b  2014-09-14 19:51:14 +1000  Removed obsolete comments
+
+================================================================================
 Wednesday 10 September 2014
 Syntax and DFD level support for lists is now complete, including rendering to Graphviz.
 Now working on Verilog level support.
