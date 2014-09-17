@@ -442,13 +442,29 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[])
         ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
         (ds, as) = genericDone resID args
 
---WIP: refactor this to call renderArg
---WIP: add unbounded
---bounded
-renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass1 ++ ass2) "" where
-    def =  defineNode resID (DList UndefinedType)
-    ass1 = printf "BoundedEnum(clock, ready_%i, node_%i, ready_%i, node_%i, ready_%i, node_%i, " (nodeID min) (nodeID min) (nodeID step) (nodeID step) (nodeID max) (nodeID max)
-    ass2 = printfAll "node_%i_req, node_%i_ack, node_%i_eol, node_%i_value);\n" resID
+renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+    --bounded
+    def = defineNode resID (DList UndefinedType)
+    ass = renderListGen resID min step (Just max)
+    (ds, as) = genericDone resID [min, step, max]
+
+renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+    --unbounded
+    def = defineNode resID (DList UndefinedType)
+    ass = renderListGen resID min step Nothing
+    (ds, as) = genericDone resID [min, step]
+
+--Generates assign statement for bounded and unbounded enumerations
+renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
+renderListGen resID min step max = res where
+    res = concat [
+            maybe  "Unbounded" (\_ -> "Bounded") max,
+            printf "Enum(clock, node_%i_done, " resID,
+            printf "node_%i, node_%i, " (nodeID min) (nodeID step),
+            maybe  "" (printf "node_%i, " . nodeID) max,
+            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            ");\n"
+        ]
 
 --generates ready/done signals for builtin functions
 genericDone :: NodeId -> [DNode] -> (String, String)
