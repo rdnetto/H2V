@@ -458,8 +458,7 @@ indentN :: Int -> [String] -> String
 indentN n = unlines . map f where
     f = intercalate "\n" . map (delim ++) . lines
     delim = take n (repeat '\t')
- 
+
 --like printf, but replaces all %i with a single value.
 printfAll :: String -> Int -> String
 printfAll f i = replace "%i" (show i) f
-

@@ -34,7 +34,7 @@ displayDecl indentation (HsFunBind matches@(m0:_)) = printf "Function: %s\n\t\t"
     --we discard the name because it will be the same for all clauses of a function
     --pattern is a list of the arguments, as defined for pattern matching (e.g. literals, tuples, etc.)
     --RHS is the expression assigned to it
-    --decl is the internal declarations. i.e. where clauses. These need to be included with higher level of declarations in 
+    --decl is the internal declarations. i.e. where clauses. These need to be included with higher level of declarations in
     --  identifier resolution
     displayMatch :: HsMatch -> String
     displayMatch (HsMatch _ _ pattern rhs decls) = printf fmt (show pattern) (show rhs) declStr where
