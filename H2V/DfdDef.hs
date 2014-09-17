@@ -110,6 +110,10 @@ isHigherOrderFunc f = any isFunc $ ret:(map snd args) where
     args = dfdArgs f
     ret = returnType f
 
+isList :: DType -> Bool
+isList (DList t) = True
+isList _ = False
+
 dfdArgs :: DFD -> [(NodeId, DType)]
 dfdArgs dfd@DFD{} = dfdArgs_ dfd
 dfdArgs DfdHeader{dfdTypeInfo = Just (args, ret)} = args

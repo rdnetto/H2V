@@ -255,6 +255,33 @@ renderRecursiveFunc (DFD dfdID name args _ _ root) recCases = res where
 nullArg :: Int -> String
 nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
+--Defines the wires for a node, but doesn't connect them to anything
+defineNode :: NodeId -> DType -> String
+defineNode nodeID (DList t) = line1 ++ line2 where
+    line1 = printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID
+    line2 = printf    "wire %s node_%i_value;" (scalarVType t) nodeID
+
+defineNode nodeID t = line1 ++ line2 where
+    line1 = printf    "wire %s node_%i;\n" (scalarVType t) nodeID
+    line2 = printfAll "wire node_%i_done;" nodeID
+
+--Generates the assign statements needed to connect two nodes. LHS is set to RHS.
+assignNode :: DNode -> DNode -> String
+assignNode lhs rhs
+    | isList (nodeType lhs) = unlines $ map (\fmt -> printf fmt lhsID rhsID) res
+    where
+        lhsID = nodeID lhs
+        rhsID = nodeID rhs
+        res = [ "assign node_%i_req = node_%i_req;",
+                "assign node_%i_ack = node_%i_ack;",
+                "assign node_%i_eol = node_%i_eol;",
+                "assign node_%i_value = node_%i_value;"
+              ]
+
+assignNode lhs rhs = line1 ++ line2 where
+    line1 = printf "assign node_%i = node_%i;" (nodeID lhs) (nodeID rhs)
+    line2 = printf "assign node_%i_done = node_%i_done;" (nodeID lhs) (nodeID rhs)
+
 --Defines an argument to a Verilog module.
 --  io: the storage class. e.g. "input"/"output". Type will be omitted if storage class is blank.
 --  prefix. e.g. "node".
@@ -265,16 +292,14 @@ renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> Str
 renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io hwType prefix index tail where
     hwType = if io == ""
              then ""
-             else vType t
+             else scalarVType t
     index = if useNodeId
             then argID
             else i
 
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
-    def = unlines [ printf "wire %s node_%i;" (vType UndefinedType) nodeID,
-                    printf "wire node_%i_done;" nodeID
-                  ]
+    def = defineNode nodeID UndefinedType
     ass = unlines [ printf "assign node_%i = %i;" nodeID value,
                     printf "assign node_%i_done = 1;" nodeID
                   ]
@@ -282,37 +307,23 @@ renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
 --arguments which are lists are already defined
 renderNode (DVariable nodeID (DList _) Nothing) = []
 
-renderNode (DVariable varID (DList t) (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
-    valDef = renderNode val
-    def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" varID varID varID,
-                    printf "wire %s node_%i_value;" (vType t) varID
-                  ]
-    ass = unlines [ printf "assign node_%i_req = node_%i_req;" varID (nodeID val),
-                    printf "assign node_%i_ack = node_%i_ack;" varID (nodeID val),
-                    printf "assign node_%i_eol = node_%i_eol;" varID (nodeID val),
-                    printf "assign node_%i_value = node_%i_value;" varID (nodeID val)
-                  ]
-
 --argument - wire/reg is defined with function, but need to manually specify ready/done signals
 renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass "" where
     def = printf "wire node_%i_done;\n" nodeID
     ass = printf "assign node_%i_done = ready;\n" nodeID
 
-renderNode (DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
+renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
     valDef = renderNode val
-    def = unlines [ printf "wire %s node_%i;" (vType t) varID,
-                    printf "wire node_%i_done;" varID
-                  ]
-    ass = unlines [ printf "assign node_%i = node_%i;" varID (nodeID val),
-                    printf "assign node_%i_done = node_%i_done;" varID (nodeID val)
-                  ]
+    def = defineNode varID t
+    ass = assignNode var val
 
+--WIP: refactor this to work for lists
 renderNode (DFunctionCall appID f args)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
-        def = unlines [ printf "wire %s node_%i;" (vType $ returnType f) appID,
-                        printf "wire node_%i_ready, node_%i_done;" appID appID
+        def = unlines [ defineNode appID (returnType f),
+                        printf "wire node_%i_ready;" appID
                       ]
         ass = unlines [
                         printf "assign node_%i_ready = %s;" appID ready,
@@ -402,19 +413,29 @@ argEdge a = printf "node_%i, " (nodeID a)
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
-    def = printf "wire %s node_%i;\n" (vType $ nodeType arg) resID
+    def = defineNode resID (nodeType arg)
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     (ds, as) = genericDone resID args
 
 renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
-    def = printf "wire %s node_%i;\n" (vType $ nodeType a0) resID          --TODO: should really use the larger of the two types
+    def = defineNode resID (nodeType a0)
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     (ds, as) = genericDone resID args
 
-renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
-    def = printf "wire %s node_%i;\n" (vType $ nodeType tExp) resID        --TODO: should really use the larger of the two types
-    ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
-    (ds, as) = genericDone resID args
+renderBuiltin resID Ternary args@(cond:tExp:fExp:[])
+    | isList (nodeType tExp) = VNodeDef resID (def ++ ds) (ass ++ as) ""
+    where
+        def = defineNode resID (nodeType tExp)
+        ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
+        (ds, as) = genericDone resID args
+
+--WIP: refactor this to call renderArg
+--WIP: add unbounded
+--bounded
+renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass1 ++ ass2) "" where
+    def =  defineNode resID (DList UndefinedType)
+    ass1 = printf "BoundedEnum(clock, ready_%i, node_%i, ready_%i, node_%i, ready_%i, node_%i, " (nodeID min) (nodeID min) (nodeID step) (nodeID step) (nodeID max) (nodeID max)
+    ass2 = printfAll "node_%i_req, node_%i_ack, node_%i_eol, node_%i_value);\n" resID
 
 --generates ready/done signals for builtin functions
 genericDone :: NodeId -> [DNode] -> (String, String)
@@ -435,12 +456,12 @@ concatNodes ns = defs ++ assigns where
     f :: (String, String) -> VNodeDef -> (String, String)
     f (ds, as) node = (ds ++ vDef node, as ++ vAssign node)
 
---Converts a Haskell type to a Verilog type (i.e. a bus)
-vType :: DType -> String
-vType (DUInt n) = printf "[%i:0]" (n - 1)
-vType (DSInt n) = printf "[%i:0]" (n - 1)
-vType DBool = ""                                --1 bit is implied by a blank type
-vType UndefinedType = vType $ DUInt 8           --default
+--Converts a scalar Haskell type to a Verilog type (i.e. a bus)
+scalarVType :: DType -> String
+scalarVType (DUInt n) = printf "[%i:0]" (n - 1)
+scalarVType (DSInt n) = printf "[%i:0]" (n - 1)
+scalarVType DBool = ""                                      --1 bit is implied by a blank type
+scalarVType UndefinedType = scalarVType $ DUInt 8           --default
 
 --Filters out key-value pairs which re-use existing keys. Preserves order.
 uniq :: Ord a => [(a, b)] -> [(a, b)]
