@@ -425,34 +425,34 @@ argEdge :: DNode -> String
 argEdge a = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
-renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType arg)
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
-    (ds, as) = genericDone resID args
+    doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType a0)
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
-    (ds, as) = genericDone resID args
+    doneAs = genericDone resID args
 
 renderBuiltin resID Ternary args@(cond:tExp:fExp:[])
-    | isList (nodeType tExp) = VNodeDef resID (def ++ ds) (ass ++ as) ""
+    | isList (nodeType tExp) = VNodeDef resID def (ass ++ doneAs) ""
     where
         def = defineNode resID (nodeType tExp)
         ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
-        (ds, as) = genericDone resID args
+        doneAs = genericDone resID args
 
-renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --bounded
     def = defineNode resID (DList UndefinedType)
     ass = renderListGen resID min step (Just max)
-    (ds, as) = genericDone resID [min, step, max]
+    doneAs = genericDone resID [min, step, max]
 
-renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID (def ++ ds) (ass ++ as) "" where
+renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --unbounded
     def = defineNode resID (DList UndefinedType)
     ass = renderListGen resID min step Nothing
-    (ds, as) = genericDone resID [min, step]
+    doneAs = genericDone resID [min, step]
 
 --Generates assign statement for bounded and unbounded enumerations
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
@@ -466,10 +466,9 @@ renderListGen resID min step max = res where
             ");\n"
         ]
 
---generates ready/done signals for builtin functions
-genericDone :: NodeId -> [DNode] -> (String, String)
-genericDone resID args = (def, ass) where
-    def = printf "wire node_%i_done;\n" resID
+--Generates assign statements for ready/done signals for builtin functions.
+genericDone :: NodeId -> [DNode] -> String
+genericDone resID args = ass where
     ass = printf "assign node_%i_done = %s;\n" resID $ joinMap " & " (printf "node_%i_done" . nodeID) args
 
 --Helper function for extracting the contents of VNodeDefs
