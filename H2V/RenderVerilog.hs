@@ -360,19 +360,20 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
                         "input reset,",
                         unlines $ map (printfAll $ unlines [
                                 "input [7:0] x_%i,",
-                                "output [7:0] x_%i_ready,",
+                                "output reg [7:0] x_%i_ready,",
                                 "input [7:0] x_%i_done,"
                                 ]) elemIndices,
                         "input req,",
-                        "output reg ack,",
-                        "output reg eol,",
+                        "output ack,",
+                        "output eol,",
                         "output reg [7:0] value",
                         ");\n",
 
-                        "wire ready, done;",
-                        "reg [7:0] index;",
+                        "wire ready;",
+                        "reg done;",
                         "reg dummy;",
                         "reg lastAck;",
+                        "reg [7:0] index;",
 
                         printf "assign eol = (index >= %i);" (length items - 1),
                         "assign ready = req;",
