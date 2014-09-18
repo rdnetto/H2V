@@ -137,6 +137,7 @@ nodeType :: DNode -> DType
 nodeType DVariable{variableType = t} = t
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
+nodeType DListLiteral{elements = xs} = DList . nodeType $ head xs
 
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
