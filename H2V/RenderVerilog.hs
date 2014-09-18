@@ -351,13 +351,18 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
     def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID nodeID nodeID,
                     printf "wire [7:0] node_%i_value;" nodeID
                   ]
-    ass = printf "listLiteral_%i(clock, %s node_%i_req, node_%i_ack, node_%i_eol, node_%i_value);\n" nodeID elems nodeID nodeID nodeID nodeID
-    elems = concatMap argEdge items
+    ass = concat  [ printf "listLiteral_%i(clock, " nodeID,
+                    concatMap argEdge items,
+                    argEdge (DVariable nodeID (DList UndefinedType) Nothing),
+                    ");\n",
+                    genericDone nodeID items
+                  ]
+
     elemIndices = [0 .. length items - 1]
     mod = unlines [ printf "module listLiteral_%i(" nodeID,
                     indent [
                         "input clock,",
-                        "input reset,",
+                        "input ready,",
                         unlines $ map (printfAll $ unlines [
                                 "input [7:0] x_%i,",
                                 "output reg [7:0] x_%i_ready,",
@@ -369,20 +374,18 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
                         "output reg [7:0] value",
                         ");\n",
 
-                        "wire ready;",
                         "reg done;",
                         "reg dummy;",
                         "reg lastAck;",
                         "reg [7:0] index;",
 
                         printf "assign eol = (index >= %i);" (length items - 1),
-                        "assign ready = req;",
                         "assign ack = done;",
                         "",
 
                         "always @(*) begin",
                         indent [
-                            unlines $ map (printfAll "x_%i_ready = (index == %i ? ready : 0);") elemIndices,
+                            unlines $ map (printfAll "x_%i_ready = (index == %i ? req : 0);") elemIndices,
                             "",
 
                             "case (index)",
@@ -401,7 +404,7 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
                         indent [
                             "lastAck <= ack;\n",
 
-                            "if(reset)",
+                            "if(~ready)",
                             "\tindex <= 0;",
                             "else if(req & lastAck & ~eol)",
                             "\tindex <= index + 1;"
