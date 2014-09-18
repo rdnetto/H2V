@@ -430,6 +430,27 @@ renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     doneAs = genericDone resID args
 
+renderBuiltin resID (BinaryOp ":") args@(x0:xs:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+    def = defineNode resID (nodeType xs)
+    ass = concat [
+            printf "Cons(clock, node_%i_done, node_%i, " (nodeID x0) (nodeID x0),
+            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            ");\n"
+        ]
+    doneAs = genericDone resID args
+
+renderBuiltin resID (BinaryOp "++") args@(a0:a1:[]) = VNodeDef resID def ass "" where
+    def = defineNode resID (nodeType a0)
+    a0ID = nodeID a0
+    a1ID = nodeID a1
+    ass = concat [
+            "Concat(clock, ",
+            argEdge (DVariable  a0ID (DList UndefinedType) Nothing),
+            argEdge (DVariable  a1ID (DList UndefinedType) Nothing),
+            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            ");\n"
+        ]
+
 renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType a0)
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
