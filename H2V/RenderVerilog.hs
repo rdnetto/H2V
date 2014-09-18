@@ -293,7 +293,7 @@ renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
     lines = [ printf "%s %s_%i_req%s"    io    prefix index tail,
               printf "%s %s_%i_ack%s"    invIo prefix index tail,
               printf "%s %s_%i_eol%s"    invIo prefix index tail,
-              printf "%s %s %s_%i_req%s" io hwType prefix index tail
+              printf "%s %s %s_%i_value%s" io hwType prefix index tail
             ]
     hwType = if io == ""
              then ""
@@ -381,7 +381,7 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
 
                         "always @(*) begin",
                         indent [
-                            concatMap (printfAll "x_%i_ready = (index == %i ? ready : 0);") elemIndices,
+                            unlines $ map (printfAll "x_%i_ready = (index == %i ? ready : 0);") elemIndices,
                             "",
 
                             "case (index)",
@@ -416,7 +416,7 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
                 "%i: begin",
                 indent [
                     "done = x_%i_done;",
-                    "value = x_%i"
+                    "value = x_%i;"
                 ],
                 "   end"
               ]
