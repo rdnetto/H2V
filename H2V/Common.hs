@@ -1,6 +1,7 @@
 module Common where
 
 import Control.Monad.State
+import Data.Char (isSpace)
 import Data.Either
 import Data.List
 import Debug.Trace
@@ -65,4 +66,12 @@ both :: [Either a a] -> [a]
 both = map f where
     f (Left a)  = a
     f (Right a) = a
+
+--Convenience function for removing trailing commas
+chopComma :: String -> String
+chopComma s = reverse (a ++ b) where
+    (a, _:b) = span (/= ',') $ reverse s
+
+rstrip :: String -> String
+rstrip = reverse . dropWhile isSpace . reverse
 
