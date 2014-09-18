@@ -88,10 +88,9 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        "input clock, input ready, output done,",
                                        printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                        unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
-                                       "output [7:0] result",
+                                       chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root)),
                                        ");",
-                                       concatNodes defs,
-                                       printf "assign result = node_%i;" $ nodeID root,
+                                       concatNodes $ filter (\n -> vNodeId n /= nodeID root) defs,
                                        printf "assign done = node_%i_done;" $ nodeID root,
                                        "endmodule\n"
                                       ]
@@ -533,3 +532,9 @@ indentN n = unlines . map f where
 --like printf, but replaces all %i with a single value.
 printfAll :: String -> Int -> String
 printfAll f i = replace "%i" (show i) f
+
+--Convenience function for removing trailing commas
+chopComma :: String -> String
+chopComma s = reverse (a ++ b) where
+    (a, _:b) = span (/= ',') $ reverse s
+
