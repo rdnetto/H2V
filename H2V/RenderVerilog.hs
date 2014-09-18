@@ -347,7 +347,7 @@ renderNode (DFunctionCall appID f args)
         aAsses = concatMap argEdge args
 
 --List literals are handled by generating a module to implement the list interface
-renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod where
+renderNode (DListLiteral nodeID items) = (VNodeDef nodeID def ass mod):elemDefs where
     def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID nodeID nodeID,
                     printf "wire [7:0] node_%i_value;" nodeID
                   ]
@@ -357,7 +357,7 @@ renderNode (DListLiteral nodeID items) = return $ VNodeDef nodeID def ass mod wh
                     ");\n",
                     genericDone nodeID items
                   ]
-
+    elemDefs = concatMap renderNode items
     elemIndices = [0 .. length items - 1]
     mod = unlines [ printf "module listLiteral_%i(" nodeID,
                     indent [
