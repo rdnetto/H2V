@@ -478,10 +478,9 @@ renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ don
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
 renderListGen resID min step max = res where
     res = concat [
-            maybe  "Unbounded" (\_ -> "Bounded") max,
-            printf "Enum(clock, node_%i_done, " resID,
+            printf "BoundedEnum(clock, node_%i_done, " resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
-            maybe  "" (printf "node_%i, " . nodeID) max,
+            maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
             argEdge (DVariable resID (DList UndefinedType) Nothing),
             ");\n"
         ]
