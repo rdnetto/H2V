@@ -1,30 +1,39 @@
 module testbench(input CLOCK_50, input [1:0] KEY, output [7:0] LED);
-reg ready, running;
-reg [7:0] x;
-dfd_4 fib(CLOCK_50, ready, done, x, result);
+    reg ready;
+    reg req, lastAck;
+    reg running;
+    reg [7:0] reqCount;
+    reg [24:0] timer;
 
-initial x = -8'd1;
-initial ready = 0;
-initial running = 0;
-assign LED = 8'd0;
+    listLiteral_37(CLOCK_50, running,
+        2, , 1,
+        12, , 1,
+        30, , 1,
+        req, ack, eol, value);
 
-always @(posedge CLOCK_50) begin
-	if(running) begin
-		
-		if(ready & done)
-			ready <= 0;
-		else if(~ready) begin
-			x <= x + 1;
-			ready <= 1;
-		end			
-	
-	end else if(~KEY[0]) begin
-		running <= 1;
-	end else if(~KEY[1]) begin
-		running <= 0;
-		ready <= 0;
-		x <= -1;
-	end
-end
-	
+    initial running = 0;
+    assign LED = 8'd0;
+    assign done = 1;
+
+    always @(posedge CLOCK_50) begin
+        lastAck <= ack;
+
+        if(running) begin
+            if(reqCount < 5)
+                reqCount <= reqCount + 1;
+            else if(lastAck) begin
+                req <= ~req;
+                reqCount <= 0;
+            end
+
+        end else begin
+            req <= 0;
+            reqCount <= 0;
+        end
+
+        timer <= timer + 1;
+        if(timer == 0)
+            running <= ~running;
+    end
 endmodule
+
