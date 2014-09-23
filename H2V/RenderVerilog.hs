@@ -91,11 +91,14 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root)),
                                        ");",
                                        concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
-                                       printf "assign done = node_%i_done;" $ nodeID root,
+                                       doneAssign,
                                        "endmodule\n"
                                       ]
     where
         defs = renderNode root
+        doneAssign = if   isList (returnType dfd)
+                     then "assign done = ready;"
+                     else printf "assign done = node_%i_done;" $ nodeID root
 
 --There are two trees of evaluation for a tail-recursive function:
 --  -the base case, where the root is the resulting expression.
