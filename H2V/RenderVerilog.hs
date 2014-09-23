@@ -385,7 +385,7 @@ renderNode (DListLiteral nodeID items) = (VNodeDef nodeID def ass mod):elemDefs 
                         "reg [7:0] index;",
 
                         printf "assign eol = (index >= %i);" (length items - 1),
-                        "assign ack = done;",
+                        "assign ack = req & done;",
                         "",
 
                         "always @(*) begin",
