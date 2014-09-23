@@ -15,7 +15,7 @@ module BoundedEnum(
     reg lastReady, lastAck;
     assign eol = (value >= max || min > value);
 
-	always @(clock) begin
+	always @(posedge clock) begin
         lastReady <= ready;
 
         if(ready & req) begin

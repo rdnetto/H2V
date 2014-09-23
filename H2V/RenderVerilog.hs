@@ -405,7 +405,7 @@ renderNode (DListLiteral nodeID items) = (VNodeDef nodeID def ass mod):elemDefs 
                         ],
                         "end\n",
 
-                        "always @(clock) begin",
+                        "always @(posedge clock) begin",
                         indent [
                             "lastAck <= ack;\n",
 
