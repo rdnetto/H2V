@@ -85,13 +85,15 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
     | otherwise             = unlines [concatMap vModDeps defs,
                                        printf "module dfd_%i(" dfdID,
-                                       "input clock, input ready, output done,",
                                        printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
-                                       unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
-                                       rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root)),
+                                       indent [
+                                           "input clock, input ready, output done,",
+                                           concatMap (renderArg "input" "node" True ",") (zip [0..] args),
+                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root))
+                                       ],
                                        ");",
-                                       concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
-                                       doneAssign,
+                                       indent . lines . concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
+                                       '\t' : doneAssign,
                                        "endmodule\n"
                                       ]
     where
@@ -373,9 +375,10 @@ renderNode (DListLiteral nodeID items) = (VNodeDef nodeID def ass mod):elemDefs 
                         "input req,",
                         "output ack,",
                         "output eol,",
-                        "output reg [7:0] value",
-                        ");\n",
-
+                        "output reg [7:0] value"
+                    ],
+                    ");\n",
+                    indent [
                         "reg done;",
                         "reg dummy;",
                         "reg lastAck;",
@@ -497,7 +500,7 @@ genericDone resID args = ass where
 
 --Helper function for extracting the contents of VNodeDefs
 concatNodes :: [VNodeDef] -> String
-concatNodes ns = defs ++ assigns where
+concatNodes ns = defs ++ "\n" ++ assigns where
     (defs, assigns) = foldl f ("", "") $ uniqV ns
 
     --lift uniq over VNodeDef
@@ -524,7 +527,7 @@ uniq xs = reverse $ foldl f [] xs where
 
 --Helper function for indenting blocks of code
 indent :: [String] -> String
-indent = unlines . map f where
+indent = rstrip . unlines . map f where
     f = intercalate "\n" . map ('\t':) . lines
 
 indentN :: Int -> [String] -> String
