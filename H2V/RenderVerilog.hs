@@ -90,7 +90,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        unlines $ map (renderArg "input" "node" True ",") (zip [0..] args),
                                        rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root)),
                                        ");",
-                                       concatNodes $ filter (\n -> vNodeId n /= nodeID root) defs,
+                                       concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
                                        printf "assign done = node_%i_done;" $ nodeID root,
                                        "endmodule\n"
                                       ]

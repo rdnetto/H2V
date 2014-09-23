@@ -75,3 +75,10 @@ chopComma s = reverse (a ++ b) where
 rstrip :: String -> String
 rstrip = reverse . dropWhile isSpace . reverse
 
+--Applies the mapping function to all elements satisfying the predicate
+filterMap :: (a -> Bool) -> (a -> a) -> [a] -> [a]
+filterMap predicate f xs = map f' xs where
+    f' x
+        | predicate x = f x
+        | otherwise   = x
+
