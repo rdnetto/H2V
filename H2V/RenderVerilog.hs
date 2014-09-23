@@ -267,7 +267,7 @@ defineNode nodeID t = unlines [line1, line2] where
 --Generates the assign statements needed to connect two nodes. LHS is set to RHS.
 assignNode :: DNode -> DNode -> String
 assignNode lhs rhs
-    | isList (nodeType lhs) = unlines $ map (\fmt -> printf fmt lhsID rhsID) res
+    | isList (nodeType lhs) || isList (nodeType rhs) = unlines $ map (\fmt -> printf fmt lhsID rhsID) res
     where
         lhsID = nodeID lhs
         rhsID = nodeID rhs
