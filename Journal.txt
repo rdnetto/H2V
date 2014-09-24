@@ -1,4 +1,53 @@
 ================================================================================
+Thursday 25 September 2014
+Fully implemented and debugged list operators. Modified list protocol to
+require REQ to be reset and reasserted between reads, since this greatly
+simplifies the code.
+(KNOWN BUG: cons operator doesn't work properly when nested.)
+While map/reduce was not started, the non-parallel map/reduce code can be easily derived from the concat or cons
+operator modules, since they also iterate over lists.
+
+Aiming to complete parallel map/reduce next week. Given it is the midsem
+break, it should be feasible to make significant progress.
+Report & poster are due 2 weeks after midsem break, so it is important that
+map/reduce is fully implemented by the end of it. Ideally will start on the
+report/poster during the break as well.
+
+Git commits:
+441efde  2014-09-25 00:27:59 +1000  BUG FIX: done signals are only 1 bit wide
+bc6a51a  2014-09-25 00:26:07 +1000  Labelled module instances to facilitate debugging
+810bf66  2014-09-25 00:00:01 +1000  Testbench for cons operator
+ada59a4  2014-09-24 23:59:41 +1000  Implemented cons operator
+33ca56e  2014-09-24 23:02:48 +1000  Testbench for concat operator
+fc01531  2014-09-24 22:58:40 +1000  Implemented concat operator
+7b7912f  2014-09-24 22:07:57 +1000  Testbench for enum
+7cf0f45  2014-09-24 22:07:37 +1000  BUG FIX: handle non-unit steps correctly Note that we are still limited to positive steps; negative ones would require a second generator module to be defined.
+4577e20  2014-09-24 21:39:06 +1000  Testbench for range test
+117dba9  2014-09-24 21:38:05 +1000  BUG FIX: enumerations now work
+ff14bd0  2014-09-24 20:33:57 +1000  Testbench of listLiteral
+ae3a15a  2014-09-24 20:33:44 +1000  Changed list protocol to only advance list on the positive edge of a request signal This was necessary to avoid the additional complexity of advancing for each cycle req was high after the ack.
+608356a  2014-09-24 19:20:13 +1000  Replaced individual ready signals for list literals with a single one. This is more consistent with the pattern used for other modules, and allows us to request them in parallel instead of sequentially. It is also much simpler.
+c279315  2014-09-24 19:17:13 +1000  Refactoring: renamed nodeID to listID to prevent shadowing Also fixed some whitespace
+8d0a6e1  2014-09-24 19:12:17 +1000  BUG FIX: had directions reversed for list arguments
+e37d512  2014-09-24 00:07:41 +1000  BUG FIX: prevent ack from being asserted outside of a request
+c5dbe8d  2014-09-23 23:58:42 +1000  BUG FIX: always blocks should trigger on the *edge* of a clock signal only
+dcb87c2  2014-09-23 23:57:17 +1000  Updated testbench for list tests
+190a4b8  2014-09-23 20:53:09 +1000  Whitespace fix (to facilitate folding in vim)
+047f5ed  2014-09-23 20:21:40 +1000  BUG FIX: Lists have their own protocol for communicating the validity of values, so we don't need to delay the done signal
+e589250  2014-09-23 20:16:39 +1000  BUG FIX: need to check both sides of assign, since RHS is more likely to have type info
+2c236c9  2014-09-23 20:11:52 +1000  BUG FIX: ignore definitions of ports which are defined as part of the module
+17724a8  2014-09-18 16:21:35 +1000  Whitespace fix
+eb07f69  2014-09-18 16:12:10 +1000  BUG FIX: removed trailing commas
+acf513f  2014-09-18 16:12:01 +1000  BUG FIX: didn't define nodeType for ListLiteral
+2def57f  2014-09-18 15:48:54 +1000  BUG FIX: elements of list literals were not being rendered
+09177ef  2014-09-18 15:43:44 +1000  BUG FIX: ListLiteral did not have a ready signal
+55ba8a7  2014-09-18 15:36:10 +1000  Added include.v
+484ab5f  2014-09-18 15:35:29 +1000  Fixed syntax errors in generated Verilog
+d30f47c  2014-09-18 15:19:58 +1000  Implemented Cons and Concat operators (client-side)
+3b3c098  2014-09-18 15:08:36 +1000  Corrected typos
+ec6131a  2014-09-18 01:01:06 +1000  Modified uploading script to open folder automatically.
+
+================================================================================
 Thursday 18 September 2014
 Implemented support for rendering list code to Verilog.
 Performed regression testing and eliminated associated bugs. (Generated code for all (non-list) tests is equivalent to output from last week's code.)
