@@ -374,7 +374,7 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                                 "input [7:0] x_%i_done,"
                                 ]) elemIndices,
                         "input req,",
-                        "output ack,",
+                        "output reg ack,",
                         "output eol,",
                         "output reg [7:0] value"
                     ],
@@ -382,11 +382,9 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                     indent [
                         "reg done;",
                         "reg dummy;",
-                        "reg lastAck;",
+                        "reg lastReq;",
                         "reg [7:0] index;",
-
-                        printf "assign eol = (index >= %i);" (length items - 1),
-                        "assign ack = req & done;",
+                        "assign eol = (index != 8'hFF && index >= 2);",
                         "",
 
                         "always @(*) begin",
@@ -396,7 +394,7 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                                 concatMap elemCase elemIndices,
                                 "default: begin",
                                 "\tdone = 1;",
-                                "\tvalue = 8'hXX;",
+                                "\tvalue = 8'hFF;",
                                 "end"
                             ],
                             "endcase"
@@ -405,12 +403,17 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
 
                         "always @(posedge clock) begin",
                         indent [
-                            "lastAck <= ack;\n",
+                            "lastReq <= req;\n",
 
-                            "if(~ready)",
-                            "\tindex <= 0;",
-                            "else if(req & lastAck & ~eol)",
-                            "\tindex <= index + 1;"
+                            "if(~ready) begin",
+                            "\tindex <= 8'hFF;",
+                            "\tack <= 0;",
+                            "end else if(req & ~lastReq & ~eol) begin",
+                            "\tindex <= index + 1;",
+                            "\tack <= 1;",
+                            "end else begin",
+                            "\tack <= 0;",
+                            "end"
                         ],
                         "end"
                     ],
