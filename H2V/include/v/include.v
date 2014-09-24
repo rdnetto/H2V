@@ -91,3 +91,62 @@ module Concat(
         end
     end
 endmodule
+
+module Cons(
+    input clock,
+    input ready,
+    input [7:0] head,
+
+	output reg  tail_req,
+    input       tail_ack,
+    input       tail_eol,
+    input [7:0] tail_value,
+
+	input            req,
+	output reg       ack,
+	output reg       eol,
+	output reg [7:0] value
+    );
+
+    reg headShown;
+    reg selectHead;
+    reg lastReq;
+    reg headAck;
+
+    always @(posedge clock) begin
+        lastReq <= req;
+
+        if(ready) begin
+            if(~lastReq & req) begin
+                headAck <= 1;
+                headShown <= 1;
+
+                if(headShown)
+                    selectHead <= 0;
+
+            end else begin
+                headAck <= 0;
+            end
+
+        end else begin
+            headShown <= 0;
+            selectHead <= 1;
+            headAck <= 0;
+        end
+    end
+
+    always @(*) begin
+        if(selectHead) begin
+            ack = headAck;
+            eol = 0;
+            value = head;
+            tail_req = 0;
+
+        end else begin
+            tail_req = req;
+            ack = tail_ack;
+            eol = tail_eol;
+            value = tail_value;
+        end
+    end
+endmodule

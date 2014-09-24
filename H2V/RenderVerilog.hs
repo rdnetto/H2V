@@ -446,13 +446,16 @@ renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp ":") args@(x0:xs:[]) = VNodeDef resID def (ass ++ doneAs) "" where
-    def = defineNode resID (nodeType xs)
+renderBuiltin resID (BinaryOp ":") args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+    def = defineNode resID (nodeType a1)
     ass = concat [
-            printf "Cons(clock, node_%i_done, node_%i, " (nodeID x0) (nodeID x0),
+            printf "Cons(clock, node_%i_done, node_%i, " resID a0ID,
+            argEdge (DVariable  a1ID (DList UndefinedType) Nothing),
             argEdge (DVariable resID (DList UndefinedType) Nothing),
             ");\n"
         ]
+    a0ID = nodeID a0
+    a1ID = nodeID a1
     doneAs = genericDone resID args
 
 renderBuiltin resID (BinaryOp "++") args@(a0:a1:[]) = VNodeDef resID def ass "" where
@@ -504,7 +507,10 @@ renderListGen resID min step max = res where
 --Generates assign statements for ready/done signals for builtin functions.
 genericDone :: NodeId -> [DNode] -> String
 genericDone resID args = ass where
-    ass = printf "assign node_%i_done = %s;\n" resID $ joinMap " & " (printf "node_%i_done" . nodeID) args
+    ass = printf "assign node_%i_done = %s;\n" resID doneArgs
+    doneArgs = if   length args == 0
+               then "1"
+               else joinMap " & " (printf "node_%i_done" . nodeID) args
 
 --Helper function for extracting the contents of VNodeDefs
 concatNodes :: [VNodeDef] -> String
