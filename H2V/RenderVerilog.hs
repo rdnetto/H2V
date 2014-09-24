@@ -371,7 +371,7 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                         "input ready,",
                         concatMap (printfAll $ unlines [
                                 "input [7:0] x_%i,",
-                                "input [7:0] x_%i_done,"
+                                "input x_%i_done,"
                                 ]) elemIndices,
                         "input req,",
                         "output reg ack,",
