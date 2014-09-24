@@ -355,9 +355,9 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
     def = unlines [ printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" listID,
                     printfAll "wire [7:0] node_%i_value;" listID
                   ]
-    ass = unlines  [printfAll "listLiteral_%i(clock," listID,
+    ass = unlines  [printfAll "listLiteral_%i(clock, ready," listID,
                     indent [
-                        unlines $ map argEdge items,
+                        unlines $ map argEdge' items,
                         argEdge (DVariable listID (DList UndefinedType) Nothing)
                     ],
                     ");",
@@ -371,7 +371,6 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                         "input ready,",
                         concatMap (printfAll $ unlines [
                                 "input [7:0] x_%i,",
-                                "output reg [7:0] x_%i_ready,",
                                 "input [7:0] x_%i_done,"
                                 ]) elemIndices,
                         "input req,",
@@ -392,9 +391,6 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
 
                         "always @(*) begin",
                         indent [
-                            unlines $ map (printfAll "x_%i_ready = (index == %i ? req : 0);") elemIndices,
-                            "",
-
                             "case (index)",
                             indent [
                                 concatMap elemCase elemIndices,
@@ -431,6 +427,12 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                 ],
                 "   end"
               ]
+
+    --variant which adds return and done signals
+    argEdge' :: DNode -> String
+    argEdge' a = value ++ done where
+        value = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
+        done  = renderArg "" "node" True "_done," (0, (nodeID a, DBool))
 
 argEdge :: DNode -> String
 argEdge a = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
