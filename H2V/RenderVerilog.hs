@@ -294,9 +294,9 @@ assignNode lhs rhs = unlines [line1, line2] where
 --  tail: a string to append to the end of the result. Useful for semicolons, etc.
 renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
 renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
-    lines = [ printf "%s %s_%i_req%s"    io    prefix index tail,
-              printf "%s %s_%i_ack%s"    invIo prefix index tail,
-              printf "%s %s_%i_eol%s"    invIo prefix index tail,
+    lines = [ printf "%s %s_%i_req%s"    invIo    prefix index tail,
+              printf "%s %s_%i_ack%s"    io prefix index tail,
+              printf "%s %s_%i_eol%s"    io prefix index tail,
               printf "%s %s %s_%i_value%s" io hwType prefix index tail
             ]
     hwType = if io == ""
