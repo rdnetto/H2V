@@ -14,7 +14,7 @@ module BoundedEnum(
 
     reg lastReq;
     reg initialized;
-    assign eol = (initialized || min == max) && (value >= max || value < min);
+    assign eol = (initialized || min == max) && (value > $signed(max - step) || value < min);
 
 	always @(posedge clock) begin
         lastReq <= req;

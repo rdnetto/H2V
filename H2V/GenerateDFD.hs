@@ -92,12 +92,12 @@ cleanExpr (HsEnumFrom e) = cleanExpr $ HsApp (HsApp f e) (HsLit $ HsInt 1) where
     f = astVar "__unboundedEnum"
 cleanExpr (HsEnumFromThen e0 e1) = cleanExpr $ HsApp (HsApp f e0) step where
     f = astVar "__unboundedEnum"
-    step = HsApp (HsApp (astVar "-") e0) e1
+    step = HsApp (HsApp (astVar "-") e1) e0
 cleanExpr (HsEnumFromTo e0 e1) = cleanExpr $ HsApp (HsApp (HsApp f e0) (HsLit $ HsInt 1)) e1 where
     f = astVar "__boundedEnum"
 cleanExpr (HsEnumFromThenTo e0 e1 e2) = cleanExpr $ HsApp (HsApp (HsApp f e0) step) e2 where
     f = astVar "__boundedEnum"
-    step = HsApp (HsApp (astVar "-") e0) e1
+    step = HsApp (HsApp (astVar "-") e1) e0
 --convert infix application to prefix application
 cleanExpr (HsInfixApp arg1 op arg2)
     | op == dollarOp = HsApp (cleanExpr arg1) (cleanExpr arg2)

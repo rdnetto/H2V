@@ -7,7 +7,7 @@ concat :: [Int] -> [Int]  -> [Int]
 concat a b = a ++ b
 
 rangeTest :: Int -> Int -> [Int]
-rangeTest m n = [m .. n]
+rangeTest m n = [m,m+2 .. n]
 
 basicTest :: Int -> [Int]
 basicTest x = [1, x, 2]
