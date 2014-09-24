@@ -90,5 +90,4 @@ module Concat(
             listA_req = 0;
         end
     end
-
 endmodule
