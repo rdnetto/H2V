@@ -459,12 +459,13 @@ renderBuiltin resID (BinaryOp "++") args@(a0:a1:[]) = VNodeDef resID def ass "" 
     def = defineNode resID (nodeType a0)
     a0ID = nodeID a0
     a1ID = nodeID a1
-    ass = concat [
-            "Concat(clock, ",
+    ass = unlines [
+            printf "Concat(clock, node_%i_done," resID,
             argEdge (DVariable  a0ID (DList UndefinedType) Nothing),
             argEdge (DVariable  a1ID (DList UndefinedType) Nothing),
             argEdge (DVariable resID (DList UndefinedType) Nothing),
-            ");\n"
+            ");",
+            printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
         ]
 
 renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
