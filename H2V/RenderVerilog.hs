@@ -351,23 +351,25 @@ renderNode (DFunctionCall appID f args)
         aAsses = concatMap argEdge args
 
 --List literals are handled by generating a module to implement the list interface
-renderNode (DListLiteral nodeID items) = (VNodeDef nodeID def ass mod):elemDefs where
-    def = unlines [ printf "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID nodeID nodeID,
-                    printf "wire [7:0] node_%i_value;" nodeID
+renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
+    def = unlines [ printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" listID,
+                    printfAll "wire [7:0] node_%i_value;" listID
                   ]
-    ass = concat  [ printf "listLiteral_%i(clock, " nodeID,
-                    concatMap argEdge items,
-                    argEdge (DVariable nodeID (DList UndefinedType) Nothing),
-                    ");\n",
-                    genericDone nodeID items
+    ass = unlines  [printfAll "listLiteral_%i(clock," listID,
+                    indent [
+                        unlines $ map argEdge items,
+                        argEdge (DVariable listID (DList UndefinedType) Nothing)
+                    ],
+                    ");",
+                    genericDone listID items
                   ]
     elemDefs = concatMap renderNode items
     elemIndices = [0 .. length items - 1]
-    mod = unlines [ printf "module listLiteral_%i(" nodeID,
+    mod = unlines [ printf "module listLiteral_%i(" listID,
                     indent [
                         "input clock,",
                         "input ready,",
-                        unlines $ map (printfAll $ unlines [
+                        concatMap (printfAll $ unlines [
                                 "input [7:0] x_%i,",
                                 "output reg [7:0] x_%i_ready,",
                                 "input [7:0] x_%i_done,"
