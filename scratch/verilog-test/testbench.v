@@ -5,10 +5,8 @@ module testbench(input CLOCK_50, input [1:0] KEY, output [7:0] LED);
     reg [7:0] reqCount;
     reg [24:0] timer;
 
-    listLiteral_37(CLOCK_50, running,
-        2,  1,
-        12, 1,
-        30, 1,
+    dfd_5 dfdUT(CLOCK_50, running, done,
+        -2, 3,
         req, ack, eol, value);
 
     initial running = 0;
