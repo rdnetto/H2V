@@ -2,31 +2,41 @@ module BoundedEnum(
     input clock,
     input ready,
 
-    input [7:0] min,
+    input signed [7:0] min,
     input [7:0] step,
-    input [7:0] max,
+    input signed [7:0] max,
 
 	input      req,
 	output reg ack,
 	output     eol,
-	output reg [7:0] value
+	output reg signed [7:0] value
     );
 
-    reg lastReady, lastAck;
-    assign eol = (value >= max || min > value);
+    reg lastReq;
+    reg initialized;
+    assign eol = (initialized || min == max) && (value >= max || value < min);
 
 	always @(posedge clock) begin
-        lastReady <= ready;
+        lastReq <= req;
 
-        if(ready & req) begin
-            if(~lastReady)
-                value <= min;
-            else if(~eol)
-                value <= value + 1;
+        if(ready) begin
+            if(req & ~lastReq & (~initialized | ~eol)) begin
+                if(initialized)
+                    value <= value + step;
+                else
+                    value <= min;
 
-            ack <= 1;
+                initialized <= 1;
+                ack <= 1;
+
+            end else begin
+                ack <= 0;
+            end
+
         end else begin
             ack <= 0;
+            initialized <= 0;
+            value <= 8'hXX;
         end
 	end
 endmodule
