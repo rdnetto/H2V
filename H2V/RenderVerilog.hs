@@ -261,9 +261,10 @@ nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
 --Defines the wires for a node, but doesn't connect them to anything
 defineNode :: NodeId -> DType -> String
-defineNode nodeID (DList t) = unlines [line1, line2] where
-    line1 = printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" nodeID
+defineNode nodeID (DList t) = unlines [line1, line2, line3] where
+    line1 = printfAll "wire node_%i_req, node_%i_ack;" nodeID
     line2 = printf    "wire %s node_%i_value;" (scalarVType t) nodeID
+    line3 = printf    "wire node_%i_value_valid;" nodeID
 
 defineNode nodeID t = unlines [line1, line2] where
     line1 = printf    "wire %s node_%i;" (scalarVType t) nodeID
@@ -278,8 +279,8 @@ assignNode lhs rhs
         rhsID = nodeID rhs
         res = [ "assign node_%i_req = node_%i_req;",
                 "assign node_%i_ack = node_%i_ack;",
-                "assign node_%i_eol = node_%i_eol;",
-                "assign node_%i_value = node_%i_value;"
+                "assign node_%i_value = node_%i_value;",
+                "assign node_%i_value_valid = node_%i_value_valid;"
               ]
 
 assignNode lhs rhs = unlines [line1, line2] where
@@ -294,10 +295,10 @@ assignNode lhs rhs = unlines [line1, line2] where
 --  tail: a string to append to the end of the result. Useful for semicolons, etc.
 renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
 renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
-    lines = [ printf "%s %s_%i_req%s"    invIo    prefix index tail,
-              printf "%s %s_%i_ack%s"    io prefix index tail,
-              printf "%s %s_%i_eol%s"    io prefix index tail,
-              printf "%s %s %s_%i_value%s" io hwType prefix index tail
+    lines = [ printf "%s %s_%i_req%s"         invIo    prefix index tail,
+              printf "%s %s_%i_ack%s"         io prefix index tail,
+              printf "%s %s %s_%i_value%s"    io hwType prefix index tail,
+              printf "%s %s_%i_value_valid%s" io prefix index tail
             ]
     hwType = if io == ""
              then ""
@@ -319,7 +320,7 @@ renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
     def = defineNode nodeID UndefinedType
     ass = unlines [ printf "assign node_%i = %i;" nodeID value,
-                    printf "assign node_%i_done = 1;" nodeID
+                    printf "assign node_%i_done = ready;" nodeID
                   ]
 
 --arguments which are lists are already defined
@@ -352,8 +353,9 @@ renderNode (DFunctionCall appID f args)
 
 --List literals are handled by generating a module to implement the list interface
 renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
-    def = unlines [ printfAll "wire node_%i_req, node_%i_ack, node_%i_eol;" listID,
-                    printfAll "wire [7:0] node_%i_value;" listID
+    def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
+                    printfAll "wire [7:0] node_%i_value;" listID,
+                    printfAll "wire node_%i_value_valid;" listID
                   ]
     ass = unlines  [printfAll "listLiteral_%i(clock, ready," listID,
                     indent [
@@ -365,7 +367,34 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                   ]
     elemDefs = concatMap renderNode items
     elemIndices = [0 .. length items - 1]
-    mod = unlines [ printf "module listLiteral_%i(" listID,
+    mod = if   items == []
+          then emptyMod
+          else mod'
+
+    emptyMod = unlines [
+                    printf "module listLiteral_%i(" listID,
+                    indent [
+                        "input clock,",
+                        "input ready,",
+                        "input req,",
+                        "output reg ack,",
+                        "output [7:0] value,",
+                        "output value_valid"
+                    ],
+                    ");\n",
+                    indent [
+                        "reg lastReq;",
+                        "",
+                        "assign value = 8'hXX;",
+                        "assign value_valid = 0;",
+                        "",
+                        "always @(posedge clock)",
+                        "\tack <= ready & ~lastReq & req;"
+                        ],
+                    "endmodule"
+                ]
+
+    mod' = unlines [printf "module listLiteral_%i(" listID,
                     indent [
                         "input clock,",
                         "input ready,",
@@ -375,8 +404,8 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                                 ]) elemIndices,
                         "input req,",
                         "output reg ack,",
-                        "output eol,",
-                        "output reg [7:0] value"
+                        "output reg [7:0] value,",
+                        "output reg value_valid"
                     ],
                     ");\n",
                     indent [
@@ -384,7 +413,6 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                         "reg dummy;",
                         "reg lastReq;",
                         "reg [7:0] index;",
-                        "assign eol = (index != 8'hFF && index >= 2);",
                         "",
 
                         "always @(*) begin",
@@ -406,13 +434,24 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                             "lastReq <= req;\n",
 
                             "if(~ready) begin",
-                            "\tindex <= 8'hFF;",
-                            "\tack <= 0;",
-                            "end else if(req & ~lastReq & ~eol) begin",
-                            "\tindex <= index + 1;",
-                            "\tack <= 1;",
+                            indent [
+                                "index <= 8'hFF;",
+                                "ack <= 0;",
+                                "value_valid <= 0;"
+                            ],
+                            "end else if(req & ~lastReq) begin",
+                            indent [
+                                printf "if(index < 8'd%i || index == 8'hFF) begin" $ last elemIndices,
+                                "\tvalue_valid <= 1;",
+                                "\tindex <= index + 1;",
+                                "end else",
+                                "\tvalue_valid <= 0;",
+                                "ack <= 1;"
+                            ],
                             "end else begin",
-                            "\tack <= 0;",
+                            indent [
+                                "ack <= 0;"
+                            ],
                             "end"
                         ],
                         "end"
@@ -509,7 +548,7 @@ genericDone :: NodeId -> [DNode] -> String
 genericDone resID args = ass where
     ass = printf "assign node_%i_done = %s;\n" resID doneArgs
     doneArgs = if   length args == 0
-               then "1"
+               then "ready"
                else joinMap " & " (printf "node_%i_done" . nodeID) args
 
 --Helper function for extracting the contents of VNodeDefs
