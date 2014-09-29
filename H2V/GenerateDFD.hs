@@ -99,16 +99,28 @@ cleanExpr (HsEnumFromThenTo e0 e1 e2) = cleanExpr $ HsApp (HsApp (HsApp f e0) st
     f = astVar "__boundedEnum"
     step = HsApp (HsApp (astVar "-") e1) e0
 --convert infix application to prefix application
-cleanExpr (HsInfixApp arg1 op arg2)
+cleanExpr e@(HsInfixApp arg1 op arg2)
     | op == dollarOp = HsApp (cleanExpr arg1) (cleanExpr arg2)
+    | op == consOp   = fixedCons
     | otherwise      = case op of
                          HsQVarOp opName -> newExpr opName
                          HsQConOp opName -> newExpr opName
     where
         dollarOp = HsQVarOp (UnQual (HsSymbol "$"))
+        consOp = HsQConOp (Special HsCons)
         newExpr opName = HsApp (HsApp (HsVar opName) arg1') arg2'
         arg1' = cleanExpr arg1
         arg2' = cleanExpr arg2
+
+        --the parsing library gets the associativity wrong, so we need to fix it manually
+        fixedCons = foldr1 zipCons . map cleanExpr $ assembleCons e
+
+        assembleCons :: HsExp -> [HsExp]
+        assembleCons (HsInfixApp a consOp b) = concatMap assembleCons [a, b]
+        assembleCons a = [a]
+
+        zipCons a b = HsApp (HsApp (HsVar $ Special HsCons) a) b
+
 --convert the unary negation operator to subtraction. e.g. -x => 0 - x => (-) 0 x
 cleanExpr (HsNegApp exp) = cleanExpr $ HsInfixApp (HsLit $ HsInt $ 0) (HsQVarOp $ UnQual $ HsSymbol "-") (cleanExpr exp)
 --remove parentheses, since they're redundant
