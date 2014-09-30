@@ -237,7 +237,7 @@ createDfdHeaders (HsFunBind [HsMatch _ name pats _ _], sig) = do
     return $ Just (name', res)
 --need to create a header for the results of higher order functions
 createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl, s) = createDfdHeaders (HsFunBind [HsMatch src name [pat] rhs decl], s)
-createDfdHeaders (d, _) = error $ pshow d
+createDfdHeaders (d, _) = error $ "createDfdHeaders: unknown declaration: " ++ (pshow d)
 
 --This function converts type signatures to a list of arguments by unfolding the tree.
 --Type signatures are binary trees, which are completely unbalanced (to the right) for first-order functions.
