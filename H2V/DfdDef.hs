@@ -241,10 +241,9 @@ popDfdNS entry = do
     else
         error $ printf "Error popping DFD NS.\nExpected: %s\nFound: %s" (fst entry) (show . map fst $ n0:ns)
 
-popNS :: (Maybe (String, DNode), Maybe (String, DFD)) -> NodeGen ()
-popNS (Just n, x) = popNodeNS n >> popNS (Nothing, x)
-popNS (Nothing, Just n) = popDfdNS n
-popNS (Nothing, Nothing) = return ()
+popNS :: ([(String, DNode)], Maybe (String, DFD)) -> NodeGen ()
+popNS (ns, Just x) = mapM popNodeNS (reverse ns) >> popDfdNS x
+popNS (ns, Nothing) = mapM popNodeNS (reverse ns) >> return ()
 
 --resolve a token, which could be a variable or a function
 resolve :: String -> NodeGen DNode

@@ -57,8 +57,8 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
         headers <- (liftM catMaybes) . (mapM createDfdHeaders) $ decls'
 
-        -- [(Maybe a, Maybe b)] -> ([Maybe a], [Maybe b]) -> ([a], [b])
-        (nodes, dfds) <- liftM (map2 catMaybes catMaybes . splitTuple) . mapM defineDecl $ decls'
+        -- [(Maybe a, Maybe b)] -> ([[a]], [Maybe b]) -> ([[a]], [b])
+        (nodes, dfds) <- liftM (map2 concat catMaybes . splitTuple) . mapM defineDecl $ decls'
 
         --replace headers with completed functions
         res <- mapM linkDFD $ map snd dfds
@@ -290,10 +290,10 @@ defineTypedArg (HsPVar name') (nodeID, t) = do
 --Generates a node for a variable bound to a pattern.
 --This may need to be able to return multiple nodes, due to destructuring, etc.
 --Note that bindPattern limits what we will see here - outputting multiple nodes might be unnecessary.
-definePat :: HsPat -> DNode -> NodeGen (String, DNode)
+definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
 definePat (HsPVar name) value = do
     nodeID <- newId
-    return $ (fromHsName name, DVariable nodeID UndefinedType (Just value))
+    return . return $ (fromHsName name, DVariable nodeID UndefinedType (Just value))
 
 --Generates nodes/DFDs for declarations. These can be either variables/expressions (left case) or functions (right case).
 --Returns namespace info.
@@ -304,7 +304,7 @@ definePat (HsPVar name) value = do
 --
 --TODO: this should be the top-level function called by astToDfd. This would centralize function gathering logic, and allow the use of global variables (via CAFs and patterns)
 --We can neglect the signatures here because they are used to generate the headers.
-defineDecl :: (HsDecl, Maybe HsDecl) -> NodeGen (Maybe (String, DNode), Maybe (String, DFD))
+defineDecl :: (HsDecl, Maybe HsDecl) -> NodeGen ([(String, DNode)], Maybe (String, DFD))
 defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     --subterms are automatically pushed on creation
     let decls' = matchDecls $ sortDecls decls
@@ -320,8 +320,8 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     mapM popDfdNS $ reverse headers
 
     --Push term, now that we've created it. This is necessary as other terms within the same list may refer to it.
-    pushNodeNS lhs
-    return $ (Just lhs, Nothing)
+    mapM pushNodeNS lhs
+    return $ (lhs, Nothing)
 
 defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
     --use the same ID as the header. This avoids issues related to shadowing.
@@ -358,7 +358,7 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
                 Just (oldArgs, ret) -> DFD rootID name' oldArgs ret False root
 
     pushDfdNS (name', res)
-    return $ (Nothing, Just (name', res))
+    return $ ([], Just (name', res))
 
 --generates/resolves nodes for expressions
 defineExpr :: HsExp -> NodeGen DNode
