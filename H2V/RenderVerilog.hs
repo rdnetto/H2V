@@ -100,7 +100,9 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                            rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root))
                                        ],
                                        ");",
+                                       indent $ map (\(i, _) -> printf "wire node_%i_done;" i) args,
                                        indent . lines . concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
+                                       indent $ map (\(i, _) -> printf "assign node_%i_done = ready;" i) args,
                                        '\t' : doneAssign,
                                        "endmodule\n"
                                       ]
@@ -558,13 +560,17 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
 
 renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --bounded
-    def = defineNode resID (DList UndefinedType)
+    def = concat  [ defineNode resID (DList UndefinedType),
+                    printf "wire node_%i_done;\n" resID
+                  ]
     ass = renderListGen resID min step (Just max)
     doneAs = genericDone resID [min, step, max]
 
 renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --unbounded
-    def = defineNode resID (DList UndefinedType)
+    def = concat  [ defineNode resID (DList UndefinedType),
+                    printf "wire node_%i_done;\n" resID
+                  ]
     ass = renderListGen resID min step Nothing
     doneAs = genericDone resID [min, step]
 
@@ -573,7 +579,8 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
     def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
                    defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
                    printf "wire node_decons_%i_valid;\n" listID,      --need to use the listID here so that ListMinAvail can access it
-                   printf "wire node_decons_%i_done;\n"  listID
+                   printf "wire node_decons_%i_done;\n"  listID,
+                   printf "wire node_%i_done;\n" resID
                  ]
 
     ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done," listID listID resID,

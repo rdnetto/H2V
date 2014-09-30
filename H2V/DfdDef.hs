@@ -149,6 +149,10 @@ nodeType DTupleElem{tuple = t, tupleIndex = i}
     | otherwise                   = let DTuple ts = nodeType t
                                     in  ts !! i
 
+isArg :: DNode -> Bool
+isArg DVariable{variableValue = Nothing} = True
+isArg DVariable{} = False
+
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
 isFunc _ = False
