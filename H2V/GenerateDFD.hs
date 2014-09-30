@@ -420,7 +420,7 @@ resolveFunc l@(HsLet _ _) = (liftM functionCalled) $ defineExpr l
 sortDecls :: [HsDecl] -> [HsDecl]
 sortDecls decls = res where
     --this function is called post-cleaning, so we shouldn't need to worry about patterns
-    names = map declName decls
+    names = concatMap declName decls
     deps = (flip map) decls $ filter (`elem` names) . declDeps
     z = if unique names
         then zip names deps
@@ -468,10 +468,13 @@ matchDecls decls = map findSig funcs where
     findSig decl = (decl, sig) where
         sig = find (\s -> declName decl == declName s) sigs
 
-declName :: HsDecl -> String
-declName (HsFunBind ((HsMatch _ n _ _ _):_)) = fromHsName n
-declName (HsPatBind _ (HsPVar n) _ _) = fromHsName n
-declName (HsTypeSig _ [n] _) = fromHsName n
+declName :: HsDecl -> [String]
+declName (HsFunBind ((HsMatch _ n _ _ _):_)) = return $ fromHsName n
+declName (HsPatBind _ (HsPVar n) _ _) = return $ fromHsName n
+declName (HsTypeSig _ [n] _) = return $ fromHsName n
+declName (HsPatBind _ (HsPTuple ps) _ _) = map patName ps where
+    patName :: HsPat -> String
+    patName (HsPVar n) = fromHsName n
 
 --linking logic - replaces function headers with DFDs
 --FIX: now that we have access to function headers, we need to make sure foldApp wasn't too aggressive.
