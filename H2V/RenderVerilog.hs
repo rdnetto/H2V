@@ -276,14 +276,17 @@ nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
 --Defines the wires for a node, but doesn't connect them to anything
 defineNode :: NodeId -> DType -> String
-defineNode nodeID (DList t) = unlines [line1, line2, line3] where
-    line1 = printfAll "wire node_%i_req, node_%i_ack;" nodeID
-    line2 = printf    "wire %s node_%i_value;" (scalarVType t) nodeID
-    line3 = printf    "wire node_%i_value_valid;" nodeID
+defineNode nodeID t = defineNodeX (printf "node_%i" nodeID) t
 
-defineNode nodeID t = unlines [line1, line2] where
-    line1 = printf    "wire %s node_%i;" (scalarVType t) nodeID
-    line2 = printfAll "wire node_%i_done;" nodeID
+defineNodeX :: String -> DType -> String
+defineNodeX label (DList t) = unlines [line1, line2, line3] where
+    line1 = printf "wire %s_req, %s_ack;" label label
+    line2 = printf "wire %s %s_value;" (scalarVType t) label
+    line3 = printf "wire %s_value_valid;" label
+
+defineNodeX label t = unlines [line1, line2] where
+    line1 = printf "wire %s %s;" (scalarVType t) label
+    line2 = printf "wire %s_done;" label
 
 --Generates the assign statements needed to connect two nodes. LHS is set to RHS.
 assignNode :: DNode -> DNode -> String
@@ -496,7 +499,10 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
         done  = renderArg "" "node" True "_done," (0, (nodeID a, DBool))
 
 argEdge :: DNode -> String
-argEdge a = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
+argEdge n = argEdgeX "node" n
+
+argEdgeX :: String -> DNode -> String
+argEdgeX lbl a = renderArg "" lbl True ", " (0, (nodeID a, nodeType a))
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
