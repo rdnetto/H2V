@@ -38,7 +38,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
         let op = "++"
-            args = [(-1, UndefinedType), (-1, DList UndefinedType)]
+            args = [(-1, DList UndefinedType), (-1, DList UndefinedType)]
             root = DBuiltin (-1) (BinaryOp op)
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
