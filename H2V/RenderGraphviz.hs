@@ -67,6 +67,12 @@ renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
 renderNode (DFunction fID f) = (GNodeDef fID node ""):[] where
     node = printf "node_%i [ label = \"Function: %s\n[node_%i]\", color=darkgreen ];\n" fID (dfdName f) fID
 
+renderNode (DTupleElem elemID tupleIndex tuple) = (GNodeDef elemID node edge):tupleDef where
+    desc = ["Head", "Tail"] !! tupleIndex
+    node = printf "node_%i [ label = \"%s\n[node_%i]\", color=magenta ];\n" elemID desc elemID
+    edge = printf "node_%i -> node_%i;\n" (nodeID tuple) elemID
+    tupleDef = renderNode tuple
+
 --Helper function for generating edges from a node to its children.
 --iFmt is a printf format string used for the edge's indexed label
 subEdge :: NodeId -> String -> (Int, DNode) -> String
