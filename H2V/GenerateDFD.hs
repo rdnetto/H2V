@@ -203,7 +203,7 @@ cleanMatch leftM (HsMatch _ _ pats rhs decls) = res where
 patternMatches :: (HsName, HsPat) -> HsExp
 patternMatches (_, HsPVar _) = trueExpr
 patternMatches (_, HsPWildCard) = trueExpr
-patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ patternMatches (name, pat)
+patternMatches (name, HsPNeg pat) = HsApp (astVar "not") $ patternMatches (name, pat)
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, HsPParen pat) = patternMatches (name, pat)
 patternMatches (name, HsPInfixApp _ (Special HsCons) _) = HsApp (astVar "__listNotEmpty") (HsVar $ UnQual name)
