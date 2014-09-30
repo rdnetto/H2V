@@ -52,6 +52,11 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) EnumList
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
+        let op = "__decons"
+            args = [(-1, DList UndefinedType)]
+            root = DBuiltin (-1) Decons
+         in pushDfdNS (op, DFD (-1) op args (DTuple [UndefinedType, DList UndefinedType]) False root)
+
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
@@ -246,6 +251,8 @@ createDfdHeaders (HsFunBind [HsMatch _ name pats _ _], sig) = do
     return $ Just (name', res)
 --need to create a header for the results of higher order functions
 createDfdHeaders (HsPatBind src pat@(HsPVar name) rhs decl, s) = createDfdHeaders (HsFunBind [HsMatch src name [pat] rhs decl], s)
+--tuples are only used for lists - we assume the elements are not functions
+createDfdHeaders (HsPatBind _ (HsPTuple _) _ _, _) = return Nothing
 createDfdHeaders (d, _) = error $ "createDfdHeaders: unknown declaration: " ++ (pshow d)
 
 --This function converts type signatures to a list of arguments by unfolding the tree.
@@ -294,6 +301,10 @@ definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
 definePat (HsPVar name) value = do
     nodeID <- newId
     return . return $ (fromHsName name, DVariable nodeID UndefinedType (Just value))
+definePat (HsPTuple ps) value = concatMapM f $ zip [0..] ps where
+    f (i, pat) = do
+        nodeID <- newId
+        definePat pat $ DTupleElem nodeID i value
 
 --Generates nodes/DFDs for declarations. These can be either variables/expressions (left case) or functions (right case).
 --Returns namespace info.

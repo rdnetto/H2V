@@ -60,6 +60,11 @@ data DNode = DLiteral{
                 nodeID :: NodeId,
                 elements :: [DNode]
             }
+            | DTupleElem {
+                nodeID :: NodeId,
+                tupleIndex :: Int,
+                tuple :: DNode
+            }
             | DVariable{
                 nodeID :: NodeId,
                 variableType :: DType,
@@ -80,13 +85,14 @@ data DNode = DLiteral{
             }
     deriving (Show, Eq)
 
-data BuiltinOp = BitwiseNot | BinaryOp String | Ternary | EnumList
+data BuiltinOp = BitwiseNot | BinaryOp String | Ternary | EnumList | Decons
     deriving (Show, Eq)
 
 -- supported data types: D_Int width. (May add fixed point support in the future)
 -- Note that Haskell types for signed and unsigned integers are Int32 and Word32
 data DType = DSInt Int | DUInt Int | DBool | UndefinedType
             | DList DType
+            | DTuple [DType]
             | DFunc{
                 funcArgs :: [DType],
                 funcRT :: DType
@@ -138,6 +144,10 @@ nodeType DVariable{variableType = t} = t
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
 nodeType DListLiteral{elements = xs} = DList . nodeType $ head xs
+nodeType DTupleElem{tuple = t, tupleIndex = i}
+    | nodeType t == UndefinedType = UndefinedType
+    | otherwise                   = let DTuple ts = nodeType t
+                                    in  ts !! i
 
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
