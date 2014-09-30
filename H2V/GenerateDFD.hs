@@ -57,10 +57,10 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) Decons
          in pushDfdNS (op, DFD (-1) op args (DTuple [UndefinedType, DList UndefinedType]) False root)
 
-        let op = "__listNotEmpty"
-            args = [(-1, DList UndefinedType)]
-            root = DBuiltin (-1) ListNotEmpty
-         in pushDfdNS (op, DFD (-1) op args UndefinedType False root)
+        let op = "__listMinAvail"
+            args = [(-1, UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) ListMinAvail
+         in pushDfdNS (op, DFD (-1) op args DBool False root)
 
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
@@ -206,7 +206,13 @@ patternMatches (_, HsPWildCard) = trueExpr
 patternMatches (name, HsPNeg pat) = HsApp (astVar "not") $ patternMatches (name, pat)
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, HsPParen pat) = patternMatches (name, pat)
-patternMatches (name, HsPInfixApp _ (Special HsCons) _) = HsApp (astVar "__listNotEmpty") (HsVar $ UnQual name)
+patternMatches (name, p@(HsPInfixApp _ (Special HsCons) _)) = res where
+    res = HsApp (HsApp (astVar "__listMinAvail") (HsLit . HsInt $ elemCount (-1) p)) (HsVar $ UnQual name)
+
+    elemCount n (HsPInfixApp p0 (Special HsCons) p1) = n + (elemCount 0 p0) + (elemCount 0 p1)
+    elemCount n (HsPParen p) = elemCount n p
+    elemCount n _ = n + 1
+
 patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
 
 --Performs pattern binding. Note that each pattern can result in multiple bindings due to destructuring
