@@ -351,6 +351,10 @@ renderNode (DFunctionCall appID f args)
         aDefs = concatMap renderNode args
         aAsses = concatMap argEdge args
 
+renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
+    def = defineNode elemID (nodeType tuple)
+    ass = assignNode elem tuple
+
 --List literals are handled by generating a module to implement the list interface
 renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
     def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
