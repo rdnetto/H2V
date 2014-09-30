@@ -159,3 +159,66 @@ module Cons(
         end
     end
 endmodule
+
+module Hold(
+    //Utility module for keeping y high after x goes high (while ready is high). Used in generated code.
+    input clock,
+    input ready,
+    input x,
+    output reg y
+    );
+
+    always @(posedge clock)
+        y <= ready ? y | x : 0;
+endmodule
+
+module Decons(
+    input clock,
+    input ready,
+    output reg  done,
+
+	output reg  list_req,
+    input       list_ack,
+    input [7:0] list_value,
+    input       list_value_valid,
+
+    output reg [7:0] head,
+    output reg       head_valid,
+
+	input            tail_req,
+	output reg       tail_ack,
+	output reg [7:0] tail_value,
+    output reg       tail_value_valid
+    );
+
+    always @(posedge clock) begin
+        if(ready) begin
+            if(~done & list_ack) begin
+                done <= 1'b1;
+                head <= list_value;
+                head_valid <= list_value_valid;
+            end
+
+        end else begin
+            done <= 1'b0;
+            head <= 8'hFF;
+            head_valid = 1'b0;
+        end
+    end
+
+    always @(*) begin
+        list_req = ready & ~done;
+
+        if(done) begin
+            list_req = tail_req;
+            tail_ack = list_ack;
+            tail_value = list_value;
+            tail_value_valid = list_value_valid;
+        end else begin
+            list_req = ready;
+            tail_ack = 1'b0;
+            tail_value = 8'hFF;
+            tail_value_valid = 1'b0;
+        end
+    end
+endmodule
