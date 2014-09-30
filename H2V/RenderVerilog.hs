@@ -2,6 +2,7 @@
 module RenderVerilog (dfdToVerilog) where
 
 import Control.Monad
+import Data.Either
 import Data.List
 import Text.Printf
 
@@ -29,23 +30,24 @@ data VNodeDef = VNodeDef{
 --The second element of the tuple is:
 --  Left: a non-recursive expression
 --  Right: a list of arguments for the recursive call
-type RecursiveCase = ([Either DNode DNode], Either DNode [DNode])
+--The third element of the tuple is a list of 2-tuples, which specify the index of lists which require elements and how many are required
+type RecursiveCase = ([Either DNode DNode], Either DNode [DNode], [(NodeId, Int)])
 
 --Conditions for case to be valid. Left nodes need to be negated.
 recConds :: RecursiveCase -> [Either DNode DNode]
-recConds (x, _) = x
+recConds (x, _, _) = x
 
 --Returns False if the argument is a base case
 isRecursive :: RecursiveCase -> Bool
-isRecursive (_, x) = isRight x
+isRecursive (_, x, _) = isRight x
 
 --NodeId of root node for base case
 baseRoot :: RecursiveCase -> DNode
-baseRoot (_, Left x) = x
+baseRoot (_, Left x, _) = x
 
 --Arguments for the recursive call
 recArgs :: RecursiveCase -> [DNode]
-recArgs (_, Right x) = x
+recArgs (_, Right x, _) = x
 
 dfdToVerilog :: DProgram -> String
 dfdToVerilog dfds = concatMap renderFunc dfds
@@ -68,15 +70,21 @@ eCalls target e = dfold (\a -> \b -> a || eCalls' b) False e where
 --Assumes function is self-recursive - use `calls` to check this.
 recursiveCases :: DFD -> [RecursiveCase]
 recursiveCases f = recExpr [] $ dfdRoot f where
-    recExpr :: [Either DNode DNode] -> DNode -> [([Either DNode DNode], Either DNode [DNode])]
+    recExpr :: [Either DNode DNode] -> DNode -> [RecursiveCase]
     recExpr conds node
         | isIf node           = (recExpr (trueCond:conds) trueBranch) ++ (recExpr (falseCond:conds) falseBranch)
-        | isFunctionCall node = return (conds, Right $ callArgs node)
-        | otherwise           = return (conds, Left node)                   --is expression
+        | isFunctionCall node = return (conds', Right $ callArgs node, listConds)
+        | otherwise           = return (conds', Left node, listConds)        --is expression
         where
         [cond, trueBranch, falseBranch] = callArgs node
         trueCond = Right cond
         falseCond = Left cond
+        (conds', listConds) = partitionEithers $ map extractListConds conds
+
+extractListConds :: Either DNode DNode -> Either (Either DNode DNode) (NodeId, Int)
+extractListConds (Right (DFunctionCall _ DFD{dfdRoot = root} [eCount, list]))
+    | (isBuiltin root && builtinOp root == ListMinAvail) = Right (nodeID list, getConstant eCount)
+extractListConds x = Left x
 
 --Render combinatorial functions.
 --TODO: add assign statements to link ready/done signals
