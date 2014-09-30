@@ -195,12 +195,21 @@ patternMatches (_, HsPVar _) = trueExpr
 patternMatches (_, HsPWildCard) = trueExpr
 patternMatches (name, HsPNeg pat) = HsApp (HsVar $ UnQual $ HsIdent "not") $ patternMatches (name, pat)
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
+patternMatches (name, HsPParen pat) = patternMatches (name, pat)
 patternMatches (name, pat) = error $ printf "Unknown pattern in %s:\n%s" (show name) (show pat)
 
 --Performs pattern binding. Note that each pattern can result in multiple bindings due to destructuring
 bindPattern :: HsName -> HsPat -> [HsDecl]
 bindPattern argName pat@(HsPVar _) = return $ HsPatBind nullSrcLoc pat rhs [] where
     rhs = HsUnGuardedRhs . HsVar . UnQual $ argName
+bindPattern argName (HsPInfixApp a0 (Special HsCons) as) = decons : head ++ tail where
+    aHead = HsIdent $ fromHsName argName ++ "_head"
+    aTail = HsIdent $ fromHsName argName ++ "_tail"
+    decons = HsPatBind nullSrcLoc (HsPTuple [HsPVar aHead, HsPVar aTail]) deconsRHS []
+    deconsRHS = HsUnGuardedRhs $ HsApp (astVar "__decons") (HsVar . UnQual $ argName)
+    head = bindPattern aHead a0
+    tail = bindPattern aTail as
+bindPattern argName (HsPParen pat) = bindPattern argName pat
 bindPattern _ (HsPLit _) = []
 bindPattern _ HsPWildCard = []
 bindPattern _ p = error $ "Unknown declaration: " ++ pshow p
