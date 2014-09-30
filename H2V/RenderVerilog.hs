@@ -375,7 +375,7 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
     ass = unlines $ map (\fmt -> printf fmt elemID tupleID) ass'
     ass' = case tupleIndex of
              0 -> [ "assign node_%i = node_head_%i;",
-                    "assign node_%i_done = node_%i_head_done;"
+                    "assign node_%i_done = node_%i_done;"
                   ]
              1 -> [ "assign node_%i_req = node_tail_%i_req;",
                     "assign node_%i_ack = node_tail_%i_ack;",
@@ -568,16 +568,22 @@ renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ don
     ass = renderListGen resID min step Nothing
     doneAs = genericDone resID [min, step]
 
-renderBuiltin resID Decons [list] = VNodeDef resID (defH ++ defT) ass "" where
+renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
     listID = nodeID list
-    defH = defineNodeX (printf "node_head_%i" resID) UndefinedType
-    defT = defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType)
-    ass = concat [ printf "Decons decons_%i(clock, node_%i_done, node_%i_done," listID listID resID,
+    def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
+                   defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
+                   printf "wire node_decons_%i_valid;\n" listID,      --need to use the listID here so that ListMinAvail can access it
+                   printf "wire node_decons_%i_done;\n"  listID
+                 ]
+
+    ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done," listID listID resID,
                    argEdge  list,
                    argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
                    printf   "node_head_%i_valid," resID,
                    argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
-                   ");\n"
+                   ");\n",
+                   printf   "assign node_decons_%i_valid = node_head_%i_valid;\n" listID resID,
+                   printf   "assign node_decons_%i_done  = node_%i_done;\n" listID resID
                  ]
 
 --TODO: implement this for min > 1 using parallelism logic
@@ -587,8 +593,8 @@ renderBuiltin resID ListMinAvail [itemsReq, list]
     where
         listID = nodeID list
         def = defineNode resID DBool
-        ass = unlines [ printf "assign node_%i = node_head_%i_valid;" resID listID,
-                        printf "assign node_%i_done = node_%i_done;" resID listID
+        ass = unlines [ printf "assign node_%i = node_decons_%i_valid;" resID listID,
+                        printf "assign node_%i_done = node_decons_%i_done;" resID listID
                       ]
 
 --Generates assign statement for bounded and unbounded enumerations
