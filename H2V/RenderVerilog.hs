@@ -283,10 +283,12 @@ defineNode :: NodeId -> DType -> String
 defineNode nodeID t = defineNodeX (printf "node_%i" nodeID) t
 
 defineNodeX :: String -> DType -> String
-defineNodeX label (DList t) = unlines [line1, line2, line3] where
-    line1 = printf "wire %s_req, %s_ack;" label label
-    line2 = printf "wire %s %s_value;" (scalarVType t) label
-    line3 = printf "wire %s_value_valid;" label
+defineNodeX label (DList t) = res where
+    res = unlines [ printf "wire %s_req, %s_ack;" label label,
+                    printf "wire %s %s_value;" (scalarVType t) label,
+                    printf "wire %s_value_valid;" label,
+                    printf "wire %s_done;" label
+                  ]
 
 defineNodeX label t = unlines [line1, line2] where
     line1 = printf "wire %s %s;" (scalarVType t) label
@@ -295,14 +297,15 @@ defineNodeX label t = unlines [line1, line2] where
 --Generates the assign statements needed to connect two nodes. LHS is set to RHS.
 assignNode :: DNode -> DNode -> String
 assignNode lhs rhs
-    | isList (nodeType lhs) || isList (nodeType rhs) = unlines $ map (\fmt -> printf fmt lhsID rhsID) res
+    | isList (nodeType lhs) || isList (nodeType rhs) = unlines res
     where
         lhsID = nodeID lhs
         rhsID = nodeID rhs
-        res = [ "assign node_%i_req = node_%i_req;",
-                "assign node_%i_ack = node_%i_ack;",
-                "assign node_%i_value = node_%i_value;",
-                "assign node_%i_value_valid = node_%i_value_valid;"
+        res = [ printf "assign node_%i_req = node_%i_req;" rhsID lhsID,
+                printf "assign node_%i_ack = node_%i_ack;" lhsID rhsID,
+                printf "assign node_%i_value = node_%i_value;" lhsID rhsID,
+                printf "assign node_%i_value_valid = node_%i_value_valid;" lhsID rhsID,
+                printf "assign node_%i_done = node_%i_done;" lhsID rhsID
               ]
 
 assignNode lhs rhs = unlines [line1, line2] where
@@ -384,7 +387,8 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
              1 -> [ "assign node_%i_req = node_tail_%i_req;",
                     "assign node_%i_ack = node_tail_%i_ack;",
                     "assign node_%i_value = node_tail_%i_value;",
-                    "assign node_%i_value_valid = node_tail_%i_value_valid;"
+                    "assign node_%i_value_valid = node_tail_%i_value_valid;",
+                    "assign node_%i_done = node_%i_done;"
                   ]
              _ -> error $ "Invalid tuple index: " ++ show tupleIndex
 
@@ -574,17 +578,13 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
 
 renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --bounded
-    def = concat  [ defineNode resID (DList UndefinedType),
-                    printf "wire node_%i_done;\n" resID
-                  ]
+    def = defineNode resID (DList UndefinedType)
     ass = renderListGen resID min step (Just max)
     doneAs = genericDone resID [min, step, max]
 
 renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --unbounded
-    def = concat  [ defineNode resID (DList UndefinedType),
-                    printf "wire node_%i_done;\n" resID
-                  ]
+    def = defineNode resID (DList UndefinedType)
     ass = renderListGen resID min step Nothing
     doneAs = genericDone resID [min, step]
 
