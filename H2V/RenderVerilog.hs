@@ -97,7 +97,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        indent [
                                            "input clock, input ready, output done,",
                                            concatMap (renderArg "input" "node" True ",") (zip [0..] args),
-                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, nodeType root))
+                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, retType))
                                        ],
                                        ");",
                                        indent $ map (\(i, _) -> printf "wire node_%i_done;" i) args,
@@ -108,6 +108,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                       ]
     where
         defs = renderNode root
+        retType = selectType [returnType_ dfd, nodeType root]
         doneAssign = if   isList (returnType dfd)
                      then "assign done = ready;"
                      else printf "assign done = node_%i_done;" $ nodeID root
@@ -121,9 +122,10 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
 --NOTE: The 'combinatorial' logic may include calls to synchronous functions, so it's not actually combinatorial.
 renderRecursiveFunc :: DFD -> [RecursiveCase] -> String
 renderRecursiveFunc dfd@(DFD dfdID name args _ _ root) recCases
-    | isList (nodeType root) = renderRecursiveListFunc dfd recCases
-    | otherwise              = res
+    | isList retType = renderRecursiveListFunc dfd recCases
+    | otherwise      = res
     where
+        retType = selectType [returnType_ dfd, nodeType root]
         res = unlines [ --Combinatorial logic
                     printf "module dfd_%i_cmb(" dfdID,
                     indent [

@@ -149,6 +149,12 @@ nodeType DTupleElem{tuple = t, tupleIndex = i}
     | otherwise                   = let DTuple ts = nodeType t
                                     in  ts !! i
 
+--Selects the first type in the list that is not UndefinedType, or UndefinedType if there are no other elements available.
+selectType :: [DType] -> DType
+selectType (UndefinedType:ts) = selectType ts
+selectType (t0:ts) = t0
+selectType [] = UndefinedType
+
 isArg :: DNode -> Bool
 isArg DVariable{variableValue = Nothing} = True
 isArg DVariable{} = False
