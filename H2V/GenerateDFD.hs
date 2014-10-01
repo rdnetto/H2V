@@ -313,7 +313,7 @@ defineTypedArg (HsPVar name') (nodeID, t) = do
 definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
 definePat (HsPVar name) value = do
     nodeID <- newId
-    return . return $ (fromHsName name, DVariable nodeID UndefinedType (Just value))
+    return . return $ (fromHsName name, DVariable nodeID (nodeType value) (Just value))
 definePat (HsPTuple ps) value = concatMapM f $ zip [0..] ps where
     f (i, pat) = do
         nodeID <- newId
