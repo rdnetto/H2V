@@ -21,7 +21,7 @@ data VNodeDef = VNodeDef{
                     vDef :: String,
                     vAssign :: String,
                     vModDeps :: String
-                }
+                } deriving (Show, Eq)
 
 --A tail-recursive DFD will be a tree of IFs, where each leaf is a recursive call or a non-recursive expression.
 --Returns a list of 2-tuples representing each leaf.
