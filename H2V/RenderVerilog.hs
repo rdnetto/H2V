@@ -556,8 +556,20 @@ renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ d
     doneAs = genericDone resID args
 
 renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+        resType = headOr UndefinedType $ filter (/= UndefinedType) [nodeType tExp, nodeType fExp]
         def = defineNode resID (nodeType tExp)
-        ass = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID (nodeID cond) (nodeID tExp) (nodeID fExp)
+        ass = case resType of
+                DList _ -> listAss
+                _       -> scalarAss
+        [cID, tID, fID] = map nodeID [cond, tExp, fExp]
+        scalarAss = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID cID tID fID
+        listTerms = map (++ ", ") ["node_%i_req", "node_%i_ack", "node_%i_value", "node_%i_value_valid"]
+        listAss = concat [ printf "ListMux lm_%i(node_%i, " resID cID,
+                           concatMap (\fmt -> printf fmt resID) listTerms,
+                           concatMap (\fmt -> printf fmt tID  ) listTerms,
+                           concatMap (\fmt -> printf fmt fID  ) listTerms,
+                           ");\n"
+                         ]
         doneAs = genericDone resID args
 
 renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where

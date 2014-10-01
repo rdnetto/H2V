@@ -172,6 +172,41 @@ module Hold(
         y <= ready ? y | x : 0;
 endmodule
 
+module ListMux(
+    //Utility module for implementing the ternary operator on lists.
+    input cond,
+    output reg  out_req,
+    input       out_ack,
+    input [7:0] out_value,
+    input       out_value_valid,
+
+    input            true_req,
+    output reg       true_ack,
+    output reg [7:0] true_value,
+    output reg       true_value_valid,
+
+    input            false_req,
+    output reg       false_ack,
+    output reg [7:0] false_value,
+    output reg       false_value_valid
+    );
+
+    always @(*) begin
+        if(cond) begin
+            out_req = true_req;
+            true_ack = out_ack;
+            true_value = out_value;
+            true_value_valid = out_value_valid;
+
+        end else begin
+            out_req = false_req;
+            false_ack = out_ack;
+            false_value = out_value;
+            false_value_valid = out_value_valid;
+        end
+    end
+endmodule
+
 module Decons(
     input clock,
     input ready,

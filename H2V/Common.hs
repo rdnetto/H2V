@@ -82,3 +82,7 @@ filterMap predicate f xs = map f' xs where
         | predicate x = f x
         | otherwise   = x
 
+headOr :: a -> [a] -> a
+headOr _ (x:_) = x
+headOr x [] = x
+
