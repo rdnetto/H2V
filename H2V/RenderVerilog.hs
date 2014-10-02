@@ -411,7 +411,8 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
 renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
     def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
                     printfAll "wire [7:0] node_%i_value;" listID,
-                    printfAll "wire node_%i_value_valid;" listID
+                    printfAll "wire node_%i_value_valid;" listID,
+                    printfAll "wire node_%i_done;" listID
                   ]
     ass = unlines  [printfAll "listLiteral_%i(clock, ready," listID,
                     chopComma $ indent [
@@ -604,10 +605,11 @@ renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ don
     doneAs = genericDone resID [min, step]
 
 renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
+    --need to use the listID for some wires so that ListMinAvail can access it
     listID = nodeID list
     def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
                    defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
-                   printf "wire node_decons_%i_valid;\n" listID,      --need to use the listID here so that ListMinAvail can access it
+                   printf "wire node_decons_%i_valid, node_head_%i_valid;\n" listID resID,
                    printf "wire node_decons_%i_done;\n"  listID,
                    printf "wire node_%i_done;\n" resID
                  ]
