@@ -230,16 +230,23 @@ module Decons(
     output reg       tail_value_valid
     );
 
+    reg nextDone;
+
     always @(posedge clock) begin
         if(ready) begin
+            done <= done | nextDone;
+
             if(~done & list_ack) begin
-                done <= 1'b1;
+                nextDone <= 1'b1;
                 head <= list_value;
                 head_valid <= list_value_valid;
+            end else begin
+                nextDone <= 1'b0;
             end
 
         end else begin
             done <= 1'b0;
+            nextDone <= 1'b0;
             head <= 8'hFF;
             head_valid = 1'b0;
         end
@@ -254,7 +261,7 @@ module Decons(
             tail_value = list_value;
             tail_value_valid = list_value_valid;
         end else begin
-            list_req = ready;
+            list_req = ready & ~nextDone;
             tail_ack = 1'b0;
             tail_value = 8'hFF;
             tail_value_valid = 1'b0;
