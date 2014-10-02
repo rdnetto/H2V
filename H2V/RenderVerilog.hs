@@ -394,18 +394,17 @@ renderNode (DFunctionCall appID f args)
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
     tupleID = nodeID tuple
     def = defineNode elemID (nodeType elem)
-    ass = unlines $ map (\fmt -> printf fmt elemID tupleID) ass'
-    ass' = case tupleIndex of
-             0 -> [ "assign node_%i = node_head_%i;",
-                    "assign node_%i_done = node_%i_done;"
-                  ]
-             1 -> [ "assign node_%i_req = node_tail_%i_req;",
-                    "assign node_%i_ack = node_tail_%i_ack;",
-                    "assign node_%i_value = node_tail_%i_value;",
-                    "assign node_%i_value_valid = node_tail_%i_value_valid;",
-                    "assign node_%i_done = node_%i_done;"
-                  ]
-             _ -> error $ "Invalid tuple index: " ++ show tupleIndex
+    ass = unlines $ case tupleIndex of
+                     0 -> [ printf "assign node_%i = node_head_%i;" elemID tupleID,
+                            printf "assign node_%i_done = node_%i_done;" elemID tupleID
+                          ]
+                     1 -> [ printf "assign node_tail_%i_req = node_%i_req;" tupleID elemID,
+                            printf "assign node_%i_ack = node_tail_%i_ack;" elemID tupleID,
+                            printf "assign node_%i_value = node_tail_%i_value;" elemID tupleID,
+                            printf "assign node_%i_value_valid = node_tail_%i_value_valid;" elemID tupleID,
+                            printf "assign node_%i_done = node_%i_done;" elemID tupleID
+                          ]
+                     _ -> error $ "Invalid tuple index: " ++ show tupleIndex
 
 --List literals are handled by generating a module to implement the list interface
 renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
