@@ -174,6 +174,7 @@ endmodule
 
 module ListMux(
     //Utility module for implementing the ternary operator on lists.
+    input ready,
     input cond,
     input            out_req,
     output reg       out_ack,
@@ -192,7 +193,14 @@ module ListMux(
     );
 
     always @(*) begin
-        if(cond) begin
+        if(~ready) begin
+            true_req = 1'b0;
+            false_req = 1'b0;
+            out_ack = 1'b0;
+            out_value = 8'hFF;
+            out_value_valid = 1'b0;
+
+        end else if(cond) begin
             true_req = out_req;
             out_ack = true_ack;
             out_value = true_value;

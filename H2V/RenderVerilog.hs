@@ -585,7 +585,7 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
         [cID, tID, fID] = map nodeID [cond, tExp, fExp]
         scalarAss = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID cID tID fID
         listTerms = map (++ ", ") ["node_%i_req", "node_%i_ack", "node_%i_value", "node_%i_value_valid"]
-        listAss = concat [ printf "ListMux lm_%i(node_%i," resID cID,
+        listAss = concat [ printf "ListMux lm_%i(node_%i_done, node_%i," resID cID cID,
                            chopComma $ concatMap genMuxLine [resID, tID, fID],
                            ");\n"
                          ]
