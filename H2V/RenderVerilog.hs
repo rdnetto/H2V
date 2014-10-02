@@ -383,12 +383,13 @@ renderNode (DFunctionCall appID f args)
                         printf "wire node_%i_ready;" appID
                       ]
         ass = unlines [ printf "assign node_%i_ready = %s;" appID ready,
-                        printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s node_%i);\n" fID appID appID appID aAsses appID
+                        printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s %s);\n" fID appID appID appID aAsses resAss
                       ]
         fID = dfdID f
         ready = joinMap " & " (printf "node_%i_done" . nodeID) args
         aDefs = concatMap renderNode args
         aAsses = concatMap argEdge args
+        resAss = chopComma . argEdge $ DVariable appID (returnType f) Nothing
 
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
     tupleID = nodeID tuple
