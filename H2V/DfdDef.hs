@@ -167,6 +167,7 @@ isFunc _ = False
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
 dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM (dmap f) val}
+dmap f n@(DTupleElem _ _ val) = f $ n{tuple = dmap f val}
 dmap f n@(DFunctionCall _ _ args) = f $ n{callArgs = map (dmap f) args}
 dmap f x = f x
 
@@ -177,6 +178,10 @@ dmapM f n@(DVariable _ _ val) = do
            else return val
     f $ n{variableValue = val'}
 
+dmapM f n@(DTupleElem _ _ val) = do
+    val' <- f val
+    f n{tuple = val'}
+
 dmapM f n@(DFunctionCall _ _ args) = do
     args' <- mapM (dmapM f) args
     f n{callArgs = args'}
@@ -185,6 +190,7 @@ dmapM f x = f x
 
 dfold :: (a -> DNode -> a) -> a -> DNode -> a
 dfold f x0 n@(DVariable _ _ (Just val)) = dfold f (f x0 n) val
+dfold f x0 n@(DTupleElem _ _ val) = dfold f (f x0 n) val
 dfold f x0 n@(DFunctionCall _ _ args) = foldl (dfold f) (f x0 n) args
 dfold f x0 n = f x0 n
 
