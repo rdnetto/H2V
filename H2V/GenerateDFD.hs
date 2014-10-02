@@ -153,6 +153,11 @@ cleanExpr exp = error $ "Unknown expression: " ++ pshow exp
 --cleans declarations
 cleanDecl :: HsDecl -> HsDecl
 --TODO: Refactor: PatBind should use the same code as FunBind for pattern matching.
+cleanDecl (HsPatBind src (HsPInfixApp p1 consOp p2) (HsUnGuardedRhs expr) decls) = res where
+    consOp = Special HsCons
+    f = HsApp (astVar "__decons") expr
+    res = cleanDecl $ HsPatBind src (HsPTuple [p1, p2]) (HsUnGuardedRhs f) decls
+
 cleanDecl (HsPatBind src pat (HsUnGuardedRhs expr) decls) = HsPatBind src pat (HsUnGuardedRhs $ cleanExpr expr) (map cleanDecl decls)
 cleanDecl (HsFunBind matches) = HsFunBind [res] where
     --using HsWildCard to represent non-exhaustive pattern matching
