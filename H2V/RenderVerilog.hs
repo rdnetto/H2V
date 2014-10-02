@@ -404,6 +404,9 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
                             printf "assign node_%i_value_valid = node_tail_%i_value_valid;" elemID tupleID,
                             printf "assign node_%i_done = node_%i_done;" elemID tupleID
                           ]
+                     2 -> [ printf "assign node_%i = node_head_%i_valid;" elemID tupleID,
+                            printf "assign node_%i_done = node_%i_done;" elemID tupleID
+                          ]
                      _ -> error $ "Invalid tuple index: " ++ show tupleIndex
 
 --List literals are handled by generating a module to implement the list interface
@@ -605,12 +608,10 @@ renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ don
     doneAs = genericDone resID [min, step]
 
 renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
-    --need to use the listID for some wires so that ListMinAvail can access it
     listID = nodeID list
     def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
                    defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
-                   printf "wire node_decons_%i_valid, node_head_%i_valid;\n" listID resID,
-                   printf "wire node_decons_%i_done;\n"  listID,
+                   printf "wire node_head_%i_valid;\n" resID,
                    printf "wire node_%i_done;\n" resID
                  ]
 
@@ -620,21 +621,8 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                    lstrip . argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
                    lstrip $ printf   "node_head_%i_valid,\n\t" resID,
                    lstrip . chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
-                   ");\n",
-                   printf   "assign node_decons_%i_valid = node_head_%i_valid;\n" listID resID,
-                   printf   "assign node_decons_%i_done  = node_%i_done;\n" listID resID
+                   ");\n"
                  ]
-
---TODO: implement this for min > 1 using parallelism logic
-renderBuiltin resID ListMinAvail [itemsReq, list]
-    | getConstant itemsReq == 1  = VNodeDef resID def ass ""
-    | otherwise                  = error "Reading multiple elements via decons is not yet supported by ListMinAvail"
-    where
-        listID = nodeID list
-        def = defineNode resID DBool
-        ass = unlines [ printf "assign node_%i = node_decons_%i_valid;" resID listID,
-                        printf "assign node_%i_done = node_decons_%i_done;" resID listID
-                      ]
 
 --Generates assign statement for bounded and unbounded enumerations
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String

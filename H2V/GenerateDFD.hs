@@ -55,10 +55,10 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
         let op = "__decons"
             args = [(-1, DList UndefinedType)]
             root = DBuiltin (-1) Decons
-         in pushDfdNS (op, DFD (-1) op args (DTuple [UndefinedType, DList UndefinedType]) False root)
+         in pushDfdNS (op, DFD (-1) op args (DTuple [UndefinedType, DList UndefinedType, DBool]) False root)
 
         let op = "__listMinAvail"
-            args = [(-1, UndefinedType), (-1, DList UndefinedType)]
+            args = [(-1, UndefinedType)]
             root = DBuiltin (-1) ListMinAvail
          in pushDfdNS (op, DFD (-1) op args DBool False root)
 
@@ -212,7 +212,7 @@ patternMatches (name, HsPNeg pat) = HsApp (astVar "not") $ patternMatches (name,
 patternMatches (name, HsPLit lit) = HsInfixApp (HsVar $ UnQual name) (HsQVarOp $ UnQual $ HsSymbol "==") (HsLit lit)
 patternMatches (name, HsPParen pat) = patternMatches (name, pat)
 patternMatches (name, p@(HsPInfixApp _ (Special HsCons) _)) = res where
-    res = HsApp (HsApp (astVar "__listMinAvail") (HsLit . HsInt $ elemCount (-1) p)) (HsVar $ UnQual name)
+    res = HsApp (astVar "__listMinAvail") (HsVar $ UnQual name)
 
     elemCount n (HsPInfixApp p0 (Special HsCons) p1) = n + (elemCount 0 p0) + (elemCount 0 p1)
     elemCount n (HsPParen p) = elemCount n p
@@ -341,7 +341,8 @@ defineDecl (HsPatBind _ pat (HsUnGuardedRhs expr) decls, _) = do
     terms <- mapM defineDecl $ decls'
 
     --define the RHS, link it, and bind it to the LHS
-    rhs <- dmapM linkExpr <=< defineExpr $ expr
+    rhs' <- dmapM linkExpr <=< defineExpr $ expr
+    let rhs = matchDecons rhs'
     lhs <- definePat pat rhs
 
     --cleanup subterms
@@ -371,7 +372,8 @@ defineDecl (HsFunBind [HsMatch _ name pats (HsUnGuardedRhs expr) decls], _) = do
     terms <- mapM defineDecl $ decls'
 
     --link functions. <=< is the monadic composition operator (analogous to .)
-    root <- dmapM linkExpr <=< defineExpr $ expr
+    root' <- dmapM linkExpr <=< defineExpr $ expr
+    let root = matchDecons root'
 
     mapM popNS $ reverse terms
     mapM popDfdNS $ reverse headers
@@ -583,6 +585,26 @@ cloneArg :: (NodeId, DType) -> NodeGen DNode
 cloneArg (_, t) = do
     i <- newId
     return $ DVariable i t Nothing
+
+--ListMinAvail rewriting - modifies LMAs to be children of their corresponding decons
+matchDecons :: DNode -> DNode
+matchDecons root = res where
+    res = dmap updateLMAs root
+    decons = dfold appendDecons [] root                                 --creates a dictionary of (listID, deconsCall) tuples
+    knownLists = map fst decons
+
+    appendDecons :: [(NodeId, DNode)] -> DNode -> [(NodeId, DNode)]
+    appendDecons ns n0@(DFunctionCall _ (DFD (-1) "__decons" _ _ _ _) [list]) = (nodeID list, n0):ns
+    appendDecons ns _ = ns
+
+    updateLMAs :: DNode -> DNode
+    updateLMAs n@(DFunctionCall nID (DFD (-1) "__listMinAvail" _ _ _ _) [list]) = res where
+        res = if   (nodeID list) `elem` knownLists
+              then DTupleElem nID 2 deconRes
+              else error $ printf "Called ListMinAvail on list with no matching cons: %s\nLists: %s" (show n) (show decons)
+        deconRes = fromJust $ lookup (nodeID list) decons
+
+    updateLMAs n = n
 
 --WIP: Closure logic - converts closures to function arguments
 
