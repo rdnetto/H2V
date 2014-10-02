@@ -414,7 +414,7 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                     printfAll "wire node_%i_value_valid;" listID
                   ]
     ass = unlines  [printfAll "listLiteral_%i(clock, ready," listID,
-                    indent [
+                    chopComma $ indent [
                         unlines $ map argEdge' items,
                         argEdge (DVariable listID (DList UndefinedType) Nothing)
                     ],
@@ -586,7 +586,7 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
         listAss = concat [ printf "ListMux lm_%i(node_%i, " resID cID,
                            concatMap (\fmt -> printf fmt resID) listTerms,
                            concatMap (\fmt -> printf fmt tID  ) listTerms,
-                           concatMap (\fmt -> printf fmt fID  ) listTerms,
+                           chopComma $ concatMap (\fmt -> printf fmt fID) listTerms,
                            ");\n"
                          ]
         doneAs = genericDone resID args
@@ -616,7 +616,7 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                    argEdge  list,
                    argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
                    printf   "node_head_%i_valid," resID,
-                   argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
+                   chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
                    ");\n",
                    printf   "assign node_decons_%i_valid = node_head_%i_valid;\n" listID resID,
                    printf   "assign node_decons_%i_done  = node_%i_done;\n" listID resID
@@ -640,7 +640,7 @@ renderListGen resID min step max = res where
             printf "BoundedEnum(clock, node_%i_done, " resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
             maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
-            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            chopComma $ argEdge (DVariable resID (DList UndefinedType) Nothing),
             ");\n"
         ]
 
