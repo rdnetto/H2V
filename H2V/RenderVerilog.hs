@@ -414,7 +414,7 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                     printfAll "wire node_%i_value_valid;" listID,
                     printfAll "wire node_%i_done;" listID
                   ]
-    ass = unlines  [printfAll "listLiteral_%i(clock, ready," listID,
+    ass = unlines  [printfAll "listLiteral_%i listLit_%i(clock, ready," listID,
                     chopComma $ indent [
                         unlines $ map argEdge' items,
                         argEdge (DVariable listID (DList UndefinedType) Nothing)
@@ -639,7 +639,7 @@ renderBuiltin resID ListMinAvail [itemsReq, list]
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
 renderListGen resID min step max = res where
     res = concat [
-            printf "BoundedEnum(clock, node_%i_done, " resID,
+            printf "BoundedEnum enum_%i(clock, node_%i_done, " resID resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
             maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
             chopComma $ argEdge (DVariable resID (DList UndefinedType) Nothing),
