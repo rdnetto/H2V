@@ -175,40 +175,38 @@ endmodule
 module ListMux(
     //Utility module for implementing the ternary operator on lists.
     input cond,
-    output reg  out_req,
-    input       out_ack,
-    input [7:0] out_value,
-    input       out_value_valid,
+    input            out_req,
+    output reg       out_ack,
+    output reg [7:0] out_value,
+    output reg       out_value_valid,
 
-    input            true_req,
-    output reg       true_ack,
-    output reg [7:0] true_value,
-    output reg       true_value_valid,
+    output reg       true_req,
+    input            true_ack,
+    input [7:0]      true_value,
+    input            true_value_valid,
 
-    input            false_req,
-    output reg       false_ack,
-    output reg [7:0] false_value,
-    output reg       false_value_valid
+    output reg       false_req,
+    input            false_ack,
+    input [7:0]      false_value,
+    input            false_value_valid
     );
 
     always @(*) begin
         if(cond) begin
-            out_req = true_req;
-            true_ack = out_ack;
-            true_value = out_value;
-            true_value_valid = out_value_valid;
-            false_ack = 1'bX;
-            false_value = 8'hXX;
-            false_value_valid = 1'bX;
+            true_req = out_req;
+            out_ack = true_ack;
+            out_value = true_value;
+            out_value_valid = true_value_valid;
+
+            false_req = 1'b0;
 
         end else begin
-            out_req = false_req;
-            false_ack = out_ack;
-            false_value = out_value;
-            false_value_valid = out_value_valid;
-            true_ack = 1'bX;
-            true_value = 8'hXX;
-            true_value_valid = 1'bX;
+            false_req = out_req;
+            out_ack = false_ack;
+            out_value = false_value;
+            out_value_valid = false_value_valid;
+
+            true_req = 1'b0;
         end
     end
 endmodule
