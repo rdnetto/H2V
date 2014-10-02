@@ -5,6 +5,7 @@ import Control.Monad
 import Data.Either
 import Data.List
 import Text.Printf
+import Debug.Trace
 
 import Common
 import DfdDef
@@ -101,7 +102,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        ],
                                        ");",
                                        indent $ map (\(i, _) -> printf "wire node_%i_done;" i) args,
-                                       indent . lines . concatNodes $ filterMap (\n -> vNodeId n == nodeID root) (\n -> n{vDef = ""}) defs,
+                                       indent . lines $ concatNodes defs',
                                        indent $ map (\(i, _) -> printf "assign node_%i_done = ready;" i) args,
                                        '\t' : doneAssign,
                                        "endmodule\n"
@@ -112,6 +113,19 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
         doneAssign = if   isList (returnType dfd)
                      then "assign done = ready;"
                      else printf "assign done = node_%i_done;" $ nodeID root
+        --need to filter out definitions from the root node that are already present in the module def
+        argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n") (zip [0..] args),
+                                              renderArg "" "node" True "\n" (0, (nodeID root, retType))
+                                            ]
+        (rootDefs, otherDefs) = partition (\n -> vNodeId n == nodeID root) defs
+        defs' = (map filterRootDef rootDefs) ++ otherDefs
+
+        filterRootDef :: VNodeDef -> VNodeDef
+        filterRootDef v = v{vDef = def'} where
+            def = vDef v
+            def' = unlines . filterMap containsArg ("//" ++) . lines $ def
+            containsArg :: String -> Bool
+            containsArg line = any2 (\arg suf -> isInfixOf (arg ++ suf) line) argDefs [" ", ",", ";"]
 
 --There are two trees of evaluation for a tail-recursive function:
 --  -the base case, where the root is the resulting expression.

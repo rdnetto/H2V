@@ -72,8 +72,14 @@ chopComma :: String -> String
 chopComma s = reverse (a ++ b) where
     (a, _:b) = span (/= ',') $ reverse s
 
+lstrip :: String -> String
+lstrip = dropWhile isSpace
+
 rstrip :: String -> String
 rstrip = reverse . dropWhile isSpace . reverse
+
+strip :: String -> String
+strip = lstrip . rstrip
 
 --Applies the mapping function to all elements satisfying the predicate
 filterMap :: (a -> Bool) -> (a -> a) -> [a] -> [a]
@@ -85,4 +91,8 @@ filterMap predicate f xs = map f' xs where
 headOr :: a -> [a] -> a
 headOr _ (x:_) = x
 headOr x [] = x
+
+--Generalizes any to 2 lists - returns True if f is True for any pair.
+any2 :: (a -> b -> Bool) -> [a] -> [b] -> Bool
+any2 f l1 l2 = any (uncurry f) [(x, y) | x <- l1, y <- l2]
 
