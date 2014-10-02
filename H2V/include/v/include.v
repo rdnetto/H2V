@@ -197,12 +197,18 @@ module ListMux(
             true_ack = out_ack;
             true_value = out_value;
             true_value_valid = out_value_valid;
+            false_ack = 1'bX;
+            false_value = 8'hXX;
+            false_value_valid = 1'bX;
 
         end else begin
             out_req = false_req;
             false_ack = out_ack;
             false_value = out_value;
             false_value_valid = out_value_valid;
+            true_ack = 1'bX;
+            true_value = 8'hXX;
+            true_value_valid = 1'bX;
         end
     end
 endmodule
