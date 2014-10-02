@@ -584,12 +584,11 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
         [cID, tID, fID] = map nodeID [cond, tExp, fExp]
         scalarAss = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID cID tID fID
         listTerms = map (++ ", ") ["node_%i_req", "node_%i_ack", "node_%i_value", "node_%i_value_valid"]
-        listAss = concat [ printf "ListMux lm_%i(node_%i, " resID cID,
-                           concatMap (\fmt -> printf fmt resID) listTerms,
-                           concatMap (\fmt -> printf fmt tID  ) listTerms,
-                           chopComma $ concatMap (\fmt -> printf fmt fID) listTerms,
+        listAss = concat [ printf "ListMux lm_%i(node_%i," resID cID,
+                           chopComma $ concatMap genMuxLine [resID, tID, fID],
                            ");\n"
                          ]
+        genMuxLine s = rstrip $ "\n\t" ++ concatMap (\fmt -> printf fmt s) listTerms
         doneAs = genericDone resID args
 
 renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
@@ -614,11 +613,12 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                    printf "wire node_%i_done;\n" resID
                  ]
 
-    ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done," listID listID resID,
-                   argEdge  list,
-                   argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
-                   printf   "node_head_%i_valid," resID,
-                   chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
+    ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
+                   strip  $ argEdge  list,
+                   "\n\t",
+                   lstrip . argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
+                   lstrip $ printf   "node_head_%i_valid,\n\t" resID,
+                   lstrip . chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
                    ");\n",
                    printf   "assign node_decons_%i_valid = node_head_%i_valid;\n" listID resID,
                    printf   "assign node_decons_%i_done  = node_%i_done;\n" listID resID
