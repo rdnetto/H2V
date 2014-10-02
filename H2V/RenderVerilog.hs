@@ -445,8 +445,10 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
                         "assign value = 8'hXX;",
                         "assign value_valid = 0;",
                         "",
-                        "always @(posedge clock)",
-                        "\tack <= ready & ~lastReq & req;"
+                        "always @(posedge clock) begin",
+                        "\tack <= ready & ~lastReq & req;",
+                        "\tlastReq <= req;",
+                        "end"
                         ],
                     "endmodule"
                 ]
