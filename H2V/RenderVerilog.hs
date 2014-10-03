@@ -110,9 +110,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
     where
         defs = renderNode root
         retType = selectType [returnType_ dfd, nodeType root]
-        doneAssign = if   isList (returnType dfd)
-                     then "assign done = ready;"
-                     else printf "assign done = node_%i_done;" $ nodeID root
+        doneAssign = printf "assign done = node_%i_done;" $ nodeID root
         --need to filter out definitions from the root node that are already present in the module def
         argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n") (zip [0..] args),
                                               renderArg "" "node" True "\n" (0, (nodeID root, retType))
