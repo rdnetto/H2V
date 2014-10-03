@@ -11,4 +11,7 @@ tail [] = []
 headTest a = head [1 .. 4]
 tailTest a = tail [1 .. 4]
 
+mapTest :: Int -> [Int]
+mapTest a = map (+10) [1 .. 4]
+
 
