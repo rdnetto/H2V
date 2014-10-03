@@ -141,6 +141,7 @@ nodeChildren _ = []
 --Convenience function for determining the type of a variable.
 nodeType :: DNode -> DType
 nodeType DVariable{variableType = t} = t
+nodeType DFunction{functionCalled = f} = DFunc (map snd $ dfdArgs f) (returnType f)
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
 nodeType DListLiteral{elements = xs} = DList . nodeType $ head xs
