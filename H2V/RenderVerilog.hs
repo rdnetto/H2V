@@ -94,13 +94,13 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
     | otherwise             = unlines [concatMap vModDeps defs,
                                        printf "module dfd_%i(" dfdID,
-                                       printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                        indent [
+                                           printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                            "input clock, input ready, output done,",
                                            concatMap (renderArg "input" "node" True ",") (zip [0..] args),
-                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, retType))
+                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, retType)),
+                                       ");"
                                        ],
-                                       ");",
                                        indent $ map (\(i, _) -> printf "wire node_%i_done; //arg" i) args,
                                        indent . lines $ concatNodes defs',
                                        indent $ map (\(i, _) -> printf "assign node_%i_done = ready;" i) args,
