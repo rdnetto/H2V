@@ -111,6 +111,11 @@ isFunctionCall :: DNode -> Bool
 isFunctionCall (DFunctionCall _ _ _) = True
 isFunctionCall _ = False
 
+isBuiltinMacro :: DNode -> Bool
+isBuiltinMacro db@(DBuiltin _ op)
+    | op == MapMacro = True
+isBuiltinMacro _ = False
+
 isHigherOrderFunc :: DFD -> Bool
 isHigherOrderFunc f = any isFunc $ ret:(map snd args) where
     args = dfdArgs f

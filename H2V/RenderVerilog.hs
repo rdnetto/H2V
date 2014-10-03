@@ -386,9 +386,7 @@ renderNode (DFunctionCall appID f args)
                         printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s %s);\n" fID appID appID appID aAsses resAss
                       ]
         fID = dfdID f
-        fRoot = dfdRoot f
-        isMacro = isBuiltin fRoot && (builtinOp fRoot) == MapMacro
-        args' = if   isMacro                                                         --don't render the lambda
+        args' = if   isBuiltinMacro $ dfdRoot f                                          --don't render the lambda
                 then tail args
                 else args
         ready = joinMap " & " (printf "node_%i_done" . nodeID) args'
