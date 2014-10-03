@@ -647,7 +647,7 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
               printf "module Map_%i(" resID,
               indent [
                   --referring to args as list_0 and list_1 for input and output lists, respectively
-                  "input clock, input ready, input done,",
+                  "input clock, input ready, output done,",
                   "output reg  listIn_req,",
                   "input       listIn_ack,",
                   printf "input %s listIn_value," inputType,
@@ -660,19 +660,22 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
                   ");",
                   "",
 
-                  --waitingForInput: waiting for a new value from listIn
-                  --processingValue: waiting for f(listIn_value) to complete
-                  --endOfInput:      the input list has been exhausted
-                  --consumerWaiting: the consumer of the output list is waiting for a value
-                  --consumerServed:  the consumer of the output list has been given a value
+                  --waitingForInput:  waiting for a new value from listIn
+                  --processingValue:  waiting for f(listIn_value) to complete
+                  --endOfInput:       the input list has been exhausted
+                  --funcStalling:     the function is stalling, waiting for the consumer to take the next value
+                  --consumerWaiting:  the consumer of the output list is waiting for a value
+                  --consumerServed:   the consumer of the output list has been given a value
                   "reg wasReady;",
                   "reg waitingForInput, processingValue, endOfInput;",
                   "reg consumerServed;",
-                  "wire consumerWaiting, valueProcessed;",
+                  "wire consumerWaiting, valueProcessed, funcStalling;",
                   printf "wire %s nextVal;" outputType,
                   printf "dfd_%i lambda(clock, processingValue, valueProcessed, listIn_value, nextVal);" fID,
                   "",
+                  "assign done = ready;",
                   "assign consumerWaiting = listOut_req & ~consumerServed;",
+                  "assign funcStalling = ~waitingForInput & ~processingValue & ~endOfInput;",
                   "",
 
                   "always @(posedge clock) begin",
@@ -681,7 +684,7 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
                       "",
                       "if(ready) begin",
                       indent [
-                          "if(~wasReady) begin",
+                          "if(~wasReady | (funcStalling & consumerServed)) begin",
                           "\tlistIn_req <= 1;",
                           "\twaitingForInput <= 1'b1;",
                           "end",
@@ -720,15 +723,21 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
                           "",
                           "if(consumerServed)",
                           "\tlistOut_ack <= 1'b0;",
+                          "",
                           "if(~listOut_req)",
-                          "\tconsumerServed <= 1'b0;"
+                          "\tconsumerServed <= 1'b0;",
+                          ""
                       ],
                       "end else begin",
                       indent [
                           "waitingForInput <= 1'b0;",
                           "processingValue <= 1'b0;",
                           "endOfInput <= 1'b0;",
-                          "consumerServed <= 1'b0;"
+                          "consumerServed <= 1'b0;",
+                          "listIn_req <= 1'b0;",
+                          "listOut_ack <= 1'b0;",
+                          "listOut_value <= 8'hFF;",
+                          "listOut_value_valid <= 1'b0;"
                       ],
                       "end"
                   ],
