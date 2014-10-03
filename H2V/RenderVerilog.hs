@@ -101,7 +101,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                            rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, retType))
                                        ],
                                        ");",
-                                       indent $ map (\(i, _) -> printf "wire node_%i_done;" i) args,
+                                       indent $ map (\(i, _) -> printf "wire node_%i_done; //arg" i) args,
                                        indent . lines $ concatNodes defs',
                                        indent $ map (\(i, _) -> printf "assign node_%i_done = ready;" i) args,
                                        '\t' : doneAssign,
@@ -117,8 +117,9 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
         argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n") (zip [0..] args),
                                               renderArg "" "node" True "\n" (0, (nodeID root, retType))
                                             ]
+        argIDs = map fst args
         (rootDefs, otherDefs) = partition (\n -> vNodeId n == nodeID root) defs
-        defs' = (map filterRootDef rootDefs) ++ otherDefs
+        defs' = (map filterRootDef rootDefs) ++ (filter (\n -> not $ vNodeId n `elem` argIDs) otherDefs)
 
         filterRootDef :: VNodeDef -> VNodeDef
         filterRootDef v = v{vDef = def'} where
