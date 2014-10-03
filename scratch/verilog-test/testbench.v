@@ -14,24 +14,24 @@ module testbench(input CLOCK_50, input [1:0] KEY, output [7:0] LED);
 
     always @(posedge CLOCK_50) begin
         if(running) begin
-				 if(reqCount < 10) begin
-					  reqCount <= reqCount + 1;
+				 if(reqCount < 8'd10) begin
+					  reqCount <= reqCount + 8'd1;
 				 end else begin
-					  reqCount <= 0;
+					  reqCount <= 8'd0;
 					  req <= ~req;
 				 end
 
         end else begin
-            req <= 0;
-            reqCount <= 0;
+            req <= 1'b0;
+            reqCount <= 8'd0;
         end
 
-        timer <= timer + 1;
-        if(timer == 0)
+        timer <= timer + 25'd1;
+        if(timer == 25'd0)
             running <= ~running;
 
-        if(timer == 0 && ~running)
-            req <= 1;
+        if(timer == 25'd0 && ~running)
+            req <= 1'b1;
     end
 endmodule
 
@@ -55,29 +55,29 @@ module list_testbench(input CLOCK_50, input [1:0] KEY, output [7:0] LED);
     always @(posedge CLOCK_50) begin
         if(running) begin
             if(ack & value_valid) begin
-                req <= 0;
-                reqCount <= 0;
+                req <= 1'b0;
+                reqCount <= 8'd0;
 
             end else begin
                 if(reqCount < 10) begin
-                    reqCount <= reqCount + 1;
+                    reqCount <= reqCount + 8'd1;
                 end else begin
-                    reqCount <= 0;
+                    reqCount <= 8'd0;
                     req <= ~req;
                 end
             end
 
         end else begin
-            req <= 0;
-            reqCount <= 0;
+            req <= 1'b0;
+            reqCount <= 8'd0;
         end
 
-        timer <= timer + 1;
-        if(timer == 0)
+        timer <= timer + 25'd1;
+        if(timer == 25'd0)
             running <= ~running;
 
-        if(timer == 0 && ~running)
-            req <= 1;
+        if(timer == 25'd0 && ~running)
+            req <= 1'b1;
     end
 endmodule
 
