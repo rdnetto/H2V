@@ -107,6 +107,10 @@ isHeader :: DFD -> Bool
 isHeader (DfdHeader{}) = True
 isHeader _ = False
 
+isFunction :: DNode -> Bool
+isFunction (DFunction _ _) = True
+isFunction _ = False
+
 isFunctionCall :: DNode -> Bool
 isFunctionCall (DFunctionCall _ _ _) = True
 isFunctionCall _ = False

@@ -628,9 +628,11 @@ collectDfds func = ifM (funcCollected func) (return []) $ do
     let (func', (_, argAL)) = rewriteFuncDef func $ closedArgs func
     modifyFuncList (func':)
 
-    --recurse into other functions
-    let calls = filter isFunctionCall $ dfold (flip (:)) [] (dfdRoot func)
-    rewrites <- concatMapM (collectDfds . functionCalled) calls
+    --recurse into other functions (incl. lambdas)
+    let subNodes = dfold (flip (:)) [] (dfdRoot func)
+    let calls = filter isFunctionCall subNodes
+    let lambdas = filter isFunction subNodes
+    rewrites <- concatMapM (collectDfds . functionCalled) (calls ++ lambdas)
 
     return $ (dfdID func', argAL):rewrites
 
