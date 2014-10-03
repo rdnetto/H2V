@@ -62,6 +62,11 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) ListMinAvail
          in pushDfdNS (op, DFD (-1) op args DBool False root)
 
+        let op = "map"
+            args = [(-1, DFunc [UndefinedType] UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) MapMacro
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
@@ -533,7 +538,7 @@ checkArgs fc@(DFunctionCall id f args)
         let f' = DFD fID fName fArgs (returnType f) (isSync f) fRoot
         return $ DFunction id f'
 
-    | length args >  funcArgCount || isHigherOrderFunc f = do                           --arg counts can match if result is assigned
+    | length args >  funcArgCount || (isHigherOrderFunc f && (dfdID f) /= -1) = do      --arg counts can match if result is assigned
         f' <- instantiateLambda $ DFunctionCall id f (take funcArgCount args)           --higher order function - returns lambda
         return $ DFunctionCall id f' (drop funcArgCount args)                           --call to lambda
 

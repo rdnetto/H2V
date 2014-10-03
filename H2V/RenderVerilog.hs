@@ -386,9 +386,14 @@ renderNode (DFunctionCall appID f args)
                         printf "dfd_%i fcall_%i(clock, node_%i_ready, node_%i_done, %s %s);\n" fID appID appID appID aAsses resAss
                       ]
         fID = dfdID f
-        ready = joinMap " & " (printf "node_%i_done" . nodeID) args
-        aDefs = concatMap renderNode args
-        aAsses = concatMap argEdge args
+        fRoot = dfdRoot f
+        isMacro = isBuiltin fRoot && (builtinOp fRoot) == MapMacro
+        args' = if   isMacro                                                         --don't render the lambda
+                then tail args
+                else args
+        ready = joinMap " & " (printf "node_%i_done" . nodeID) args'
+        aDefs = concatMap renderNode args'
+        aAsses = concatMap argEdge args'
         resAss = chopComma . argEdge $ DVariable appID (returnType f) Nothing
 
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
@@ -537,6 +542,8 @@ renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs 
         value = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
         done  = renderArg "" "node" True "_done," (0, (nodeID a, DBool))
 
+renderNode n = error $ "Unable to render:\n" ++ (show n)
+
 argEdge :: DNode -> String
 argEdge n = argEdgeX "node" n
 
@@ -623,6 +630,115 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                    lstrip . chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
                    ");\n"
                  ]
+
+renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
+    listID = nodeID list
+    listType = nodeType list
+    f = functionCalled lambda
+    fID = dfdID f
+    def = defineNode resID listType
+    ass = concat [
+            printf "Map_%i map_%i(clock, node_%i_done, node_%i_done,\n\t" resID resID listID resID,
+            lstrip $ argEdge list,
+            "\n\t",
+            lstrip . chopComma . argEdge $ DVariable resID listType Nothing,
+            ");\n"
+          ]
+    inputType = scalarVType . snd . head $ dfdArgs f
+    outputType = scalarVType $ returnType f
+    mod = unlines [
+              printf "module Map_%i(" resID,
+              indent [
+                  --referring to args as list_0 and list_1 for input and output lists, respectively
+                  "input clock, input ready, input done,",
+                  "output reg  listIn_req,",
+                  "input       listIn_ack,",
+                  printf "input %s listIn_value," inputType,
+                  "input       listIn_value_valid,",
+
+                  "input            listOut_req,",
+                  "output reg       listOut_ack,",
+                  printf "output reg %s listOut_value," outputType,
+                  "output reg       listOut_value_valid",
+                  ");",
+                  "",
+
+                  --waitingForInput: waiting for a new value from listIn
+                  --processingValue: waiting for f(listIn_value) to complete
+                  --endOfInput:      the input list has been exhausted
+                  --consumerWaiting: the consumer of the output list is waiting for a value
+                  --consumerServed:  the consumer of the output list has been given a value
+                  "reg wasReady;",
+                  "reg waitingForInput, processingValue, endOfInput;",
+                  "reg consumerServed;",
+                  "wire consumerWaiting, valueProcessed;",
+                  printf "wire %s nextVal;" outputType,
+                  printf "dfd_%i lambda(clock, processingValue, valueProcessed, listIn_value, nextVal);" fID,
+                  "",
+                  "assign consumerWaiting = listOut_req & ~consumerServed;",
+                  "",
+
+                  "always @(posedge clock) begin",
+                  indent [
+                      "wasReady <= ready;",
+                      "",
+                      "if(ready) begin",
+                      indent [
+                          "if(~wasReady) begin",
+                          "\tlistIn_req <= 1;",
+                          "\twaitingForInput <= 1'b1;",
+                          "end",
+                          "",
+                          "if(waitingForInput & listIn_ack) begin",
+                          indent [
+                              "waitingForInput <= 1'b0;",
+                              "",
+                              "if(listIn_value_valid) begin",
+                              "\tprocessingValue <= 1'b1;",
+                              "end else begin",
+                              "\tendOfInput <= 1'b1;",
+                              "end"
+                          ],
+                          "end",
+                          "",
+                          "if((valueProcessed | endOfInput) & consumerWaiting) begin",
+                          indent [
+                              "listOut_value <= nextVal;",
+                              "listOut_value_valid <= ~endOfInput;",
+                              "listOut_ack <= 1'b1;",
+                              "consumerServed <= 1'b1;",
+                              "if(~endOfInput) begin",
+                              indent [
+                                  "if (listIn_req) begin",
+                                  "\tlistIn_req <= 1'b0;",
+                                  "\tprocessingValue <= 1'b0;",
+                                  "end else begin",
+                                  "\tlistIn_req <= 1'b1;",
+                                  "\twaitingForInput <= 1'b1;",
+                                  "end"
+                              ],
+                              "end"
+                          ],
+                          "end",
+                          "",
+                          "if(consumerServed)",
+                          "\tlistOut_ack <= 1'b0;",
+                          "if(~listOut_req)",
+                          "\tconsumerServed <= 1'b0;"
+                      ],
+                      "end else begin",
+                      indent [
+                          "waitingForInput <= 1'b0;",
+                          "processingValue <= 1'b0;",
+                          "endOfInput <= 1'b0;",
+                          "consumerServed <= 1'b0;"
+                      ],
+                      "end"
+                  ],
+                  "end"
+              ],
+              "endmodule"
+          ]
 
 --Generates assign statement for bounded and unbounded enumerations
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
