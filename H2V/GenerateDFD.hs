@@ -42,6 +42,11 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) (BinaryOp op)
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
+        let op = "|||"                                                  --first arg is a list, or a function consuming/producing one
+            args = [(-1, UndefinedType), (-1, UndefinedType)]
+            root = DBuiltin (-1) (BinaryOp "|||")
+         in pushDfdNS (op, DFD (-1) op args UndefinedType False root)
+
         let op = "__unboundedEnum"                                      --__unboundedEnum x0 step = [x0, step ..]
             args = [(-1, UndefinedType), (-1, UndefinedType)]
             root = DBuiltin (-1) EnumList
@@ -418,14 +423,24 @@ defineExpr (HsLet decls exp) = do
     mapM popDfdNS $ reverse headers
     return root
 
-defineExpr app@(HsApp _ _) = do
-    let (f, args) = foldApp app
+defineExpr app@(HsApp _ _) = defineFuncCall (f:args) where
+    (f, args) = foldApp app
+
+defineExpr e = error $ "Failed to match expression: " ++ pshow e
+
+--Defines a function call.
+defineFuncCall :: [HsExp] -> NodeGen DNode
+defineFuncCall (parOp:f:n:args)
+    | parOp == HsVar (UnQual (HsSymbol "|||")) = do
+        node <- defineFuncCall (f:args)
+        para <- defineExpr n
+        return node{parallelism = AssignedPar $ getConstant para}
+
+defineFuncCall (f:args) = do
     nodeID <- newId
     f' <- resolveFunc f
     args' <- mapM defineExpr args
     return $ DFunctionCall nodeID f' args'
-
-defineExpr e = error $ "Failed to match expression: " ++ pshow e
 
 --Combines repeated applications to collect a list of arguments
 --Returns a 2-tuple of the function and its arguments.
