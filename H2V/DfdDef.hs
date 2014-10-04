@@ -236,6 +236,14 @@ unwrapEither :: (Either ResolutionException a) -> a
 unwrapEither (Left e) = throw e
 unwrapEither (Right x) = x
 
+displayFunc :: DFD -> String
+displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "(header)" else "")
+
+--retrieve value expected to be known at compile-time
+getConstant :: DNode -> Int
+getConstant DLiteral{literalValue = x} = x
+getConstant DVariable{variableValue = Just x} = getConstant x
+
 --Monadic functions
 
 --assigns a unique ID to the current node/DFD, incrementing the internal counter.
@@ -328,11 +336,4 @@ resolveHeader header
                         then throw $ ResolutionException "DFD" (displayFunc header) (unlines $ map (('\t':) . displayFunc . snd) ns)
                         else header
 
-displayFunc :: DFD -> String
-displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "(header)" else "")
-
---retrieve value expected to be known at compile-time
-getConstant :: DNode -> Int
-getConstant DLiteral{literalValue = x} = x
-getConstant DVariable{variableValue = Just x} = getConstant x
 
