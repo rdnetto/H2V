@@ -97,8 +97,8 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        indent [
                                            printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                            "input clock, input ready, output done,",
-                                           concatMap (renderArg "input" "node" True ",") (zip [0..] args),
-                                           rstrip . chopComma $ renderArg "output" "node" True ", " (0, (nodeID root, retType)),
+                                           concatMap (renderArg "input" "node" True "," par) (zip [0..] args),
+                                           rstrip . chopComma $ renderArg "output" "node" True ", " par (0, (nodeID root, retType)),
                                        ");"
                                        ],
                                        indent $ map (\(i, _) -> printf "wire node_%i_done; //arg" i) args,
@@ -108,12 +108,15 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
                                        "endmodule\n"
                                       ]
     where
+        par = if   isList $ returnType dfd
+              then getParallelism root
+              else 1
         defs = renderNode root
         retType = selectType [returnType_ dfd, nodeType root]
         doneAssign = printf "assign done = node_%i_done;" $ nodeID root
         --need to filter out definitions from the root node that are already present in the module def
-        argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n") (zip [0..] args),
-                                              renderArg "" "node" True "\n" (0, (nodeID root, retType))
+        argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n" par) (zip [0..] args),
+                                              renderArg "" "node" True "\n" par (0, (nodeID root, retType))
                                             ]
         argIDs = map fst args
         (rootDefs, otherDefs) = partition (\n -> vNodeId n == nodeID root) defs
@@ -147,8 +150,8 @@ renderRecursiveFunc dfd@(DFD dfdID name args _ _ root) recCases
                         "input ready,",
                         "output reg done,",
                         "output reg recurse,",
-                        unlines . map (renderArg "input" "node" True ",") $ zip [0..] args,
-                        unlines . map (renderArg "output reg" "outArg" False ",") $ zip [0..] args,
+                        unlines . map (renderArg "input" "node" True "," 1) $ zip [0..] args,
+                        unlines . map (renderArg "output reg" "outArg" False "," 1) $ zip [0..] args,
                         printf "output reg [7:0] result",
                         ");",
                         "",
@@ -184,20 +187,20 @@ renderRecursiveFunc dfd@(DFD dfdID name args _ _ root) recCases
                         "input ready,",
                         "output done,",
 
-                        unlines $ map (renderArg "input" "inArg" False ",") (zip [0..] args),
+                        unlines $ map (renderArg "input" "inArg" False "," 1) (zip [0..] args),
 
                         "output [7:0] result",
                         ");",
                         "",
                         "wire advance, recurse;",
                         "reg wasReady;",
-                        unlines $ map (renderArg "reg" "nextArg" False ";") (zip [0..] args),
-                        unlines $ map (renderArg "wire" "outArg" False ";") (zip [0..] args),
+                        unlines $ map (renderArg "reg" "nextArg" False ";" 1) (zip [0..] args),
+                        unlines $ map (renderArg "wire" "outArg" False ";" 1) (zip [0..] args),
                         "",
 
                         let
-                            inArgs  = unlines . map (renderArg "" "nextArg" False ",") $ zip [0..] args
-                            outArgs = unlines . map (renderArg "" "outArg"  False ",") $ zip [0..] args
+                            inArgs  = unlines . map (renderArg "" "nextArg" False "," 1) $ zip [0..] args
+                            outArgs = unlines . map (renderArg "" "outArg"  False "," 1) $ zip [0..] args
                         in printf "dfd_%i_cmb cmb(clock, wasReady, advance, recurse,\n%s%s result);" dfdID inArgs outArgs,
                         "assign done = ready & advance & ~recurse;",
                         "",
@@ -329,15 +332,15 @@ assignNode lhs rhs = unlines [line1, line2] where
 --  io: the storage class. e.g. "input"/"output". Type will be omitted if storage class is blank.
 --  prefix. e.g. "node".
 --  useNodeId: whether the numeric identifier used will be the node ID or the argument index
+--  par: the degree of parallelism, if the argument is a list
 --  (i, (ai, t): i is the arg index, ai is the node ID, t is the type
 --  tail: a string to append to the end of the result. Useful for semicolons, etc.
-renderArg :: String -> String -> Bool -> String -> (Int, (NodeId, DType)) -> String
-renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
+renderArg :: String -> String -> Bool -> String -> Int -> (Int, (NodeId, DType)) -> String
+renderArg io prefix useNodeId tail par (i, (argID, DList t)) = concat lines where
     lines = [ printf "%s %s_%i_req%s"         invIo    prefix index tail,
-              printf "%s %s_%i_ack%s"         io prefix index tail,
-              printf "%s %s %s_%i_value%s"    io hwType prefix index tail,
-              printf "%s %s_%i_value_valid%s" io prefix index tail
-            ]
+              printf "%s %s_%i_ack%s"         io prefix index tail
+            ] ++ parEdge par (\pI -> printf "%s %s %s_%i_value_%i%s"    io hwType prefix index pI tail)
+              ++ parEdge par (\pI -> printf "%s %s_%i_value_%i_valid%s" io prefix index pI tail)
     hwType = if io == ""
              then ""
              else scalarVType t
@@ -346,7 +349,7 @@ renderArg io prefix useNodeId tail (i, (argID, DList t)) = concat lines where
             else i
     invIo = maybe io id (lookup io [("input", "output"), ("output", "input")])
 
-renderArg io prefix useNodeId tail (i, (argID, t)) = printf "%s %s %s_%i%s" io hwType prefix index tail where
+renderArg io prefix useNodeId tail _ (i, (argID, t)) = printf "%s %s %s_%i%s" io hwType prefix index tail where
     hwType = if io == ""
              then ""
              else scalarVType t
@@ -374,10 +377,11 @@ renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID
     def = defineNode varID t
     ass = assignNode var val
 
-renderNode (DFunctionCall appID f args _)
+renderNode (DFunctionCall appID f args p)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
+        par = parValue p
         def = unlines [ defineNode appID (returnType f),
                         printf "wire node_%i_ready;" appID
                       ]
@@ -390,8 +394,8 @@ renderNode (DFunctionCall appID f args _)
                 else args
         ready = joinMap " & " (printf "node_%i_done" . nodeID) args'
         aDefs = concatMap renderNode args'
-        aAsses = concatMap argEdge args'
-        resAss = chopComma . argEdge $ DVariable appID (returnType f) Nothing
+        aAsses = concatMap (argEdge par) args'
+        resAss = chopComma . argEdge par $ DVariable appID (returnType f) Nothing
 
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
     tupleID = nodeID tuple
@@ -412,16 +416,17 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
                      _ -> error $ "Invalid tuple index: " ++ show tupleIndex
 
 --List literals are handled by generating a module to implement the list interface
-renderNode (DListLiteral listID items _) = (VNodeDef listID def ass mod):elemDefs where
+renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDefs where
+    par = parValue p
     def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
-                    printfAll "wire [7:0] node_%i_value;" listID,
-                    printfAll "wire node_%i_value_valid;" listID,
+                    unlines . parEdge par $ printf "wire [7:0] node_%i_value_%i;" listID,
+                    unlines . parEdge par $ printf "wire node_%i_value_%i_valid;" listID,
                     printfAll "wire node_%i_done;" listID
                   ]
     ass = unlines  [printfAll "listLiteral_%i listLit_%i(clock, ready," listID,
                     chopComma $ indent [
                         unlines $ map argEdge' items,
-                        argEdge (DVariable listID (DList UndefinedType) Nothing)
+                        argEdge par (DVariable listID (DList UndefinedType) Nothing)
                     ],
                     ");",
                     genericDone listID items
@@ -536,16 +541,20 @@ renderNode (DListLiteral listID items _) = (VNodeDef listID def ass mod):elemDef
     --variant which adds return and done signals
     argEdge' :: DNode -> String
     argEdge' a = value ++ done where
-        value = renderArg "" "node" True ", " (0, (nodeID a, nodeType a))
-        done  = renderArg "" "node" True "_done," (0, (nodeID a, DBool))
+        value = renderArg "" "node" True ", " 1 (0, (nodeID a, nodeType a))
+        done  = renderArg "" "node" True "_done," 1 (0, (nodeID a, DBool))
 
 renderNode n = error $ "Unable to render:\n" ++ (show n)
 
-argEdge :: DNode -> String
-argEdge n = argEdgeX "node" n
+argEdge :: Int -> DNode -> String
+argEdge p n = argEdgeX "node" n p
 
-argEdgeX :: String -> DNode -> String
-argEdgeX lbl a = renderArg "" lbl True ", " (0, (nodeID a, nodeType a))
+argEdgeX :: String -> DNode -> Int -> String
+argEdgeX lbl a p = renderArg "" lbl True ", " p (0, (nodeID a, nodeType a))
+
+--Helper method for implementing the parallel list interface
+parEdge :: Int -> (Int -> String) -> [String]
+parEdge par f = map f [0 .. par - 1]
 
 renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
@@ -557,8 +566,8 @@ renderBuiltin resID (BinaryOp ":") args@(a0:a1:[]) = VNodeDef resID def (ass ++ 
     def = defineNode resID (nodeType a1)
     ass = concat [
             printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
-            argEdge (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            argEdge 1 (DVariable  a1ID (DList UndefinedType) Nothing),
+            argEdge 1 (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
             ");\n"
         ]
     a0ID = nodeID a0
@@ -571,9 +580,9 @@ renderBuiltin resID (BinaryOp "++") args@(a0:a1:[]) = VNodeDef resID def ass "" 
     a1ID = nodeID a1
     ass = unlines [
             printf "Concat concat_%i(clock, node_%i_done," resID resID,
-            argEdge (DVariable  a0ID (DList UndefinedType) Nothing),
-            argEdge (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge (DVariable resID (DList UndefinedType) Nothing),
+            argEdge 1 (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+            argEdge 1 (DVariable  a1ID (DList UndefinedType) Nothing),
+            argEdge 1 (DVariable resID (DList UndefinedType) Nothing),
             ");",
             printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
         ]
@@ -620,15 +629,16 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                  ]
 
     ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
-                   strip  $ argEdge  list,
+                   strip  $ argEdge 1 list,
                    "\n\t",
-                   lstrip . argEdgeX "node_head" $ DVariable resID UndefinedType Nothing,
+                   lstrip $ argEdgeX "node_head" (DVariable resID UndefinedType Nothing) 1,
                    lstrip $ printf   "node_head_%i_valid,\n\t" resID,
-                   lstrip . chopComma $ argEdgeX "node_tail" $ DVariable resID (DList UndefinedType) Nothing,
+                   lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) 1,
                    ");\n"
                  ]
 
 renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
+    par = 0                     --WIP: need to add a param to renderBuiltin for this
     listID = nodeID list
     listType = nodeType list
     f = functionCalled lambda
@@ -636,9 +646,9 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
     def = defineNode resID listType
     ass = concat [
             printf "Map_%i map_%i(clock, node_%i_done, node_%i_done,\n\t" resID resID listID resID,
-            lstrip $ argEdge list,
+            lstrip $ argEdge par list,
             "\n\t",
-            lstrip . chopComma . argEdge $ DVariable resID listType Nothing,
+            lstrip . chopComma . argEdge par $ DVariable resID listType Nothing,
             ");\n"
           ]
     inputType = scalarVType . snd . head $ dfdArgs f
@@ -749,11 +759,12 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
 --Generates assign statement for bounded and unbounded enumerations
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
 renderListGen resID min step max = res where
+    par = 0             --WIP: add param for this
     res = concat [
             printf "BoundedEnum enum_%i(clock, node_%i_done, " resID resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
             maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
-            chopComma $ argEdge (DVariable resID (DList UndefinedType) Nothing),
+            chopComma $ argEdge par (DVariable resID (DList UndefinedType) Nothing),
             ");\n"
         ]
 
