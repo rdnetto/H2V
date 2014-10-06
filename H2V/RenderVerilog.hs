@@ -562,30 +562,36 @@ renderBuiltin resID BitwiseNot _ args@(arg:[]) = VNodeDef resID def (ass ++ done
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp ":") par args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
-    def = defineNode resID (nodeType a1)
-    ass = concat [
-            printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
-            argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge par (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
-            ");\n"
-        ]
-    a0ID = nodeID a0
-    a1ID = nodeID a1
-    doneAs = genericDone resID args
+renderBuiltin resID (BinaryOp ":") par args@(a0:a1:[])
+    | par == 1  = VNodeDef resID def (ass ++ doneAs) ""
+    | otherwise = error "Cons does not support parallel access yet."
+    where
+        def = defineNode resID (nodeType a1)
+        ass = concat [
+                printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
+                argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
+                argEdge par (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+                ");\n"
+            ]
+        a0ID = nodeID a0
+        a1ID = nodeID a1
+        doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[]) = VNodeDef resID def ass "" where
-    def = defineNode resID (nodeType a0)
-    a0ID = nodeID a0
-    a1ID = nodeID a1
-    ass = unlines [
-            printf "Concat concat_%i(clock, node_%i_done," resID resID,
-            argEdge par (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
-            argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge par (DVariable resID (DList UndefinedType) Nothing),
-            ");",
-            printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
-        ]
+renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[])
+    | par == 1  = VNodeDef resID def ass ""
+    | otherwise = error "Concat does not support parallel access yet."
+    where
+        def = defineNode resID (nodeType a0)
+        a0ID = nodeID a0
+        a1ID = nodeID a1
+        ass = unlines [
+                printf "Concat concat_%i(clock, node_%i_done," resID resID,
+                argEdge par (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+                argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
+                argEdge par (DVariable resID (DList UndefinedType) Nothing),
+                ");",
+                printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
+            ]
 
 renderBuiltin resID (BinaryOp op) _ args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType a0)
@@ -620,22 +626,25 @@ renderBuiltin resID EnumList par args@(min:step:[]) = VNodeDef resID def (ass ++
     ass = renderListGen resID min step Nothing par
     doneAs = genericDone resID [min, step]
 
-renderBuiltin resID Decons par [list] = VNodeDef resID def ass "" where
-    listID = nodeID list
-    def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
-                   defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
-                   printf "wire node_head_%i_valid;\n" resID,
-                   printf "wire node_%i_done;\n" resID
-                 ]
+renderBuiltin resID Decons par [list]
+    | par == 1 = VNodeDef resID def ass ""
+    | otherwise = error "Decons does not support parallel access yet."
+    where
+        listID = nodeID list
+        def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
+                       defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
+                       printf "wire node_head_%i_valid;\n" resID,
+                       printf "wire node_%i_done;\n" resID
+                     ]
 
-    ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
-                   strip  $ argEdge par list,
-                   "\n\t",
-                   lstrip $ argEdgeX "node_head" (DVariable resID UndefinedType Nothing) 1,
-                   lstrip $ printf   "node_head_%i_valid,\n\t" resID,
-                   lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) par,
-                   ");\n"
-                 ]
+        ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
+                       strip  $ argEdge par list,
+                       "\n\t",
+                       lstrip $ argEdgeX "node_head" (DVariable resID UndefinedType Nothing) 1,
+                       lstrip $ printf   "node_head_%i_valid,\n\t" resID,
+                       lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) par,
+                       ");\n"
+                     ]
 
 renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod where
     listID = nodeID list
