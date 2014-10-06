@@ -378,7 +378,7 @@ renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID
     ass = assignNode var val
 
 renderNode (DFunctionCall appID f args p)
-    | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
+    | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) par args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
         par = parValue p
@@ -556,43 +556,43 @@ argEdgeX lbl a p = renderArg "" lbl True ", " p (0, (nodeID a, nodeType a))
 parEdge :: Int -> (Int -> String) -> [String]
 parEdge par f = map f [0 .. par - 1]
 
-renderBuiltin :: NodeId -> BuiltinOp -> [DNode] -> VNodeDef
-renderBuiltin resID BitwiseNot args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin :: NodeId -> BuiltinOp -> Int -> [DNode] -> VNodeDef
+renderBuiltin resID BitwiseNot _ args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType arg)
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp ":") args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID (BinaryOp ":") par args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType a1)
     ass = concat [
             printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
-            argEdge 1 (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge 1 (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+            argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
+            argEdge par (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
             ");\n"
         ]
     a0ID = nodeID a0
     a1ID = nodeID a1
     doneAs = genericDone resID args
 
-renderBuiltin resID (BinaryOp "++") args@(a0:a1:[]) = VNodeDef resID def ass "" where
+renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[]) = VNodeDef resID def ass "" where
     def = defineNode resID (nodeType a0)
     a0ID = nodeID a0
     a1ID = nodeID a1
     ass = unlines [
             printf "Concat concat_%i(clock, node_%i_done," resID resID,
-            argEdge 1 (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
-            argEdge 1 (DVariable  a1ID (DList UndefinedType) Nothing),
-            argEdge 1 (DVariable resID (DList UndefinedType) Nothing),
+            argEdge par (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+            argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
+            argEdge par (DVariable resID (DList UndefinedType) Nothing),
             ");",
             printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
         ]
 
-renderBuiltin resID (BinaryOp op) args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID (BinaryOp op) _ args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     def = defineNode resID (nodeType a0)
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     doneAs = genericDone resID args
 
-renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID Ternary _ args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
         resType = headOr UndefinedType $ filter (/= UndefinedType) [nodeType tExp, nodeType fExp]
         def = defineNode resID (nodeType tExp)
         ass = case resType of
@@ -608,19 +608,19 @@ renderBuiltin resID Ternary args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass +
         genMuxLine s = rstrip $ "\n\t" ++ concatMap (\fmt -> printf fmt s) listTerms
         doneAs = genericDone resID args
 
-renderBuiltin resID EnumList args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID EnumList par args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --bounded
     def = defineNode resID (DList UndefinedType)
-    ass = renderListGen resID min step (Just max)
+    ass = renderListGen resID min step (Just max) par
     doneAs = genericDone resID [min, step, max]
 
-renderBuiltin resID EnumList args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID EnumList par args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --unbounded
     def = defineNode resID (DList UndefinedType)
-    ass = renderListGen resID min step Nothing
+    ass = renderListGen resID min step Nothing par
     doneAs = genericDone resID [min, step]
 
-renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
+renderBuiltin resID Decons par [list] = VNodeDef resID def ass "" where
     listID = nodeID list
     def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
                    defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
@@ -629,16 +629,15 @@ renderBuiltin resID Decons [list] = VNodeDef resID def ass "" where
                  ]
 
     ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
-                   strip  $ argEdge 1 list,
+                   strip  $ argEdge par list,
                    "\n\t",
                    lstrip $ argEdgeX "node_head" (DVariable resID UndefinedType Nothing) 1,
                    lstrip $ printf   "node_head_%i_valid,\n\t" resID,
-                   lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) 1,
+                   lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) par,
                    ");\n"
                  ]
 
-renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
-    par = 0                     --WIP: need to add a param to renderBuiltin for this
+renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod where
     listID = nodeID list
     listType = nodeType list
     f = functionCalled lambda
@@ -757,9 +756,8 @@ renderBuiltin resID MapMacro [lambda, list] = VNodeDef resID def ass mod where
           ]
 
 --Generates assign statement for bounded and unbounded enumerations
-renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> String
-renderListGen resID min step max = res where
-    par = 0             --WIP: add param for this
+renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> Int -> String
+renderListGen resID min step max par = res where
     res = concat [
             printf "BoundedEnum enum_%i(clock, node_%i_done, " resID resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
