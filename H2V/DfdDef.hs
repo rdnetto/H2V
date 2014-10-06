@@ -103,13 +103,7 @@ data DType = DSInt Int | DUInt Int | DBool | UndefinedType
 
 --Describes parallelism assignments used for lists.
 --Inferred values may be overridden to be compatible with assigned values.
-data Parallelism = AssignedPar{
-                        parValue :: Int
-                   }
-                   | InferredPar{
-                        parValue :: Int
-                   }
-                   | NoPar
+data Parallelism = AssignedPar Int | InferredPar Int | NoPar
     deriving (Show, Eq)
 
 isBuiltin :: DNode -> Bool
@@ -181,6 +175,12 @@ isArg DVariable{} = False
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
 isFunc _ = False
+
+--Returns the numeric degree of parallelism
+parValue :: Parallelism -> Int
+parValue (InferredPar p) = p
+parValue (AssignedPar p) = p
+parValue NoPar = 1
 
 isAssigned :: Parallelism -> Bool
 isAssigned (AssignedPar _) = True
