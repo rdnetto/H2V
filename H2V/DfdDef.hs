@@ -182,6 +182,13 @@ parValue (InferredPar p) = p
 parValue (AssignedPar p) = p
 parValue NoPar = 1
 
+--Returns true if the node is capable of parallelism
+hasParallelism :: DNode -> Bool
+hasParallelism DFunctionCall{functionCalled = f}
+    | any isList $ (returnType f):(map snd $ dfdArgs f) = True
+hasParallelism DListLiteral{} = True
+hasParallelism _ = False
+
 isAssigned :: Parallelism -> Bool
 isAssigned (AssignedPar _) = True
 isAssigned _ = False

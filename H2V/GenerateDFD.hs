@@ -432,7 +432,7 @@ defineExpr e = error $ "Failed to match expression: " ++ pshow e
 defineFuncCall :: [HsExp] -> NodeGen DNode
 defineFuncCall (parOp:f:n:args)
     | parOp == HsVar (UnQual (HsSymbol "|||")) = do
-        node <- defineFuncCall (f:args)
+        node <- defineFuncCall $ concatMap (uncurry (:) . foldApp) (f:args)
         para <- defineExpr n
         return node{parallelism = AssignedPar $ getConstant para}
 
@@ -527,10 +527,10 @@ declName (HsPatBind _ (HsPTuple ps) _ _) = map patName ps where
     patName :: HsPat -> String
     patName (HsPVar n) = fromHsName n
 
---linking logic - replaces function headers with DFDs
+--linking logic - replaces function headers with DFDs. Also infers degrees of parallelism for list functions.
 
 linkDFD :: DFD -> NodeGen DFD
-linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
+linkDFD dfd = liftM ((\x -> dfd{dfdRoot = x}) . dmap inferPars) $ dmapM linkExpr (dfdRoot dfd)
 
 linkExpr :: DNode -> NodeGen DNode
 linkExpr fc@(DFunctionCall _ f _ _) = resolveHeader f >>= \f' -> checkArgs fc{functionCalled = f'}
@@ -623,6 +623,38 @@ matchDecons root = res where
         deconRes = fromJust $ lookup (nodeID list) decons
 
     updateLMAs n = n
+
+--Propagates assigned degrees of parallelism to other nodes.
+inferPars :: DNode -> DNode
+inferPars node
+    | not $ hasParallelism node     = node
+    | isAssigned (parallelism node) = reverseInferPar node
+inferPars node@DListLiteral{} = node{parallelism = InferredPar 1}                   --list literals have no children to infer from
+inferPars node@DFunctionCall{callArgs = args} = res where
+    pars = map getPar $ filter (isList . nodeType) args
+    par = if   null pars
+          then 1
+          else minimum pars
+    res = node{parallelism = InferredPar par}
+
+--Infers parallelism in the opposite direction
+reverseInferPar :: DNode -> DNode
+reverseInferPar fc@DFunctionCall{callArgs = args, parallelism = par} = fc{callArgs = args'} where
+    args' = map f args
+    f n
+        | not $ hasParallelism n = n
+        | isAssigned oldPar      = n
+        | otherwise              = n{parallelism = InferredPar newPar}
+        where
+            oldPar = parallelism n
+            newPar = max (parValue oldPar) (parValue par)
+reverseInferPar n = n
+
+--Infers the parallelism of a node based on its children
+getPar :: DNode -> Int
+getPar node
+    | hasParallelism node = parValue $ parallelism node
+getPar DVariable{variableValue = Just val} = getPar val
 
 --WIP: Closure logic - converts closures to function arguments
 
