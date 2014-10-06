@@ -65,7 +65,7 @@ fCalls target f = eCalls target $ dfdRoot f
 eCalls :: DFD -> DNode -> Bool
 eCalls target e = dfold (\a -> \b -> a || eCalls' b) False e where
     eCalls' :: DNode -> Bool
-    eCalls' (DFunctionCall _ fc _) = (dfdID fc == dfdID target)
+    eCalls' (DFunctionCall _ fc _ _) = (dfdID fc == dfdID target)
     eCalls' _ = False
 
 --Assumes function is self-recursive - use `calls` to check this.
@@ -83,7 +83,7 @@ recursiveCases f = recExpr [] $ dfdRoot f where
         (conds', listConds) = partitionEithers $ map extractListConds conds
 
 extractListConds :: Either DNode DNode -> Either (Either DNode DNode) (NodeId, Int)
-extractListConds (Right (DFunctionCall _ DFD{dfdRoot = root} [eCount, list]))
+extractListConds (Right (DFunctionCall _ DFD{dfdRoot = root} [eCount, list] _))
     | (isBuiltin root && builtinOp root == ListMinAvail) = Right (nodeID list, getConstant eCount)
 extractListConds x = Left x
 
@@ -374,7 +374,7 @@ renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID
     def = defineNode varID t
     ass = assignNode var val
 
-renderNode (DFunctionCall appID f args)
+renderNode (DFunctionCall appID f args _)
     | dfdID f == (-1) = aDefs ++ return (renderBuiltin appID (builtinOp $ dfdRoot f) args)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
@@ -412,7 +412,7 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
                      _ -> error $ "Invalid tuple index: " ++ show tupleIndex
 
 --List literals are handled by generating a module to implement the list interface
-renderNode (DListLiteral listID items) = (VNodeDef listID def ass mod):elemDefs where
+renderNode (DListLiteral listID items _) = (VNodeDef listID def ass mod):elemDefs where
     def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
                     printfAll "wire [7:0] node_%i_value;" listID,
                     printfAll "wire node_%i_value_valid;" listID,

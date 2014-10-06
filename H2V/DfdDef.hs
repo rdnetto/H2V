@@ -58,7 +58,8 @@ data DNode = DLiteral{
             }
             | DListLiteral {
                 nodeID :: NodeId,
-                elements :: [DNode]
+                elements :: [DNode],
+                parallelism :: Parallelism
             }
             | DTupleElem {
                 nodeID :: NodeId,
@@ -77,7 +78,8 @@ data DNode = DLiteral{
             | DFunctionCall{
                 nodeID :: NodeId,
                 functionCalled :: DFD,
-                callArgs :: [DNode]
+                callArgs :: [DNode],
+                parallelism :: Parallelism
             }
             | DFunction{
                 nodeID :: NodeId,
@@ -99,6 +101,17 @@ data DType = DSInt Int | DUInt Int | DBool | UndefinedType
             }
     deriving (Show, Eq)
 
+--Describes parallelism assignments used for lists.
+--Inferred values may be overridden to be compatible with assigned values.
+data Parallelism = AssignedPar{
+                        parValue :: Int
+                   }
+                   | InferredPar{
+                        parValue :: Int
+                   }
+                   | NoPar
+    deriving (Show, Eq)
+
 isBuiltin :: DNode -> Bool
 isBuiltin (DBuiltin _ _) = True
 isBuiltin _ = False
@@ -108,7 +121,7 @@ isHeader (DfdHeader{}) = True
 isHeader _ = False
 
 isFunctionCall :: DNode -> Bool
-isFunctionCall (DFunctionCall _ _ _) = True
+isFunctionCall (DFunctionCall{}) = True
 isFunctionCall _ = False
 
 isBuiltinMacro :: DNode -> Bool
@@ -134,7 +147,7 @@ returnType dfd@DFD{} = returnType_ dfd
 returnType DfdHeader{dfdTypeInfo = Just (args, ret)} = ret
 
 isIf :: DNode -> Bool
-isIf (DFunctionCall _ f _) = dfdID f == -1 && dfdName f == "if"
+isIf (DFunctionCall _ f _ _) = dfdID f == -1 && dfdName f == "if"
 isIf _ = False
 
 --Returns a list of values which the node depends on. This does not include functions.
@@ -169,12 +182,16 @@ isFunc :: DType -> Bool
 isFunc DFunc{} = True
 isFunc _ = False
 
+isAssigned :: Parallelism -> Bool
+isAssigned (AssignedPar _) = True
+isAssigned _ = False
+
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls or DFunctions.
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
 dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM (dmap f) val}
 dmap f n@(DTupleElem _ _ val) = f $ n{tuple = dmap f val}
-dmap f n@(DFunctionCall _ _ args) = f $ n{callArgs = map (dmap f) args}
+dmap f n@(DFunctionCall _ _ args _) = f $ n{callArgs = map (dmap f) args}
 dmap f x = f x
 
 dmapM :: Monad m => (DNode -> m DNode) -> DNode -> m DNode
@@ -188,7 +205,7 @@ dmapM f n@(DTupleElem _ _ val) = do
     val' <- f val
     f n{tuple = val'}
 
-dmapM f n@(DFunctionCall _ _ args) = do
+dmapM f n@(DFunctionCall _ _ args _) = do
     args' <- mapM (dmapM f) args
     f n{callArgs = args'}
 
@@ -197,7 +214,7 @@ dmapM f x = f x
 dfold :: (a -> DNode -> a) -> a -> DNode -> a
 dfold f x0 n@(DVariable _ _ (Just val)) = dfold f (f x0 n) val
 dfold f x0 n@(DTupleElem _ _ val) = dfold f (f x0 n) val
-dfold f x0 n@(DFunctionCall _ _ args) = foldl (dfold f) (f x0 n) args
+dfold f x0 n@(DFunctionCall _ _ args _) = foldl (dfold f) (f x0 n) args
 dfold f x0 n = f x0 n
 
 --DFD Generation Monad

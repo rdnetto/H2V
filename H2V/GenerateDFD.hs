@@ -411,7 +411,7 @@ defineExpr (HsLit (HsInt val)) = do
 defineExpr (HsList es) = do
     nodeID <- newId
     es' <- mapM defineExpr es
-    return $ DListLiteral nodeID es'
+    return $ DListLiteral nodeID es' NoPar
 
 defineExpr (HsLet decls exp) = do
     let decls' = matchDecls $ sortDecls decls
@@ -440,7 +440,7 @@ defineFuncCall (f:args) = do
     nodeID <- newId
     f' <- resolveFunc f
     args' <- mapM defineExpr args
-    return $ DFunctionCall nodeID f' args'
+    return $ DFunctionCall nodeID f' args' NoPar
 
 --Combines repeated applications to collect a list of arguments
 --Returns a 2-tuple of the function and its arguments.
@@ -535,29 +535,29 @@ linkDFD :: DFD -> NodeGen DFD
 linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
 
 linkExpr :: DNode -> NodeGen DNode
-linkExpr fc@(DFunctionCall _ f _) = resolveHeader f >>= \f' -> checkArgs fc{functionCalled = f'}
+linkExpr fc@(DFunctionCall _ f _ _) = resolveHeader f >>= \f' -> checkArgs fc{functionCalled = f'}
 linkExpr x = return x
 
 --Check that the no. of args matches the function signature.
 --If we have too many args, we've combined the applications of args to a higher order function and its result.
 --If we have too few, it means we have a partial application - needs to be rewritten as a lambda.
 checkArgs :: DNode -> NodeGen DNode
-checkArgs fc@(DFunctionCall id f args)
+checkArgs fc@(DFunctionCall id f args par)
     | isHeader f = return fc                                                            --skip recursive function calls
     | length args <  funcArgCount = do
         fID <- newId
         fArgs <- mapM cloneArg $ drop appliedArgs (dfdArgs f)
         let args' = map createArg fArgs
         fRootID <- newId
-        let fRoot = DFunctionCall fRootID f (args ++ args')
+        let fRoot = DFunctionCall fRootID f (args ++ args') par
         let f' = DFD fID fName fArgs (returnType f) (isSync f) fRoot
         return $ DFunction id f'
 
     | length args >  funcArgCount || (isHigherOrderFunc f && (dfdID f) /= -1) = do      --arg counts can match if result is assigned
-        f' <- instantiateLambda $ DFunctionCall id f (take funcArgCount args)           --higher order function - returns lambda
-        return $ DFunctionCall id f' (drop funcArgCount args)                           --call to lambda
+        f' <- instantiateLambda $ DFunctionCall id f (take funcArgCount args) NoPar     --higher order function - returns lambda
+        return $ DFunctionCall id f' (drop funcArgCount args) par                       --call to lambda
 
-    | length args == funcArgCount = return $ DFunctionCall id f args
+    | length args == funcArgCount = return fc
     where
         funcArgCount = length $ dfdArgs f
 
@@ -575,7 +575,7 @@ checkArgs fc@(DFunctionCall id f args)
 --Defines the DFD of an instance of a lambda function.
 --Clones nodes and substitutes args so that it is independent of other instances.
 instantiateLambda :: DNode -> NodeGen DFD
-instantiateLambda (DFunctionCall _ macro mArgs)
+instantiateLambda (DFunctionCall _ macro mArgs _)
     | isHigherOrderFunc macro = do
         id' <- newId
         let f = functionCalled $ dfdRoot macro
@@ -614,11 +614,11 @@ matchDecons root = res where
     knownLists = map fst decons
 
     appendDecons :: [(NodeId, DNode)] -> DNode -> [(NodeId, DNode)]
-    appendDecons ns n0@(DFunctionCall _ (DFD (-1) "__decons" _ _ _ _) [list]) = (nodeID list, n0):ns
+    appendDecons ns n0@(DFunctionCall _ (DFD (-1) "__decons" _ _ _ _) [list] _) = (nodeID list, n0):ns
     appendDecons ns _ = ns
 
     updateLMAs :: DNode -> DNode
-    updateLMAs n@(DFunctionCall nID (DFD (-1) "__listMinAvail" _ _ _ _) [list]) = res where
+    updateLMAs n@(DFunctionCall nID (DFD (-1) "__listMinAvail" _ _ _ _) [list] _) = res where
         res = if   (nodeID list) `elem` knownLists
               then DTupleElem nID 2 deconRes
               else error $ printf "Called ListMinAvail on list with no matching cons: %s\nLists: %s" (show n) (show decons)

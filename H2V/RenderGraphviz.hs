@@ -51,18 +51,20 @@ renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef wh
     node = printf "node_%i [ fontcolor=dimgray ];\n" varID
     edge = printf "node_%i -> node_%i;\n" (nodeID val) varID
 
-renderNode (DListLiteral listID elements) = (GNodeDef listID node edge):eDefs where
-    node = printf "node_%i [ label = \"List\n[node_%i]\", color=blue ];\n" listID listID
+renderNode (DListLiteral listID elements par) = (GNodeDef listID node edge):eDefs where
+    node = printf "node_%i [ label = \"List\n%s[node_%i]\", color=blue ];\n" listID parLbl listID
     edge = concatMap (subEdge listID "[%i]") $ zip [0..] elements
     eDefs = concatMap renderNode elements
+    parLbl = renderPar par
 
-renderNode (DFunctionCall appID f args) = (GNodeDef appID node edge):aDefs where
+renderNode (DFunctionCall appID f args par) = (GNodeDef appID node edge):aDefs where
     fID = if   (dfdID f) == -1
           then ""
           else printf "(dfd_%i)" $ dfdID f
-    node = printf "node_%i [ label = \"Function call: %s %s\n[node_%i]\", color=darkgreen ];\n" appID (dfdName f) fID appID
+    node = printf "node_%i [ label = \"Function call: %s %s\n%s[node_%i]\", color=darkgreen ];\n" appID (dfdName f) fID parLbl appID
     edge = concatMap (subEdge appID "arg_%i") $ zip [0..] args
     aDefs = concatMap renderNode args
+    parLbl = renderPar par
 
 renderNode (DFunction fID f) = (GNodeDef fID node ""):[] where
     node = printf "node_%i [ label = \"Function: %s\n[node_%i]\", color=darkgreen ];\n" fID (dfdName f) fID
@@ -78,6 +80,15 @@ renderNode (DTupleElem elemID tupleIndex tuple) = (GNodeDef elemID node edge):tu
 subEdge :: NodeId -> String -> (Int, DNode) -> String
 subEdge parentID iFmt (i, a) = printf "node_%i -> node_%i [ label = \"%s\" ];\n" (nodeID a) parentID indexStr where
     indexStr :: String = printf iFmt i
+
+--Helper function for describing parallelism
+renderPar :: Parallelism -> String
+renderPar NoPar = ""
+renderPar par
+    | isAssigned par = res ""
+    | otherwise      = res " (inferred)"
+    where
+        res desc = printf "Par: %i%s\n" (parValue par) desc
 
 extractGnode :: [GNodeDef] -> (String, String)
 extractGnode ns = (concatMap nodeDefs ns', concatMap edgeDefs ns') where
