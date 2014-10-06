@@ -528,8 +528,6 @@ declName (HsPatBind _ (HsPTuple ps) _ _) = map patName ps where
     patName (HsPVar n) = fromHsName n
 
 --linking logic - replaces function headers with DFDs
---FIX: now that we have access to function headers, we need to make sure foldApp wasn't too aggressive.
---e.g. (f a) b should be two separate applications if we have f :: Int -> (Int -> Int)
 
 linkDFD :: DFD -> NodeGen DFD
 linkDFD dfd = liftM (\x -> dfd{dfdRoot = x}) $ dmapM linkExpr (dfdRoot dfd)
