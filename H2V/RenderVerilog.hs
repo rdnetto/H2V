@@ -668,13 +668,13 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                   "input clock, input ready, output done,",
                   "output reg  listIn_req,",
                   "input       listIn_ack,",
-                  printf "input %s listIn_value," inputType,
-                  "input       listIn_value_valid,",
+                  unlines . parEdge par $ printf "input %s listIn_value_%i," inputType,
+                  unlines . parEdge par $ printf "input       listIn_value_%i_valid,",
 
                   "input            listOut_req,",
                   "output reg       listOut_ack,",
-                  printf "output reg %s listOut_value," outputType,
-                  "output reg       listOut_value_valid",
+                  unlines . parEdge par $ printf "output reg %s listOut_value_%i," outputType,
+                  chopComma . unlines . parEdge par $ printf "output reg       listOut_value_%i_valid,",
                   ");",
                   "",
 
@@ -688,8 +688,9 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                   "reg waitingForInput, processingValue, endOfInput;",
                   "reg consumerServed;",
                   "wire consumerWaiting, valueProcessed, funcStalling;",
-                  printf "wire %s nextVal;" outputType,
-                  printf "dfd_%i lambda(clock, processingValue, valueProcessed, listIn_value, nextVal);" fID,
+                  printf "wire %s %s;" outputType $ joinMap ", " id $ parEdge par (printf "nextVal_%i"),
+                  printf "wire %s;" $ joinMap ", " id $ parEdge par (printf "nextVal_%i_valid"),
+                  unlines . parEdge par $ \i -> printf "dfd_%i lambda_%i(clock, processingValue, valueProcessed, listIn_value_%i, nextVal_%i);" fID i i i,
                   "",
                   "assign done = ready;",
                   "assign consumerWaiting = listOut_req & ~consumerServed;",
@@ -711,7 +712,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           indent [
                               "waitingForInput <= 1'b0;",
                               "",
-                              "if(listIn_value_valid) begin",
+                              "if(listIn_value_0_valid) begin",
                               "\tprocessingValue <= 1'b1;",
                               "end else begin",
                               "\tendOfInput <= 1'b1;",
@@ -721,8 +722,9 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           "",
                           "if((valueProcessed | endOfInput) & consumerWaiting) begin",
                           indent [
-                              "listOut_value <= nextVal;",
-                              "listOut_value_valid <= ~endOfInput;",
+                              unlines . parEdge par $ printfAll "listOut_value_%i <= nextVal_%i;",
+                              unlines . parEdge par $ printfAll "listOut_value_%i_valid <= listIn_value_%i_valid;",
+
                               "listOut_ack <= 1'b1;",
                               "consumerServed <= 1'b1;",
                               "if(~endOfInput) begin",
@@ -754,8 +756,8 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           "consumerServed <= 1'b0;",
                           "listIn_req <= 1'b0;",
                           "listOut_ack <= 1'b0;",
-                          "listOut_value <= 8'hFF;",
-                          "listOut_value_valid <= 1'b0;"
+                          unlines . parEdge par $ printf "listOut_value_%i <= 8'hFF;",
+                          unlines . parEdge par $ printf "listOut_value_%i_valid <= 1'b0;"
                       ],
                       "end"
                   ],
