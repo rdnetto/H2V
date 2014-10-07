@@ -295,18 +295,18 @@ nullArg :: Int -> String
 nullArg i  = printf "outArg_%i = 8'hXX;\n" i
 
 --Defines the wires for a node, but doesn't connect them to anything
-defineNode :: NodeId -> DType -> String
-defineNode nodeID t = defineNodeX (printf "node_%i" nodeID) t
+defineNode :: NodeId -> DType -> Int -> String
+defineNode nodeID t par = defineNodeX (printf "node_%i" nodeID) t par
 
-defineNodeX :: String -> DType -> String
-defineNodeX label (DList t) = res where
+defineNodeX :: String -> DType -> Int -> String
+defineNodeX label (DList t) par = res where
     res = unlines [ printf "wire %s_req, %s_ack;" label label,
-                    printf "wire %s %s_value;" (scalarVType t) label,
-                    printf "wire %s_value_valid;" label,
+                    unlines . parEdge par $ printf "wire %s %s_value_%i;" (scalarVType t) label,
+                    unlines . parEdge par $ printf "wire %s_value_%i_valid;" label,
                     printf "wire %s_done;" label
                   ]
 
-defineNodeX label t = unlines [line1, line2] where
+defineNodeX label t _ = unlines [line1, line2] where
     line1 = printf "wire %s %s;" (scalarVType t) label
     line2 = printf "wire %s_done;" label
 
@@ -315,12 +315,13 @@ assignNode :: DNode -> DNode -> String
 assignNode lhs rhs
     | isList (nodeType lhs) || isList (nodeType rhs) = unlines res
     where
+        par = getParallelism rhs
         lhsID = nodeID lhs
         rhsID = nodeID rhs
         res = [ printf "assign node_%i_req = node_%i_req;" rhsID lhsID,
                 printf "assign node_%i_ack = node_%i_ack;" lhsID rhsID,
-                printf "assign node_%i_value = node_%i_value;" lhsID rhsID,
-                printf "assign node_%i_value_valid = node_%i_value_valid;" lhsID rhsID,
+                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i = node_%i_value_%i;" lhsID rhsID i i,
+                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_%i_value_%i_valid;" lhsID rhsID i i,
                 printf "assign node_%i_done = node_%i_done;" lhsID rhsID
               ]
 
@@ -359,7 +360,7 @@ renderArg io prefix useNodeId tail _ (i, (argID, t)) = printf "%s %s %s_%i%s" io
 
 renderNode :: DNode -> [VNodeDef]
 renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
-    def = defineNode nodeID UndefinedType
+    def = defineNode nodeID UndefinedType 1
     ass = unlines [ printf "assign node_%i = %i;" nodeID value,
                     printf "assign node_%i_done = ready;" nodeID
                   ]
@@ -374,7 +375,7 @@ renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass "" wh
 
 renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
     valDef = renderNode val
-    def = defineNode varID t
+    def = defineNode varID t $ getParallelism val
     ass = assignNode var val
 
 renderNode (DFunctionCall appID f args p)
@@ -382,7 +383,7 @@ renderNode (DFunctionCall appID f args p)
     | otherwise       = aDefs ++ return (VNodeDef appID def ass "")
     where
         par = parValue p
-        def = unlines [ defineNode appID (returnType f),
+        def = unlines [ defineNode appID (returnType f) par,
                         printf "wire node_%i_ready;" appID
                       ]
         ass = unlines [ printf "assign node_%i_ready = %s;" appID ready,
@@ -398,16 +399,17 @@ renderNode (DFunctionCall appID f args p)
         resAss = chopComma . argEdge par $ DVariable appID (returnType f) Nothing
 
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
+    par = getParallelism tuple
     tupleID = nodeID tuple
-    def = defineNode elemID (nodeType elem)
+    def = defineNode elemID (nodeType elem) par
     ass = unlines $ case tupleIndex of
                      0 -> [ printf "assign node_%i = node_head_%i;" elemID tupleID,
                             printf "assign node_%i_done = node_%i_done;" elemID tupleID
                           ]
                      1 -> [ printf "assign node_tail_%i_req = node_%i_req;" tupleID elemID,
                             printf "assign node_%i_ack = node_tail_%i_ack;" elemID tupleID,
-                            printf "assign node_%i_value = node_tail_%i_value;" elemID tupleID,
-                            printf "assign node_%i_value_valid = node_tail_%i_value_valid;" elemID tupleID,
+                            unlines . parEdge par $ \i -> printf "assign node_%i_value_%i = node_tail_%i_value_%i;" elemID i tupleID i,
+                            unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_tail_%i_value_%i_valid;" elemID tupleID,
                             printf "assign node_%i_done = node_%i_done;" elemID tupleID
                           ]
                      2 -> [ printf "assign node_%i = node_head_%i_valid;" elemID tupleID,
@@ -556,9 +558,15 @@ argEdgeX lbl a p = renderArg "" lbl True ", " p (0, (nodeID a, nodeType a))
 parEdge :: Int -> (Int -> String) -> [String]
 parEdge par f = map f [0 .. par - 1]
 
+--Returns the parallelism of an arbitrary node, traversing the DFD if necessary
+getParallelism :: DNode -> Int
+getParallelism node
+    | hasParallelism node = parValue $ parallelism node
+getParallelism (DVariable _ _ (Just value)) = getParallelism value
+
 renderBuiltin :: NodeId -> BuiltinOp -> Int -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot _ args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
-    def = defineNode resID (nodeType arg)
+    def = defineNode resID (nodeType arg) 1
     ass = printf "assign node_%i = ~node_%i;\n" resID (nodeID arg)
     doneAs = genericDone resID args
 
@@ -566,7 +574,7 @@ renderBuiltin resID (BinaryOp ":") par args@(a0:a1:[])
     | par == 1  = VNodeDef resID def (ass ++ doneAs) ""
     | otherwise = error "Cons does not support parallel access yet."
     where
-        def = defineNode resID (nodeType a1)
+        def = defineNode resID (nodeType a1) par
         ass = concat [
                 printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
                 argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
@@ -581,7 +589,7 @@ renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[])
     | par == 1  = VNodeDef resID def ass ""
     | otherwise = error "Concat does not support parallel access yet."
     where
-        def = defineNode resID (nodeType a0)
+        def = defineNode resID (nodeType a0) par
         a0ID = nodeID a0
         a1ID = nodeID a1
         ass = unlines [
@@ -594,13 +602,13 @@ renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[])
             ]
 
 renderBuiltin resID (BinaryOp op) _ args@(a0:a1:[]) = VNodeDef resID def (ass ++ doneAs) "" where
-    def = defineNode resID (nodeType a0)
+    def = defineNode resID (nodeType a0) 1
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     doneAs = genericDone resID args
 
-renderBuiltin resID Ternary _ args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID Ternary par args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
         resType = headOr UndefinedType $ filter (/= UndefinedType) [nodeType tExp, nodeType fExp]
-        def = defineNode resID (nodeType tExp)
+        def = defineNode resID (nodeType tExp) par
         ass = case resType of
                 DList _ -> listAss
                 _       -> scalarAss
@@ -616,13 +624,13 @@ renderBuiltin resID Ternary _ args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass
 
 renderBuiltin resID EnumList par args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --bounded
-    def = defineNode resID (DList UndefinedType)
+    def = defineNode resID (DList UndefinedType) par
     ass = renderListGen resID min step (Just max) par
     doneAs = genericDone resID [min, step, max]
 
 renderBuiltin resID EnumList par args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
     --unbounded
-    def = defineNode resID (DList UndefinedType)
+    def = defineNode resID (DList UndefinedType) par
     ass = renderListGen resID min step Nothing par
     doneAs = genericDone resID [min, step]
 
@@ -631,9 +639,9 @@ renderBuiltin resID Decons par [list]
     | otherwise = error "Decons does not support parallel access yet."
     where
         listID = nodeID list
-        def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType,
-                       defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType),
-                       printf "wire node_head_%i_valid;\n" resID,
+        def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType 1,
+                       defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType) par,
+                       concat . parEdge par $ printf "wire node_head_%i_valid;\n" resID,
                        printf "wire node_%i_done;\n" resID
                      ]
 
@@ -651,7 +659,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
     listType = nodeType list
     f = functionCalled lambda
     fID = dfdID f
-    def = defineNode resID listType
+    def = defineNode resID listType par
     ass = concat [
             printf "Map_%i map_%i(clock, node_%i_done, node_%i_done,\n\t" resID resID listID resID,
             lstrip $ argEdge par list,
