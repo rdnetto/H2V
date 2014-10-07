@@ -622,16 +622,16 @@ renderBuiltin resID Ternary par args@(cond:tExp:fExp:[]) = VNodeDef resID def (a
         genMuxLine s = rstrip $ "\n\t" ++ concatMap (\fmt -> printf fmt s) listTerms
         doneAs = genericDone resID args
 
-renderBuiltin resID EnumList par args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID EnumList par args@(min:step:max:[]) = VNodeDef resID def (ass ++ doneAs) mod where
     --bounded
     def = defineNode resID (DList UndefinedType) par
-    ass = renderListGen resID min step (Just max) par
+    (ass, mod) = renderListGen resID min step (Just max) par
     doneAs = genericDone resID [min, step, max]
 
-renderBuiltin resID EnumList par args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID EnumList par args@(min:step:[]) = VNodeDef resID def (ass ++ doneAs) mod where
     --unbounded
     def = defineNode resID (DList UndefinedType) par
-    ass = renderListGen resID min step Nothing par
+    (ass, mod) = renderListGen resID min step Nothing par
     doneAs = genericDone resID [min, step]
 
 renderBuiltin resID Decons par [list]
@@ -687,22 +687,24 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                   "",
 
                   --waitingForInput:  waiting for a new value from listIn
-                  --processingValue:  waiting for f(listIn_value) to complete
+                  --processingValues: waiting for f(listIn_value) to complete
                   --endOfInput:       the input list has been exhausted
                   --funcStalling:     the function is stalling, waiting for the consumer to take the next value
                   --consumerWaiting:  the consumer of the output list is waiting for a value
                   --consumerServed:   the consumer of the output list has been given a value
                   "reg wasReady;",
-                  "reg waitingForInput, processingValue, endOfInput;",
+                  "reg waitingForInput, processingValues, endOfInput;",
                   "reg consumerServed;",
-                  "wire consumerWaiting, valueProcessed, funcStalling;",
+                  "wire consumerWaiting, valuesProcessed, funcStalling;",
                   printf "wire %s %s;" outputType $ joinMap ", " id $ parEdge par (printf "nextVal_%i"),
                   printf "wire %s;" $ joinMap ", " id $ parEdge par (printf "nextVal_%i_valid"),
-                  unlines . parEdge par $ \i -> printf "dfd_%i lambda_%i(clock, processingValue, valueProcessed, listIn_value_%i, nextVal_%i);" fID i i i,
+                  printf "wire %s;" $ joinMap ", " id $ parEdge par (printf "lambda_%i_done"),
+                  unlines . parEdge par $ \i -> printf "dfd_%i lambda_%i(clock, processingValues, lambda_%i_done, listIn_value_%i, nextVal_%i);" fID i i i i,
                   "",
                   "assign done = ready;",
                   "assign consumerWaiting = listOut_req & ~consumerServed;",
-                  "assign funcStalling = ~waitingForInput & ~processingValue & ~endOfInput;",
+                  "assign funcStalling = ~waitingForInput & ~processingValues & ~endOfInput;",
+                  printf "assign valuesProcessed = %s;" . joinMap " & " id . parEdge par $ printf "lambda_%i_done",
                   "",
 
                   "always @(posedge clock) begin",
@@ -721,14 +723,14 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                               "waitingForInput <= 1'b0;",
                               "",
                               "if(listIn_value_0_valid) begin",
-                              "\tprocessingValue <= 1'b1;",
+                              "\tprocessingValues <= 1'b1;",
                               "end else begin",
                               "\tendOfInput <= 1'b1;",
                               "end"
                           ],
                           "end",
                           "",
-                          "if((valueProcessed | endOfInput) & consumerWaiting) begin",
+                          "if((valuesProcessed | endOfInput) & consumerWaiting) begin",
                           indent [
                               unlines . parEdge par $ printfAll "listOut_value_%i <= nextVal_%i;",
                               unlines . parEdge par $ printfAll "listOut_value_%i_valid <= listIn_value_%i_valid;",
@@ -739,7 +741,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                               indent [
                                   "if (listIn_req) begin",
                                   "\tlistIn_req <= 1'b0;",
-                                  "\tprocessingValue <= 1'b0;",
+                                  "\tprocessingValues <= 1'b0;",
                                   "end else begin",
                                   "\tlistIn_req <= 1'b1;",
                                   "\twaitingForInput <= 1'b1;",
@@ -759,7 +761,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                       "end else begin",
                       indent [
                           "waitingForInput <= 1'b0;",
-                          "processingValue <= 1'b0;",
+                          "processingValues <= 1'b0;",
                           "endOfInput <= 1'b0;",
                           "consumerServed <= 1'b0;",
                           "listIn_req <= 1'b0;",
@@ -775,15 +777,83 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
           ]
 
 --Generates assign statement for bounded and unbounded enumerations
-renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> Int -> String
-renderListGen resID min step max par = res where
-    res = concat [
-            printf "BoundedEnum enum_%i(clock, node_%i_done, " resID resID,
+renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> Int -> (String, String)
+renderListGen resID min step max par = (ass, mod) where
+    ass = concat [
+            printf "BoundedEnum_%i enum_%i(clock, node_%i_done, " resID resID resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
             maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
             chopComma $ argEdge par (DVariable resID (DList UndefinedType) Nothing),
             ");\n"
         ]
+    mod = unlines [
+              printf "module BoundedEnum_%i(input clock, input ready," resID,
+              indent [
+                  "input signed [7:0] min,",
+                  "input [7:0] step,",
+                  "input signed [7:0] max,",
+                  "",
+
+                  "input req,",
+                  "output reg ack,",
+                  unlines . parEdge par $ printf "output reg signed [7:0] value_%i,",
+                  chopComma . unlines . parEdge par $ printf "output value_%i_valid,",
+                  ");",
+                  "",
+
+                  "reg lastReq;",
+                  "reg initialized;",
+                  unlines . parEdge par $ printf "wire signed [7:0] nextValue_%i;",
+                  unlines . parEdge par $ \i -> printf "assign nextValue_%i = value_%i + 8'd%i * step;" i i par,
+                  unlines . parEdge par $ printfAll "assign value_%i_valid = ready & value_%i >= min && value_%i <= max;",
+                  "",
+
+                  "always @(posedge clock) begin",
+                  indent [
+                      "lastReq <= req;",
+                      "",
+
+                      "if(ready) begin",
+                      indent [
+                          "if(req & ~lastReq) begin",
+                          indent [
+                              "if(initialized) begin",
+                              indent [
+                                  printf "if(value_%i_valid) begin" $ par - 1,
+                                  indent . parEdge par $ printfAll "value_%i <= nextValue_%i;",
+                                  "end",
+                                  ""
+                              ],
+                              "end else begin",
+                              indent [
+                                  "initialized <= 1;",
+                                  unlines . parEdge par $ printfAll "value_%i <= min + 8'd%i;"
+                              ],
+                              "end",
+                              "",
+
+                              "ack <= 1;",
+                              ""
+                          ],
+
+                          "end else begin",
+                          "    ack <= 0;",
+                          "end",
+                          ""
+                      ],
+
+                      --if not ready, reset/initialize variables
+                      "end else begin",
+                      "    ack <= 0;",
+                      "    initialized <= 0;",
+                      indent . parEdge par $ printf "value_%i <= 8'hXX;",
+                      "end"
+                  ],
+                  "end"
+              ],
+              "endmodule",
+              ""
+          ]
 
 --Generates assign statements for ready/done signals for builtin functions.
 genericDone :: NodeId -> [DNode] -> String
