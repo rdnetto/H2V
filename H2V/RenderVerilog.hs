@@ -779,6 +779,186 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
               "endmodule"
           ]
 
+renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def ass vMod where
+    listID = nodeID list
+    listType = nodeType list
+    f = functionCalled lambda
+    fID = dfdID f
+    def = unlines [
+            defineNode resID listType par,
+            printf "wire node_%i_ready;" resID
+          ]
+    ass = concat [
+            printf "assign node_%i_ready = node_%i_done & node_%i_done;\n" resID listID (nodeID identity),
+            printf "Fold_%i fold_%i(clock, node_%i_ready, node_%i_done,\n\t" resID resID resID resID,
+            lstrip $ argEdge 1   identity,
+            lstrip $ argEdge par list,
+            "\n\t",
+            lstrip . chopComma . argEdge 1 $ DVariable resID (returnType f) Nothing,
+            ");\n"
+          ]
+    inputType  = scalarVType . snd . head $ dfdArgs f
+    outputType = scalarVType $ returnType f
+    accNo = (par + 1) + ((par + 1) `mod` 2)         --no. of accumulators must be even, and we need an extra acc. for the carry
+    funcNo = accNo `div` 2                                              --no. of function instances
+    stageNo :: Int = ceiling . logBase 2 $ fromIntegral accNo           --no. of stages needed
+    vMod = unlines [
+            printf "module Fold_%i(input clock, input ready, output reg done," resID,
+            indent [
+                printf "input %s identity," inputType,
+
+                "output listIn_req_actual,",
+                "input  listIn_ack,",
+                unlines . parEdge par $ printf "input %s listIn_value_%i," inputType,
+                unlines . parEdge par $ printf "input       listIn_value_%i_valid,",
+
+                printf "output %s result" outputType,
+                ");",
+                "",
+
+                --waitingForInput:  waiting for data from list
+                --processingValues: waiting for functions to complete
+                --resettingFuncs:   functions have completed, ready is unasserted
+                --carryPresent:     whether there is a carry value present from the previous row
+                "reg wasReady, waitingForInput, processingValues, resettingFuncs;",
+                "reg [3:0] foldStage;",     --2^4 stages => 2^2^4 (256) degrees of parallelism
+                "reg carryPresent;",
+                unlines . parEdge accNo  $ printf "reg %s accumulator_%i;" inputType,
+                unlines . parEdge funcNo $ printf "wire func_%i_done;",
+                unlines . parEdge funcNo $ printf "reg  func_%i_enabled;",
+                unlines . parEdge funcNo $ printf "wire %s func_%i_result;" outputType,
+                "wire funcs_done;",
+
+                "assign listIn_req_actual = waitingForInput | (ready & ~wasReady);",
+                "assign result = accumulator_0;",
+                printf "assign funcs_done = %s;" $ joinMap " & " (printfAll "(func_%i_done | ~func_%i_enabled)") [0 .. funcNo - 1],
+                "",
+
+                --Define dummy wires to simplify the logic for setting the accumulators
+                --These are needed because we have more accumulators than list values
+                "//Dummy elements to simplify accumulator logic",
+                let f i = unlines [
+                            printf "wire listIn_value_%i_valid;" i,
+                            printf "wire %s listIn_value_%i;" outputType i,
+                            printf "assign listIn_value_%i_valid = 1'b0;" i,
+                            printf "assign listIn_value_%i = identity;" i
+                        ]
+                in  unlines $ map f [par .. accNo - 1],
+                "",
+
+                let f :: Int -> String
+                    f i = printf fmt fID i i i (2*i) (2*i + 1) i where
+                    fmt = "dfd_%i func_%i(clock, processingValues & func_%i_enabled, func_%i_done, accumulator_%i, accumulator_%i, func_%i_result);"
+                in  unlines $ parEdge funcNo f,
+                "",
+
+                "always @(posedge clock) begin",
+                indent [
+                    "wasReady <= ready;",
+                    "",
+                    "if(ready) begin",
+                    indent [
+                        "if(~wasReady) begin",
+                        indent [
+                            "waitingForInput <= 1'b1;"
+                        ],
+                        "end",
+                        "",
+
+                        "if(listIn_ack & waitingForInput) begin",
+                        indent [
+                            "waitingForInput <= 1'b0;",
+                            "",
+                            printf "if(listIn_value_0_valid) begin",
+                            indent [
+                                "processingValues <= 1'b1;",
+                                "foldStage <= 4'd0;",
+                                "",
+
+                                --load list values into accumulators
+                                "if(carryPresent) begin",
+                                let fmt = "accumulator_%i <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
+                                in  indent . parEdge (accNo - 1) $ \i -> printf fmt (i+1) i i,
+
+                                "\tfunc_0_enabled <= listIn_value_0_valid;",
+                                let fmt = "func_%i_enabled <= listIn_value_%i_valid & listIn_value_%i_valid;"
+                                in  indent . (flip map) [1 .. funcNo - 1] $ \i -> printf fmt i (2*i) (2*i+1),
+
+                                "end else begin",
+                                let fmt = "accumulator_%i <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
+                                in  indent . parEdge accNo $ printfAll fmt,
+
+                                let fmt = "func_%i_enabled <= listIn_value_%i_valid & listIn_value_%i_valid;"
+                                in  indent . parEdge funcNo $ \i -> printf fmt i (2*i) (2*i+1),
+                                "end"
+                            ],
+                            "end else begin",
+                            "   done <= 1'b1;",
+                            "end"
+                        ],
+                        "end",
+                        "",
+
+                        "if(processingValues & funcs_done) begin",
+                        indent [
+                            "processingValues <= 1'b0;",
+                            "",
+
+                            if   par > 1
+                            then "if(~func_1_enabled) begin"
+                            else "if(1) begin",
+
+                            "   waitingForInput <= 1'b1;",
+                            "   carryPresent <= 1'b1;",
+                            "   accumulator_0 <= func_0_result;",
+                            "end else begin",
+                            "   resettingFuncs <= 1'b1;",
+                            "   foldStage <= foldStage + 4'd1;",
+                            "",
+
+                            --Shift values. If a func is disabled, then take its left arg (either a single value or an identity)
+                            let fmt = "accumulator_%i <= (func_%i_enabled ? func_%i_result : accumulator_%i);"
+                            in  indent . parEdge funcNo $ \i -> printf fmt i i i (2*i),
+
+                            indent . (flip map) [funcNo .. accNo - 1] $ printf "accumulator_%i <= identity;",
+
+                            let funcEnabled :: Int -> String
+                                funcEnabled i
+                                    | i < funcNo = printf "func_%i_enabled" i
+                                    | otherwise  = "1'b0"
+                                fmt = "%s <= %s & %s;"
+                            in  indent . parEdge funcNo $ \i -> printf fmt (funcEnabled i) (funcEnabled $ 2*i) (funcEnabled $ 2*i+1),
+                            "end"
+                        ],
+                        "end",
+                        "",
+
+                        "if(resettingFuncs) begin",
+                        indent [
+                            "resettingFuncs <= 1'b0;",
+                            "processingValues <= 1'b1;"
+                        ],
+                        "end"
+                    ],
+
+                    "end else begin",
+                    indent [
+                        "waitingForInput <= 1'b0;",
+                        "processingValues <= 1'b0;",
+                        "resettingFuncs <= 1'b0;",
+                        "done <= 1'b0;",
+                        "carryPresent <= 1'b0;",
+                        "foldStage <= 4'hX;",
+                        unlines . parEdge accNo $ printf "accumulator_%i <= 8'hFF;"
+                    ],
+                    "end"
+                ],
+                "end"
+            ],
+            "endmodule",
+            ""
+        ]
+
 --Generates assign statement for bounded and unbounded enumerations
 renderListGen :: NodeId -> DNode -> DNode -> Maybe DNode -> Int -> (String, String)
 renderListGen resID min step max par = (ass, mod) where
