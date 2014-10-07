@@ -725,7 +725,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           indent [
                               "waitingForInput <= 1'b0;",
                               "",
-                              "if(listIn_value_0_valid) begin",
+                              printf "if(listIn_value_%i_valid) begin" $ par - 1,
                               "\tprocessingValuesActual <= 1'b1;",
                               "end else begin",
                               "\tendOfInput <= 1'b1;",
@@ -736,7 +736,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           "if((valuesProcessed | endOfInput) & consumerWaiting) begin",
                           indent [
                               unlines . parEdge par $ printfAll "listOut_value_%i <= nextVal_%i;",
-                              unlines . parEdge par $ printfAll "listOut_value_%i_valid <= listIn_value_%i_valid;",
+                              unlines . parEdge par $ printfAll "listOut_value_%i_valid <= listIn_value_%i_valid & ~endOfInput;",
 
                               "listOut_ack <= 1'b1;",
                               "consumerServed <= 1'b1;",
