@@ -675,7 +675,8 @@ collectDfds func = ifM (funcCollected func) (return []) $ do
 
     --recurse into other functions
     let calls = filter isFunctionCall $ dfold (flip (:)) [] (dfdRoot func)
-    rewrites <- concatMapM (collectDfds . functionCalled) calls
+    let macroFuncs = filter (isFunc . nodeType) . concatMap callArgs $ filter (isBuiltinMacro . dfdRoot . functionCalled) calls
+    rewrites <- concatMapM (collectDfds . functionCalled) $ calls ++ macroFuncs
 
     return $ (dfdID func', argAL):rewrites
 
