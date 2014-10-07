@@ -156,7 +156,8 @@ nodeType DVariable{variableType = t} = t
 nodeType DFunction{functionCalled = f} = DFunc (map snd $ dfdArgs f) (returnType f)
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
-nodeType DListLiteral{elements = xs} = DList . nodeType $ head xs
+nodeType DListLiteral{elements = x0:_} = DList $ nodeType x0
+nodeType DListLiteral{} = DList UndefinedType
 nodeType DTupleElem{tuple = t, tupleIndex = i}
     | nodeType t == UndefinedType = UndefinedType
     | otherwise                   = let DTuple ts = nodeType t
