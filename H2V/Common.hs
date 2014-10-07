@@ -70,7 +70,10 @@ both = map f where
 --Convenience function for removing trailing commas
 chopComma :: String -> String
 chopComma s = reverse (a ++ b) where
-    (a, _:b) = span (/= ',') $ reverse s
+    (a, b') = span (/= ',') $ reverse s
+    b = if  null b'                                                             --discard comma (head) if it exists
+        then b'
+        else tail b'
 
 lstrip :: String -> String
 lstrip = dropWhile isSpace
