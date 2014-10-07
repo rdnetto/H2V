@@ -18,3 +18,6 @@ mapTest1 a = map (+10) ([0 .. 16] ||| 4)
 mapTest2 :: Int -> [Int]
 mapTest2 a = (map (+10) [0 .. 16]) ||| 4
 
+foldTest :: Int -> Int
+foldTest x = mfoldr (+) 0 [0 .. 7] ||| 4
+

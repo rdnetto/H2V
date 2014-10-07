@@ -72,6 +72,11 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) MapMacro
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
+        let op = "mfoldr"
+            args = [(-1, DFunc [UndefinedType, UndefinedType] UndefinedType), (-1, UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) FoldMacro
+         in pushDfdNS (op, DFD (-1) op args UndefinedType False root)
+
         --local functions
         --Before generating functions, populate namespace with their headers. This is needed for recursive functions.
         let decls' = matchDecls . sortDecls $ map cleanDecl decls
