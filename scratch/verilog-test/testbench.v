@@ -5,7 +5,7 @@ module testbench(input CLOCK_50, input [1:0] KEY, output [7:0] LED);
     reg [7:0] reqCount;
     reg [24:0] timer;
 
-    dfd_2 dfdUT(CLOCK_50, running, done,
+    dfd_0 dfdUT(CLOCK_50, running, done,
         1, result);
 
     initial running = 0;
