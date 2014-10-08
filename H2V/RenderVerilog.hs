@@ -882,7 +882,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
 
                                 "\tfunc_0_enabled <= listIn_value_0_valid;",
                                 let fmt = "func_%i_enabled <= listIn_value_%i_valid & listIn_value_%i_valid;"
-                                in  indent . (flip map) [1 .. funcNo - 1] $ \i -> printf fmt i (2*i) (2*i+1),
+                                in  indent . (flip map) [1 .. funcNo - 1] $ \i -> printf fmt i (2*i-1) (2*i),
 
                                 "end else begin",
                                 let fmt = "accumulator_%i <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
