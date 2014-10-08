@@ -823,7 +823,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                 "reg wasReady, waitingForInput, processingValues, resettingFuncs;",
                 "reg [3:0] foldStage;",     --2^4 stages => 2^2^4 (256) degrees of parallelism
                 "reg carryPresent;",
-                unlines . parEdge accNo  $ printf "reg %s accumulator_%i;" inputType,
+                unlines . parEdge accNo  $ printfAll "reg [7:0] accumulator_%i_reg, accumulator_%i;",
                 unlines . parEdge funcNo $ printf "wire func_%i_done;",
                 unlines . parEdge funcNo $ printf "reg  func_%i_enabled;",
                 unlines . parEdge funcNo $ printf "wire %s func_%i_result;" outputType,
@@ -832,7 +832,6 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                 "assign listIn_req_actual = waitingForInput | (ready & ~wasReady);",
                 "assign result = accumulator_0;",
                 printf "assign funcs_done = %s;" $ joinMap " & " (printfAll "(func_%i_done | ~func_%i_enabled)") [0 .. funcNo - 1],
-                "",
 
                 --Define dummy wires to simplify the logic for setting the accumulators
                 --These are needed because we have more accumulators than list values
@@ -848,8 +847,28 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
 
                 let f :: Int -> String
                     f i = printf fmt fID i i i (2*i) (2*i + 1) i where
-                    fmt = "dfd_%i func_%i(clock, processingValues & func_%i_enabled, func_%i_done, accumulator_%i, accumulator_%i, func_%i_result);"
+                    fmt = "dfd_%i func_%i(clock, (processingValues | listIn_ack) & func_%i_enabled, func_%i_done, accumulator_%i, accumulator_%i, func_%i_result);"
                 in  unlines $ parEdge funcNo f,
+                "",
+
+                "always @(*) begin",
+                indent [
+                    "if(listIn_ack) begin",
+                    indent [
+                        "if(carryPresent) begin",
+                        indent . return $ "accumulator_0 = accumulator_0_reg;",
+                        indent . (flip map) [1 .. accNo-1] $ \i -> printf "accumulator_%i = listIn_value_%i;" i (i-1),
+                        "end else begin",
+                        indent . parEdge accNo $ printfAll "accumulator_%i = listIn_value_%i;",
+                        "end"
+                    ],
+                    "",
+
+                    "end else begin",
+                    indent . parEdge accNo $ printfAll "accumulator_%i = accumulator_%i_reg;",
+                    "end"
+                ],
+                "end",
                 "",
 
                 "always @(posedge clock) begin",
@@ -877,7 +896,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
 
                                 --load list values into accumulators
                                 "if(carryPresent) begin",
-                                let fmt = "accumulator_%i <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
+                                let fmt = "accumulator_%i_reg <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
                                 in  indent . parEdge (accNo - 1) $ \i -> printf fmt (i+1) i i,
 
                                 "\tfunc_0_enabled <= listIn_value_0_valid;",
@@ -885,7 +904,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                                 in  indent . (flip map) [1 .. funcNo - 1] $ \i -> printf fmt i (2*i-1) (2*i),
 
                                 "end else begin",
-                                let fmt = "accumulator_%i <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
+                                let fmt = "accumulator_%i_reg <= (listIn_value_%i_valid ? listIn_value_%i : identity);"
                                 in  indent . parEdge accNo $ printfAll fmt,
 
                                 let fmt = "func_%i_enabled <= listIn_value_%i_valid & listIn_value_%i_valid;"
@@ -906,17 +925,17 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                             "if(~func_0_enabled) begin",
                             "   waitingForInput <= 1'b1;",
                             "   carryPresent <= 1'b1;",
-                            "   accumulator_0 <= func_0_result;",
+                            "   accumulator_0_reg <= func_0_result;",
                             "end else begin",
                             "   resettingFuncs <= 1'b1;",
                             "   foldStage <= foldStage + 4'd1;",
                             "",
 
                             --Shift values. If a func is disabled, then take its left arg (either a single value or an identity)
-                            let fmt = "accumulator_%i <= (func_%i_enabled ? func_%i_result : accumulator_%i);"
+                            let fmt = "accumulator_%i_reg <= (func_%i_enabled ? func_%i_result : accumulator_%i_reg);"
                             in  indent . parEdge funcNo $ \i -> printf fmt i i i (2*i),
 
-                            indent . (flip map) [funcNo .. accNo - 1] $ printf "accumulator_%i <= identity;",
+                            indent . (flip map) [funcNo .. accNo - 1] $ printf "accumulator_%i_reg <= identity;",
 
                             let funcEnabled :: Int -> String
                                 funcEnabled i
@@ -945,7 +964,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                         "done <= 1'b0;",
                         "carryPresent <= 1'b0;",
                         "foldStage <= 4'hX;",
-                        unlines . parEdge accNo $ printf "accumulator_%i <= 8'hFF;"
+                        unlines . parEdge accNo $ printf "accumulator_%i_reg <= 8'hFF;"
                     ],
                     "end"
                 ],
