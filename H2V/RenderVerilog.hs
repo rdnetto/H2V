@@ -981,10 +981,10 @@ renderListGen resID min step max par = (ass, mod) where
                   "",
 
                   "reg lastReq;",
-                  "reg initialized;",
+                  "reg initialized, active;",
                   unlines . parEdge par $ printf "wire signed [7:0] nextValue_%i;",
                   unlines . parEdge par $ \i -> printf "assign nextValue_%i = value_%i + 8'd%i * step;" i i par,
-                  unlines . parEdge par $ printfAll "assign value_%i_valid = ready & value_%i >= min && value_%i <= max;",
+                  unlines . parEdge par $ printfAll "assign value_%i_valid = ready & active & value_%i >= min && value_%i <= max;",
                   "",
 
                   "always @(posedge clock) begin",
@@ -1000,6 +1000,8 @@ renderListGen resID min step max par = (ass, mod) where
                               indent [
                                   printf "if(value_%i_valid) begin" $ par - 1,
                                   indent . parEdge par $ printfAll "value_%i <= nextValue_%i;",
+                                  "end else begin",
+                                  "    active <= 1'b0;",
                                   "end",
                                   ""
                               ],
@@ -1025,6 +1027,7 @@ renderListGen resID min step max par = (ass, mod) where
                       "end else begin",
                       "    ack <= 0;",
                       "    initialized <= 0;",
+                      "    active <= 1'b1;",
                       indent . parEdge par $ printf "value_%i <= 8'hXX;",
                       "end"
                   ],
