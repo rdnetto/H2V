@@ -903,11 +903,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                         indent [
                             "processingValues <= 1'b0;",
                             "",
-
-                            if   par > 1
-                            then "if(~func_1_enabled) begin"
-                            else "if(1) begin",
-
+                            "if(~func_0_enabled) begin",
                             "   waitingForInput <= 1'b1;",
                             "   carryPresent <= 1'b1;",
                             "   accumulator_0 <= func_0_result;",

@@ -535,7 +535,11 @@ declName (HsPatBind _ (HsPTuple ps) _ _) = map patName ps where
 --linking logic - replaces function headers with DFDs. Also infers degrees of parallelism for list functions.
 
 linkDFD :: DFD -> NodeGen DFD
-linkDFD dfd = liftM ((\x -> dfd{dfdRoot = x}) . dmap inferPars) $ dmapM linkExpr (dfdRoot dfd)
+linkDFD dfd = do
+    linked <- dmapM linkExpr (dfdRoot dfd)
+    promoted <- dmapM promoteBuiltinArgs linked
+    let newRoot = dmap inferPars promoted
+    return dfd{dfdRoot = newRoot}
 
 linkExpr :: DNode -> NodeGen DNode
 linkExpr fc@(DFunctionCall _ f _ _) = resolveHeader f >>= \f' -> checkArgs fc{functionCalled = f'}
@@ -660,6 +664,25 @@ getPar :: DNode -> Int
 getPar node
     | hasParallelism node = parValue $ parallelism node
 getPar DVariable{variableValue = Just val} = getPar val
+
+--Promotes builtin-operators that are args to macros to full functions
+promoteBuiltinArgs :: DNode -> NodeGen DNode
+promoteBuiltinArgs func@DFunction{}
+    | dfdID (functionCalled func) == (-1) = do
+        fID <- newId
+        let oldDfd = functionCalled func
+
+        callArgs <- mapM cloneArg $ dfdArgs oldDfd
+        let args' = map (\(DVariable i t _) -> (i, t)) callArgs
+
+        rootID <- newId
+        let root' = DFunctionCall rootID oldDfd callArgs NoPar
+        let name' = "__lambda_" ++ (show rootID)
+
+        let dfd' = oldDfd{dfdID = fID, dfdName = name', dfdArgs_ = args', dfdRoot = root'}
+        return func{functionCalled = dfd'}
+
+promoteBuiltinArgs n = return n
 
 --WIP: Closure logic - converts closures to function arguments
 
