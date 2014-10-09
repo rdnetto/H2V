@@ -705,7 +705,12 @@ collectDfds func = ifM (funcCollected func) (return []) $ do
 
     --recurse into other functions
     let calls = filter isFunctionCall $ dfold (flip (:)) [] (dfdRoot func)
-    let macroFuncs = filter (isFunc . nodeType) . concatMap callArgs $ filter (isBuiltinMacro . dfdRoot . functionCalled) calls
+    let callFilter fc
+            | isHeader func = False
+            | otherwise     = isBuiltinMacro $ dfdRoot func
+            where
+                func = functionCalled fc
+    let macroFuncs = filter (isFunc . nodeType) . concatMap callArgs $ filter callFilter calls
     rewrites <- concatMapM (collectDfds . functionCalled) $ calls ++ macroFuncs
 
     return $ (dfdID func', argAL):rewrites
