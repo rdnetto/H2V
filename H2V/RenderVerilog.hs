@@ -409,7 +409,7 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
                      1 -> [ printf "assign node_tail_%i_req = node_%i_req;" tupleID elemID,
                             printf "assign node_%i_ack = node_tail_%i_ack;" elemID tupleID,
                             unlines . parEdge par $ \i -> printf "assign node_%i_value_%i = node_tail_%i_value_%i;" elemID i tupleID i,
-                            unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_tail_%i_value_%i_valid;" elemID tupleID,
+                            unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_tail_%i_value_%i_valid;" elemID i tupleID i,
                             printf "assign node_%i_done = node_%i_done;" elemID tupleID
                           ]
                      2 -> [ printf "assign node_%i = node_head_%i_valid;" elemID tupleID,
@@ -563,6 +563,9 @@ getParallelism :: DNode -> Int
 getParallelism node
     | hasParallelism node = parValue $ parallelism node
 getParallelism (DVariable _ _ (Just value)) = getParallelism value
+getParallelism node@DFunctionCall{} = parValue $ parallelism node
+getParallelism node@DTupleElem{} = getParallelism $ tuple node
+getParallelism node = error $ "getParallelism: unknown node " ++ show node
 
 renderBuiltin :: NodeId -> BuiltinOp -> Int -> [DNode] -> VNodeDef
 renderBuiltin resID BitwiseNot _ args@(arg:[]) = VNodeDef resID def (ass ++ doneAs) "" where
@@ -641,7 +644,7 @@ renderBuiltin resID Decons par [list]
         listID = nodeID list
         def = concat [ defineNodeX (printf "node_head_%i" resID) UndefinedType 1,
                        defineNodeX (printf "node_tail_%i" resID) (DList UndefinedType) par,
-                       concat . parEdge par $ printf "wire node_head_%i_valid;\n" resID,
+                       printf "wire node_head_%i_valid;\n" resID,
                        printf "wire node_%i_done;\n" resID
                      ]
 
