@@ -640,7 +640,7 @@ inferPars node
     | isAssigned (parallelism node) = reverseInferPar node
 inferPars node@DListLiteral{} = node{parallelism = InferredPar 1}                   --list literals have no children to infer from
 inferPars node@DFunctionCall{callArgs = args} = res where
-    pars = map getPar $ filter (isList . nodeType) args
+    pars = catMaybes . map getPar $ filter (isList . nodeType) args
     par = if   null pars
           then 1
           else minimum pars
@@ -660,10 +660,12 @@ reverseInferPar fc@DFunctionCall{callArgs = args, parallelism = par} = fc{callAr
 reverseInferPar n = n
 
 --Infers the parallelism of a node based on its children
-getPar :: DNode -> Int
+getPar :: DNode -> Maybe Int
 getPar node
-    | hasParallelism node = parValue $ parallelism node
+    | hasParallelism node = Just . parValue $ parallelism node
 getPar DVariable{variableValue = Just val} = getPar val
+getPar DVariable{} = Nothing
+getPar node = error $ "getPar: Unknown node " ++ show node
 
 --Promotes builtin-operators that are args to macros to full functions
 promoteBuiltinArgs :: DNode -> NodeGen DNode
