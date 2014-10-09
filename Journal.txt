@@ -1,4 +1,101 @@
 ================================================================================
+Thursday 09 October 2014
+Finished implementing decons and concat for non-parallel case. Will only implement parallel versions if needed for examples.
+Implemented parallel list protocol, including map and fold (reduce). Performed optimizations to reduce latency.
+Defined an operator (|||) to annotate functions/lists with their parallelism.
+Attempted to implement compilation of recursive methods involving lists, but abandoned this idea as it would take too long.
+Test cases are defined in H2V/tests/lists2.hs, output (via SignalTap) is in 'Parallel {Map,Fold} (signaltap).png'
+
+Created early draft of poster - mostly defines layout. See ./docs/Poster/Poster.pptx
+
+Git commits:
+d4b9a40  2014-10-09 11:34:11 +1100  BUG FIX: macro filter crashed if recursive functions were present
+a8169d0  2014-10-09 11:25:20 +1100  BUG FIX: fixed decons/tuple regressions caused by parallel list patches
+1a16882  2014-10-09 11:23:05 +1100  BUG FIX: getPar didn't consider arguments
+9118487  2014-10-08 21:28:15 +1100  Added early draft of poster.
+08924d4  2014-10-08 18:56:44 +1100  Test case for mfoldr
+179a08e  2014-10-08 18:06:43 +1100  FoldMacro: Changed list access logic to Mealy design to reduce latency
+657a6e1  2014-10-08 17:47:31 +1100  BUG FIX: FoldMacro - indices were off by 1
+e4c42ab  2014-10-08 17:47:11 +1100  BUG FIX: BoundedEnum kept value_valid high after reaching end of list
+0f99a57  2014-10-08 17:27:25 +1100  BUG FIX: operators passed to macros were not have modules generated for them
+8d19ff3  2014-10-08 09:48:40 +1100  Implemented fold using shifting design (O(N) function instances for N-parallelism)
+278d1eb  2014-10-07 20:43:11 +1100  Defined monoid foldr macro
+f89bd39  2014-10-07 17:57:26 +1100  BUG FIX: nodeType assumed list literals were not empty
+73939ea  2014-10-07 17:30:04 +1100  BUG FIX: valid_value was not being asserted correctly for the last values
+8aa9235  2014-10-07 12:46:10 +1100  BUG FIX: wasn't rendering functions passed to macros
+9a928d7  2014-10-07 16:52:51 +1100  Patch 7 of 7: Converted listIn_Req and processingValues to Mealy FSMs. This reduces the start-up latency from 4 cycles to 2.
+b59a5af  2014-10-07 12:32:48 +1100  Patch 6 of 7: Updated BoundedEnum to support the parallel list interface
+c138a2f  2014-10-07 11:19:06 +1100  Patch 5 of 7: added parallel list support to defineNode
+28d8146  2014-10-07 11:05:23 +1100  Patch 4 of 7: Implemented parallel mapping
+122cdb0  2014-10-07 10:23:31 +1100  Patch 3 of 7: added checks for operators lacking parallel list support
+c3c55c5  2014-10-07 10:19:48 +1100  Patch 2 of 7: added parallelism parameter to renderBuiltin
+d37d099  2014-10-07 10:09:15 +1100  Patch 1 of 7: added parallel list support to renderArg
+c71494e  2014-10-07 12:32:15 +1100  BUG FIX: chopComma assumed the presence of a comma
+960a7e5  2014-10-07 09:34:40 +1100  Defined test cases for parallelism inference. Note that these are equivalent after inference has been performed.
+fcdbe58  2014-10-07 09:33:37 +1100  Implemented parallelism inference (in both directions).
+01b9301  2014-10-07 09:32:15 +1100  Changed Parallelism to not use record syntax. This allows us to define the value of NoPar as 1.
+8094f25  2014-10-07 08:17:56 +1100  Removed obsolete comment - this was fixed by checkArgs
+fa051b9  2014-10-06 11:08:35 +1100  Added parallelism attribute to DNode
+4d41b2e  2014-10-04 21:22:31 +1000  Defined parallelism operator
+5cb2244  2014-10-04 21:31:47 +1000  Moved functions to correct section
+4f28345  2014-10-04 18:38:20 +1000  Fixed import issue with H2V_Compat
+4a008ab  2014-10-04 00:39:15 +1000  Fixed some warnings in the testbench
+726e3f6  2014-10-04 00:35:31 +1000  Test case for maps now working
+41c32b1  2014-10-04 00:35:10 +1000  BUG FIX: map would only output a single value
+fb19a78  2014-10-04 00:33:57 +1000  BUG FIX: done signals for lists are now generated appropriately
+66f6934  2014-10-04 00:33:02 +1000  Revert "BUG FIX: added lambdas to rendering list"
+74322fa  2014-10-04 00:32:07 +1000  Whitespace fixups
+c271abb  2014-10-03 23:56:16 +1000  BUG FIX: Removed duplicate definitions of done signals
+02e1787  2014-10-03 23:33:34 +1000  BUG FIX: added lambdas to rendering list
+af38c5f  2014-10-03 23:31:40 +1000  Refactoring: defined isBuiltinMacro
+c1367b8  2014-10-03 23:31:05 +1000  BUG FIX: nodeType didn't consider lambdas
+cadab03  2014-10-03 22:59:34 +1000  Added support for rendering maps TODO: render associated lambdas
+82d0a53  2014-10-02 21:00:19 +1000  Integrated ListMinAvail into the Decons operator's result. This results in much cleaner code, and is needed in order to handle the recursive case well.
+1aaa3ae  2014-10-02 20:46:43 +1000  BUG FIX: didn't update dfold, dmap to traverse through tuples
+fa012ab  2014-10-02 19:45:21 +1000  tests: head and tail (decons pattern binding) now work
+f4af2d0  2014-10-02 19:44:01 +1000  BUG FIX: Added ready signal to ListMux, so that access is only granted after cond has propagated
+526c6d2  2014-10-02 19:43:12 +1000  BUG FIX: Decons needs to deassert REQ before transferring control of the list, otherwise a new request will not occur
+692a60d  2014-10-02 18:57:58 +1000  Added support for decons in subdeclarations
+e71ef42  2014-10-02 18:52:17 +1000  BUG FIX: req and ack have opposite assignment directions
+d84dafe  2014-10-02 18:21:54 +1000  BUG FIX: ListMux was defined the wrong way around
+f239f01  2014-10-02 18:20:07 +1000  BUG FIX: empty list literals still need to track lastReq
+161a07d  2014-10-02 18:06:09 +1000  Refactoring: added newlines to cleanup generated code
+6c508e4  2014-10-02 18:01:45 +1000  BUG FIX: removed inferred latch
+17b2a06  2014-10-02 17:54:07 +1000  Explicitly named module instances
+4bcb598  2014-10-02 17:53:56 +1000  Added definitions for implicit signals (removes warnings)
+107596d  2014-10-02 17:29:19 +1000  Removed trailing commas
+842d86a  2014-10-02 17:24:08 +1000  BUG FIX: functions can return lists
+7c2de3d  2014-10-02 17:04:46 +1000  Refined logic for root definitions to not exclude unnecessary lines
+5ae2786  2014-10-02 04:16:51 +1000  Made VNodeDef showable to facilitate debugging
+9fb60b6  2014-10-02 03:36:48 +1000  Fixed done signals - weren't being generated for lists in some cases
+de95a89  2014-10-02 03:32:18 +1000  BUG FIX: variables should be assigned the same type as their value
+20cc87f  2014-10-02 02:16:35 +1000  BUG FIX: ternary statement assumed values were scalars
+d054b35  2014-10-02 02:03:43 +1000  BUG FIX: should check the function signature instead of inferring type from root node, as it is more reliable Since type signatures aren't always available, fallback to type inferrance otherwise.
+cce4af7  2014-10-02 01:58:02 +1000  Modified makefile to simplify testing
+8ae98ce  2014-10-01 00:47:09 +1000  Added testcase for head
+89356ce  2014-10-01 00:46:35 +1000  Created a second testbench module for scalar tests
+7e71784  2014-10-01 00:39:29 +1000  BUG FIX: Fixed done signals
+67a72ee  2014-09-30 23:52:51 +1000  Patch N of N: fixed decons implementation
+d72fd5c  2014-09-30 23:18:11 +1000  Implemented Decons, ListMinAvail (WIP)
+ecee6bb  2014-09-30 22:03:20 +1000  Refactoring: added extended versions of functions to facilitate tuples
+1e11144  2014-09-30 20:24:01 +1000  Refactoring: added field to RecursiveCase for list items consumed
+bf2897b  2014-09-30 19:37:19 +1000  RenderVerilog: added check for recursive function which produces a list
+8295310  2014-09-30 19:36:55 +1000  Added tuple support to RenderGraphviz (consumption only)
+452e000  2014-09-30 19:30:53 +1000  Refactoring: replaced ListNotEmpty with ListMinAvail. This handles the case where a function consumes multiple elements from the list at once.
+ed0db17  2014-09-30 18:20:27 +1000  Patch 5 of N: added tuple support to RenderGraphviz
+9f46083  2014-09-30 18:11:47 +1000  Refactoring
+2cf8237  2014-09-30 18:11:32 +1000  Added pattern matching code for lists
+16682fc  2014-09-30 17:50:25 +1000  Patch 0 of N: added test case
+8bc2094  2014-09-30 17:22:18 +1000  Patch 4 of N: added internal tuple support. Needed to enable decons to return 2 values
+010ea5c  2014-09-30 17:21:23 +1000  Patch 3 of N: Refactored defineDecl to facilitate the definition of multiple nodes per declaration. Needed for destructuring.
+ad6020f  2014-09-30 16:45:00 +1000  Patch 2 of N: Added name extraction for tuple-patterns
+25729fd  2014-09-30 16:28:34 +1000  Patch 1 of N: added pattern destructuring for cons opreator
+709a310  2014-09-30 16:46:51 +1000  BUG FIX: was defining concat with the wrong type
+667d31f  2014-09-30 16:44:05 +1000  BUG FIX: createDfdHeaders returned an uninformative error message
+89c0e21  2014-09-30 00:10:11 +1000  BUG FIX: parsing library has the wrong associativity for the cons operator
+b82fbce  2014-09-29 22:59:08 +1000  Changed list protocol to use value_valid instead of eol (fully tested). This delays termination signal until after the non-existent element has been requested. It simplifies some code and generalizes to the parallel case more easily.
+
+================================================================================
 Thursday 25 September 2014
 Fully implemented and debugged list operators. Modified list protocol to
 require REQ to be reset and reasserted between reads, since this greatly
