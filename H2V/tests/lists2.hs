@@ -21,3 +21,6 @@ mapTest2 a = (map (+10) [0 .. 16]) ||| 4
 foldTest :: Int -> Int
 foldTest x = mfoldr (+) 0 [0 .. 10] ||| 4
 
+zipTest :: Int -> [Int]
+zipTest _ = zipWith (+) [1, 2, 3, 4, 5] [10, 20, 30, 40, 50] ||| 3
+

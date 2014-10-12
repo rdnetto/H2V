@@ -72,6 +72,11 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) MapMacro
          in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
 
+        let op = "zipWith"
+            args = [(-1, DFunc [UndefinedType, UndefinedType] UndefinedType), (-1, DList UndefinedType), (-1, DList UndefinedType)]
+            root = DBuiltin (-1) ZipMacro
+         in pushDfdNS (op, DFD (-1) op args (DList UndefinedType) False root)
+
         let op = "mfoldr"
             args = [(-1, DFunc [UndefinedType, UndefinedType] UndefinedType), (-1, UndefinedType), (-1, DList UndefinedType)]
             root = DBuiltin (-1) FoldMacro

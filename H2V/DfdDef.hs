@@ -87,7 +87,7 @@ data DNode = DLiteral{
             }
     deriving (Show, Eq)
 
-data BuiltinOp = BitwiseNot | BinaryOp String | Ternary | EnumList | Decons | ListMinAvail | MapMacro | FoldMacro
+data BuiltinOp = BitwiseNot | BinaryOp String | Ternary | EnumList | Decons | ListMinAvail | MapMacro | FoldMacro | ZipMacro
     deriving (Show, Eq)
 
 -- supported data types: D_Int width. (May add fixed point support in the future)
@@ -120,7 +120,7 @@ isFunctionCall _ = False
 
 isBuiltinMacro :: DNode -> Bool
 isBuiltinMacro db@(DBuiltin _ op)
-    | op `elem` [MapMacro, FoldMacro] = True
+    | op `elem` [MapMacro, FoldMacro, ZipMacro] = True
 isBuiltinMacro _ = False
 
 isHigherOrderFunc :: DFD -> Bool

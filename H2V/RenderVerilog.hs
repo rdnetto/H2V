@@ -784,6 +784,155 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
               "endmodule"
           ]
 
+renderBuiltin resID ZipMacro par [lambda, list1, list2] = VNodeDef resID def ass mod where
+    list1ID = nodeID list1
+    list2ID = nodeID list2
+    listType = nodeType list1
+    f = functionCalled lambda
+    fID = dfdID f
+    def = defineNode resID listType par
+    ass = concat [
+            printf "Zip_%i zip_%i(clock, node_%i_done & node_%i_done, node_%i_done,\n\t" resID resID list1ID list2ID resID,
+            lstrip $ argEdge par list1,
+            lstrip $ argEdge par list2,
+            "\n\t",
+            lstrip . chopComma . argEdge par $ DVariable resID listType Nothing,
+            ");\n"
+          ]
+    inputType = scalarVType . snd . head $ dfdArgs f
+    outputType = scalarVType $ returnType f
+    mod = unlines [
+              printf "module Zip_%i(" resID,
+              indent [
+                  --referring to args as list_0 and list_1 for input and output lists, respectively
+                  "input clock, input ready, output done,",
+                  "output list1In_req_actual,",
+                  "input  list1In_ack,",
+                  unlines . parEdge par $ printf "input %s list1In_value_%i," inputType,
+                  unlines . parEdge par $ printf "input       list1In_value_%i_valid,",
+
+                  "output list2In_req_actual,",
+                  "input  list2In_ack,",
+                  unlines . parEdge par $ printf "input %s list2In_value_%i," inputType,
+                  unlines . parEdge par $ printf "input       list2In_value_%i_valid,",
+
+                  "input            listOut_req,",
+                  "output reg       listOut_ack,",
+                  unlines . parEdge par $ printf "output reg %s listOut_value_%i," outputType,
+                  chopComma . unlines . parEdge par $ printf "output reg       listOut_value_%i_valid,",
+                  ");",
+                  "",
+
+                  --waitingForInput:  waiting for a new value from listIn
+                  --processingValues: waiting for f(listIn_value) to complete
+                  --endOfInput:       the input list has been exhausted
+                  --funcStalling:     the function is stalling, waiting for the consumer to take the next value
+                  --consumerWaiting:  the consumer of the output list is waiting for a value
+                  --consumerServed:   the consumer of the output list has been given a value
+                  --bothAckd:         both lists have asserted ACK
+                  "reg wasReady;",
+                  "reg list1In_req, list2In_req, list1In_ackd, list2In_ackd;",
+                  "reg waitingForInput, processingValuesActual, endOfInput;",
+                  "reg consumerServed;",
+                  "wire consumerWaiting, processingValues, valuesProcessed, funcStalling, bothAckd;",
+                  printf "wire %s %s;" outputType $ joinMap ", " id $ parEdge par (printf "nextVal_%i"),
+                  printf "wire %s;" $ joinMap ", " id $ parEdge par (printf "nextVal_%i_valid"),
+                  printf "wire %s;" $ joinMap ", " id $ parEdge par (printf "lambda_%i_done"),
+                  unlines . parEdge par $ \i -> printf "dfd_%i lambda_%i(clock, processingValues, lambda_%i_done, list1In_value_%i, list2In_value_%i, nextVal_%i);" fID i i i i i,
+                  "",
+                  "assign done = ready;",
+                  "assign list1In_req_actual = list1In_req | (ready & ~wasReady);",
+                  "assign list2In_req_actual = list2In_req | (ready & ~wasReady);",
+                  "assign consumerWaiting = listOut_req & ~consumerServed;",
+                  "assign funcStalling = ~waitingForInput & ~processingValues & ~endOfInput;",
+                  "assign processingValues = processingValuesActual | (waitingForInput & bothAckd & ~endOfInput);",
+                  "assign bothAckd = (list1In_ackd | list1In_ack) & (list2In_ackd | list2In_ack);",
+                  printf "assign valuesProcessed = %s;" . joinMap " & " id . parEdge par $ printf "lambda_%i_done",
+                  "",
+
+                  "always @(posedge clock) begin",
+                  indent [
+                      "wasReady <= ready;",
+                      "",
+                      "if(ready) begin",
+                      indent [
+                          "if(~wasReady | (funcStalling & consumerServed)) begin",
+                          "\tlist1In_req <= 1;",
+                          "\tlist2In_req <= 1;",
+                          "\twaitingForInput <= 1'b1;",
+                          "end",
+                          "",
+                          "if(waitingForInput) begin",
+                          indent [
+                              "if(bothAckd) begin",
+                              indent [
+                                  "waitingForInput <= 1'b0;",
+                                  "list1In_ackd <= 1'b0;",
+                                  "list2In_ackd <= 1'b0;",
+                                  "",
+                                  printf "if(list1In_value_0_valid && list2In_value_0_valid) begin",
+                                  "\tprocessingValuesActual <= 1'b1;",
+                                  "end else begin",
+                                  "\tendOfInput <= 1'b1;",
+                                  "end"
+                              ],
+                              "end else if(list1In_ack) begin",
+                              "\tlist1In_ackd <= 1'b1;",
+                              "end else if(list2In_ack) begin",
+                              "\tlist2In_ackd <= 1'b1;",
+                              "end"
+                          ],
+                          "end",
+                          "",
+                          "if((valuesProcessed | endOfInput) & consumerWaiting) begin",
+                          indent [
+                              unlines . parEdge par $ printfAll "listOut_value_%i <= nextVal_%i;",
+                              unlines . parEdge par $ printfAll "listOut_value_%i_valid <= list1In_value_%i_valid & list2In_value_%i_valid & ~endOfInput;",
+
+                              "listOut_ack <= 1'b1;",
+                              "consumerServed <= 1'b1;",
+                              "if(~endOfInput) begin",
+                              indent [
+                                  "if (list1In_req) begin",
+                                  "\tlist1In_req <= 1'b0;",
+                                  "\tlist2In_req <= 1'b0;",
+                                  "\tprocessingValuesActual <= 1'b0;",
+                                  "end else begin",
+                                  "\tlist1In_req <= 1'b1;",
+                                  "\tlist2In_req <= 1'b1;",
+                                  "\twaitingForInput <= 1'b1;",
+                                  "end"
+                              ],
+                              "end"
+                          ],
+                          "end",
+                          "",
+                          "if(consumerServed)",
+                          "\tlistOut_ack <= 1'b0;",
+                          "",
+                          "if(~listOut_req)",
+                          "\tconsumerServed <= 1'b0;",
+                          ""
+                      ],
+                      "end else begin",
+                      indent [
+                          "waitingForInput <= 1'b0;",
+                          "processingValuesActual <= 1'b0;",
+                          "endOfInput <= 1'b0;",
+                          "consumerServed <= 1'b0;",
+                          "list1In_req <= 1'b0;",
+                          "list2In_req <= 1'b0;",
+                          "listOut_ack <= 1'b0;",
+                          unlines . parEdge par $ printf "listOut_value_%i <= 8'hFF;",
+                          unlines . parEdge par $ printf "listOut_value_%i_valid <= 1'b0;"
+                      ],
+                      "end"
+                  ],
+                  "end"
+              ],
+              "endmodule"
+          ]
+
 renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def ass vMod where
     listID = nodeID list
     listType = nodeType list
