@@ -21,3 +21,6 @@ docs/Design Presentation/src/*.rtf
 *.done
 scratch/nios-spike/
 scratch/verilog-test/test.v
+
+# Powerpoint keeps generating these...
+*.lnk
