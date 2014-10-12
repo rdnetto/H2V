@@ -420,19 +420,19 @@ renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ ret
 --List literals are handled by generating a module to implement the list interface
 renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDefs where
     par = parValue p
-    def = unlines [ printfAll "wire node_%i_req, node_%i_ack;" listID,
-                    unlines . parEdge par $ printf "wire [7:0] node_%i_value_%i;" listID,
-                    unlines . parEdge par $ printf "wire node_%i_value_%i_valid;" listID,
-                    printfAll "wire node_%i_done;" listID
+    def = unlines [ defineNode listID (DList UndefinedType) par,
+                    printf "wire node_%i_ready;" listID
                   ]
-    ass = unlines  [printfAll "listLiteral_%i listLit_%i(clock, ready," listID,
+    ass = unlines [ printf "assign node_%i_ready = %s;" listID readySig,
+                    printfAll "listLiteral_%i listLit_%i(clock, node_%i_ready," listID,
                     chopComma $ indent [
-                        unlines $ map argEdge' items,
+                        concatMap (argEdge par) items,
                         argEdge par (DVariable listID (DList UndefinedType) Nothing)
                     ],
                     ");",
                     genericDone listID items
                   ]
+    readySig = joinMap " & " (printf "node_%i_done" . nodeID) items
     elemDefs = concatMap renderNode items
     elemIndices = [0 .. length items - 1]
     mod = if   items == []
@@ -446,36 +446,34 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                         "input ready,",
                         "input req,",
                         "output reg ack,",
-                        "output [7:0] value,",
-                        "output value_valid"
+                        unlines . parEdge par $ printf "output [7:0] value_%i,",
+                        chopComma . unlines . parEdge par $ printf "output value_%i_valid,"
                     ],
                     ");\n",
                     indent [
                         "reg lastReq;",
                         "",
-                        "assign value = 8'hXX;",
-                        "assign value_valid = 0;",
+                        unlines . parEdge par $ printf "assign value_%i = 8'hXX;",
+                        chopComma . unlines . parEdge par $ printf "assign value_%i_valid = 0;",
                         "",
                         "always @(posedge clock) begin",
                         "\tack <= ready & ~lastReq & req;",
                         "\tlastReq <= req;",
                         "end"
                         ],
-                    "endmodule"
+                    "endmodule\n"
                 ]
 
+    parCases = length items `div` par
     mod' = unlines [printf "module listLiteral_%i(" listID,
                     indent [
                         "input clock,",
                         "input ready,",
-                        concatMap (printfAll $ unlines [
-                                "input [7:0] x_%i,",
-                                "input x_%i_done,"
-                                ]) elemIndices,
+                        unlines $ map (printf "input [7:0] x_%i,") elemIndices,
                         "input req,",
                         "output reg ack,",
-                        "output reg [7:0] value,",
-                        "output reg value_valid"
+                      unlines . parEdge par $ printf "output reg [7:0] value_%i,",
+                      chopComma . unlines . parEdge par $ printf "output reg value_%i_valid,"
                     ],
                     ");\n",
                     indent [
@@ -488,10 +486,10 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                         indent [
                             "case (index)",
                             indent [
-                                concatMap elemCase elemIndices,
+                                concatMap elemCase [0 .. parCases],
                                 "default: begin",
-                                "\tdone = 1;",
-                                "\tvalue = 8'hFF;",
+                                indent . parEdge par $ printf "value_%i = 8'hFF;",
+                                chopComma . indent . parEdge par $ printf "value_%i_valid = 0;",
                                 "end"
                             ],
                             "endcase"
@@ -505,16 +503,13 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                             "if(~ready) begin",
                             indent [
                                 "index <= 8'hFF;",
-                                "ack <= 0;",
-                                "value_valid <= 0;"
+                                "ack <= 0;"
                             ],
                             "end else if(req & ~lastReq) begin",
                             indent [
-                                printf "if(index < 8'd%i || index == 8'hFF) begin" $ last elemIndices,
-                                "\tvalue_valid <= 1;",
+                                printf "if(index < 8'd%i || index == 8'hFF) begin" $ parCases + 1,
                                 "\tindex <= index + 1;",
-                                "end else",
-                                "\tvalue_valid <= 0;",
+                                "end",
                                 "ack <= 1;"
                             ],
                             "end else begin",
@@ -525,24 +520,33 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                         ],
                         "end"
                     ],
-                    "endmodule"
+                    "endmodule\n"
                   ]
 
+    --i is the index of the iteration - value_0 will be set to par*i
     elemCase :: Int -> String
-    elemCase i = printfAll fmt i where
-        fmt = unlines [
-                "%i: begin",
-                indent [
-                    "value = x_%i;"
-                ],
-                "   end"
+    elemCase i = res where
+        res = unlines [
+                printf "%i: begin" i,
+                indent $ parEdge par valAssign,
+                "end"
               ]
+        offset = par*i
 
-    --variant which adds return and done signals
-    argEdge' :: DNode -> String
-    argEdge' a = value ++ done where
-        value = renderArg "" "node" True ", " 1 (0, (nodeID a, nodeType a))
-        done  = renderArg "" "node" True "_done," 1 (0, (nodeID a, DBool))
+        valAssign :: Int -> String
+        valAssign j
+            | isValid   = printf fmt1 j (offset+j) j
+            | otherwise = printf fmt2 j j
+            where
+                isValid = (offset + j) < (length items)
+                fmt1 = unlines [
+                        "value_%i = x_%i;",
+                        "value_%i_valid = 1'b1;"
+                       ]
+                fmt2 = unlines [
+                        "value_%i = 8'hFF;",
+                        "value_%i_valid = 1'b0;"
+                       ]
 
 renderNode n = error $ "Unable to render:\n" ++ (show n)
 
