@@ -27,6 +27,34 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
                 root = DBuiltin (-1) (BinaryOp op)
          in mapM f' ["+", "-", "*", "/", "==", "<", ">", "<=", ">="]
 
+        --Bitwise operators
+        let f' op = pushDfdNS (op, DFD (-1) op args UndefinedType False root) where
+                args = [(-1, UndefinedType), (-1, UndefinedType)]
+                root = DBuiltin (-1) (BinaryOp $ replace "." "" op)
+         in mapM f' [".&.", ".|.", ".<<.", ".>>."]
+
+        let op = "xor"
+            args = [(-1, UndefinedType), (-1, UndefinedType)]
+            root = DBuiltin (-1) (BinaryOp "^")
+         in pushDfdNS (op, DFD (-1) op args UndefinedType False root)
+
+        let op = "complement"
+            args = [(-1, UndefinedType)]
+            root = DBuiltin (-1) BitwiseNot
+         in pushDfdNS (op, DFD (-1) op args UndefinedType False root)
+
+        --Boolean operators
+        let f' op = pushDfdNS (op, DFD (-1) op args DBool False root) where
+                args = [(-1, DBool), (-1, DBool)]
+                root = DBuiltin (-1) (BinaryOp op)
+         in mapM f' ["&&", "||"]
+
+        let op = "not"
+            args = [(-1, DBool)]
+            root = DBuiltin (-1) (BinaryOp op)
+         in pushDfdNS (op, DFD (-1) op args DBool False root)
+
+        --Ternary operator
         let args = [(-1, DBool), (-1, UndefinedType), (-1, UndefinedType)]
             root = DBuiltin (-1) Ternary
          in pushDfdNS ("if", DFD (-1) "if" args UndefinedType False root)
@@ -67,6 +95,7 @@ astToDfd (HsModule _ _ exportSpec _ decls) = evalState m initialNodeData where
             root = DBuiltin (-1) ListMinAvail
          in pushDfdNS (op, DFD (-1) op args DBool False root)
 
+        --Macros
         let op = "map"
             args = [(-1, DFunc [UndefinedType] UndefinedType), (-1, DList UndefinedType)]
             root = DBuiltin (-1) MapMacro
