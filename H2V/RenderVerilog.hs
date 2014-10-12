@@ -730,7 +730,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
                           indent [
                               "waitingForInput <= 1'b0;",
                               "",
-                              printf "if(listIn_value_%i_valid) begin" $ par - 1,
+                              printf "if(listIn_value_0_valid) begin",
                               "\tprocessingValuesActual <= 1'b1;",
                               "end else begin",
                               "\tendOfInput <= 1'b1;",
