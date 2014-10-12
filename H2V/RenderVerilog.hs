@@ -479,7 +479,6 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                     ],
                     ");\n",
                     indent [
-                        "reg done;",
                         "reg dummy;",
                         "reg lastReq;",
                         "reg [7:0] index;",
@@ -534,7 +533,6 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
         fmt = unlines [
                 "%i: begin",
                 indent [
-                    "done = x_%i_done;",
                     "value = x_%i;"
                 ],
                 "   end"
