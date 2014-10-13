@@ -4,7 +4,7 @@ sum :: [Int] -> Int
 sum = mfoldr (+) 0
 
 dotProduct :: [Int] -> [Int] -> Int
-dotProduct = sum . zipWith (*)
+dotProduct u v = sum $ zipWith (*) u v ||| 3
 
 demo _ = dotProduct [1, 2, 3] [4, 5, 6] ||| 3
 
