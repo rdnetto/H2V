@@ -1,0 +1,53 @@
+digraph G{
+subgraph cluster_dfd_10{
+label = "sum [dfd_10] (1 args)";
+color = black;
+node_11 [ label = "arg_0
+[node_11]", color=red ];
+
+node_12 [ label = "Function call: mfoldr 
+[node_12]", color=darkgreen ];
+node_8 [ label = "Function: +
+[node_8]", color=darkgreen ];
+node_9 [ label = "0
+[node_9]"];
+
+result_10 [ label = "Result", color=red ];
+}
+
+subgraph cluster_dfd_2{
+label = "dotProduct [dfd_2] (2 args)";
+color = black;
+node_3 [ label = "arg_0
+[node_3]", color=red ];
+node_4 [ label = "arg_1
+[node_4]", color=red ];
+
+node_19 [ label = "Function call: sum (dfd_10)
+Par: 3
+[node_19]", color=darkgreen ];
+node_20 [ label = "Function call: zipWith 
+Par: 3 (inferred)
+[node_20]", color=darkgreen ];
+node_22 [ label = "Function: __lambda_40
+[node_22]", color=darkgreen ];
+node_17 [ fontcolor=dimgray ];
+node_18 [ fontcolor=dimgray ];
+
+result_2 [ label = "Result", color=red ];
+}
+
+node_8 -> node_12 [ label = "arg_0" ];
+node_9 -> node_12 [ label = "arg_1" ];
+node_11 -> node_12 [ label = "arg_2" ];
+
+node_12 -> result_10;
+node_20 -> node_19 [ label = "arg_0" ];
+node_22 -> node_20 [ label = "arg_0" ];
+node_17 -> node_20 [ label = "arg_1" ];
+node_18 -> node_20 [ label = "arg_2" ];
+node_3 -> node_17;
+node_4 -> node_18;
+
+node_19 -> result_2;
+}
