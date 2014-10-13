@@ -357,7 +357,7 @@ defineTypedArg (HsPVar name') (nodeID, DFunc args ret) = do
     return (name, node, Just dfd)
 defineTypedArg (HsPVar name') (nodeID, t) = do
     let name = fromHsName name'
-    let node = DVariable nodeID t Nothing
+    let node = DArgument nodeID t NoPar
     pushNodeNS (name, node)
     return (name, node, Nothing)
 
@@ -367,7 +367,7 @@ defineTypedArg (HsPVar name') (nodeID, t) = do
 definePat :: HsPat -> DNode -> NodeGen [(String, DNode)]
 definePat (HsPVar name) value = do
     nodeID <- newId
-    return . return $ (fromHsName name, DVariable nodeID (nodeType value) (Just value))
+    return . return $ (fromHsName name, DVariable nodeID (nodeType value) value)
 definePat (HsPTuple ps) value = concatMapM f $ zip [0..] ps where
     f (i, pat) = do
         nodeID <- newId
@@ -496,7 +496,7 @@ resolveFunc :: HsExp -> NodeGen DFD
 resolveFunc (HsVar name) = liftM funcCalled . resolve $ fromHsQName name where
     funcCalled f@DFunctionCall{} = functionCalled f
     funcCalled f@DFunction{} = functionCalled f
-    funcCalled DVariable{variableValue = Just f} = functionCalled f
+    funcCalled DVariable{variableValue = f} = functionCalled f
 resolveFunc l@(HsLet _ _) = (liftM functionCalled) $ defineExpr l
 
 --This function re-orders declarations so that their data dependencies are met.
@@ -611,18 +611,18 @@ checkArgs fc@(DFunctionCall id f args par)
         cloneArg (_, t) = newId >>= \i -> return (i, t)
 
         createArg :: (NodeId, DType) -> DNode
-        createArg (i, t) = DVariable i t Nothing
+        createArg (i, t) = DArgument i t par
 
 --Defines the DFD of an instance of a lambda function.
 --Clones nodes and substitutes args so that it is independent of other instances.
 instantiateLambda :: DNode -> NodeGen DFD
-instantiateLambda (DFunctionCall _ macro mArgs _)
+instantiateLambda (DFunctionCall _ macro mArgs par)
     | isHigherOrderFunc macro = do
         id' <- newId
         let f = functionCalled $ dfdRoot macro
         let macroArgs = zip (map fst $ dfdArgs macro) mArgs                --args from higher order func - substitute these for literals
         let oldArgs = map fst $ dfdArgs f                                  --args native to lambda - can't just clone them
-        newArgs <- mapM cloneArg (dfdArgs f)                               --  since they're stored in the DFD as well
+        newArgs <- mapM (cloneArg par) (dfdArgs f)                               --  since they're stored in the DFD as well
         let args' = map (\n -> (nodeID n, variableType n)) newArgs
         root' <- liftM (dmap (subArgs $ zip oldArgs newArgs)) . dmapM (cloneNodes oldArgs) . dmap (subArgs macroArgs) $ dfdRoot f
         return f{dfdID = id', dfdRoot = root', dfdArgs_ = args'}
@@ -642,10 +642,10 @@ cloneNodes whitelist node
     | (nodeID node) `elem` whitelist = return node
     | otherwise                      = newId >>= \n -> return node{nodeID = n}
 
-cloneArg :: (NodeId, DType) -> NodeGen DNode
-cloneArg (_, t) = do
+cloneArg :: Parallelism -> (NodeId, DType) -> NodeGen DNode
+cloneArg par (_, t) = do
     i <- newId
-    return $ DVariable i t Nothing
+    return $ DArgument i t par
 
 --ListMinAvail rewriting - modifies LMAs to be children of their corresponding decons
 matchDecons :: DNode -> DNode
@@ -697,8 +697,8 @@ reverseInferPar n = n
 getPar :: DNode -> Maybe Int
 getPar node
     | hasParallelism node = Just . parValue $ parallelism node
-getPar DVariable{variableValue = Just val} = getPar val
-getPar DVariable{} = Nothing
+getPar DVariable{variableValue = val} = getPar val
+getPar DArgument{} = Nothing
 getPar node = error $ "getPar: Unknown node " ++ show node
 
 --Promotes builtin-operators that are args to macros to full functions
@@ -708,8 +708,8 @@ promoteBuiltinArgs func@DFunction{}
         fID <- newId
         let oldDfd = functionCalled func
 
-        callArgs <- mapM cloneArg $ dfdArgs oldDfd
-        let args' = map (\(DVariable i t _) -> (i, t)) callArgs
+        callArgs <- mapM (cloneArg NoPar) $ dfdArgs oldDfd
+        let args' = map (\(DArgument i t _) -> (i, t)) callArgs
 
         rootID <- newId
         let root' = DFunctionCall rootID oldDfd callArgs NoPar

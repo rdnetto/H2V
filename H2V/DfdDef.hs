@@ -69,7 +69,12 @@ data DNode = DLiteral{
             | DVariable{
                 nodeID :: NodeId,
                 variableType :: DType,
-                variableValue :: Maybe DNode
+                variableValue :: DNode
+            }
+            | DArgument{
+                nodeID :: NodeId,
+                variableType :: DType,
+                parallelism :: Parallelism
             }
             | DBuiltin{
                 nodeID :: NodeId,
@@ -146,13 +151,14 @@ isIf _ = False
 
 --Returns a list of values which the node depends on. This does not include functions.
 nodeChildren :: DNode -> [DNode]
-nodeChildren DVariable{variableValue = Just v} = [v]
+nodeChildren DVariable{variableValue = v} = [v]
 nodeChildren DFunctionCall{callArgs = a} = a
 nodeChildren _ = []
 
 --Convenience function for determining the type of a variable.
 nodeType :: DNode -> DType
 nodeType DVariable{variableType = t} = t
+nodeType DArgument{variableType = t} = t
 nodeType DFunction{functionCalled = f} = DFunc (map snd $ dfdArgs f) (returnType f)
 nodeType DFunctionCall{functionCalled = f} = returnType f
 nodeType DLiteral{} = UndefinedType
@@ -170,8 +176,8 @@ selectType (t0:ts) = t0
 selectType [] = UndefinedType
 
 isArg :: DNode -> Bool
-isArg DVariable{variableValue = Nothing} = True
-isArg DVariable{} = False
+isArg DArgument{} = True
+isArg _ = False
 
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
@@ -188,6 +194,7 @@ hasParallelism :: DNode -> Bool
 hasParallelism DFunctionCall{functionCalled = f}
     | any isList $ (returnType f):(map snd $ dfdArgs f) = True
 hasParallelism DListLiteral{} = True
+hasParallelism DArgument{} = True
 hasParallelism _ = False
 
 isAssigned :: Parallelism -> Bool
@@ -197,16 +204,14 @@ isAssigned _ = False
 --Simplifies mapping over the DFD. Uses depth-first traversal. Does not pass through function calls or DFunctions.
 --Does not check for infinite loops, since DFDs are trees.
 dmap :: (DNode -> DNode) -> DNode -> DNode
-dmap f n@(DVariable _ _ val) = f $ n{variableValue = liftM (dmap f) val}
+dmap f n@(DVariable _ _ val) = f $ n{variableValue = dmap f val}
 dmap f n@(DTupleElem _ _ val) = f $ n{tuple = dmap f val}
 dmap f n@(DFunctionCall _ _ args _) = f $ n{callArgs = map (dmap f) args}
 dmap f x = f x
 
 dmapM :: Monad m => (DNode -> m DNode) -> DNode -> m DNode
 dmapM f n@(DVariable _ _ val) = do
-    val' <- if isJust val
-           then (liftM Just) . (dmapM f) $ fromJust val
-           else return val
+    val' <- dmapM f val
     f $ n{variableValue = val'}
 
 dmapM f n@(DTupleElem _ _ val) = do
@@ -220,7 +225,7 @@ dmapM f n@(DFunctionCall _ _ args _) = do
 dmapM f x = f x
 
 dfold :: (a -> DNode -> a) -> a -> DNode -> a
-dfold f x0 n@(DVariable _ _ (Just val)) = dfold f (f x0 n) val
+dfold f x0 n@(DVariable _ _ val) = dfold f (f x0 n) val
 dfold f x0 n@(DTupleElem _ _ val) = dfold f (f x0 n) val
 dfold f x0 n@(DFunctionCall _ _ args _) = foldl (dfold f) (f x0 n) args
 dfold f x0 n = f x0 n
@@ -267,7 +272,7 @@ displayFunc f = printf "[%2i] %s %s" (dfdID f) (dfdName f) (if isHeader f then "
 --retrieve value expected to be known at compile-time
 getConstant :: DNode -> Int
 getConstant DLiteral{literalValue = x} = x
-getConstant DVariable{variableValue = Just x} = getConstant x
+getConstant DVariable{variableValue = x} = getConstant x
 
 --Monadic functions
 

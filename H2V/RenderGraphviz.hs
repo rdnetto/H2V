@@ -44,9 +44,9 @@ renderArg (i, (argID, _)) = printf "node_%i [ label = \"arg_%i\n[node_%i]\", col
 
 renderNode :: DNode -> [GNodeDef]
 renderNode (DLiteral nodeID value) = return $ GNodeDef nodeID (printf "node_%i [ label = \"%i\n[node_%i]\"];\n" nodeID value nodeID) ""
-renderNode (DVariable _ _ Nothing) = []                                     --arguments are defined as part of the function
+renderNode (DArgument _ _ _) = []                                     --arguments are defined as part of the function
 
-renderNode (DVariable varID _ (Just val)) = (GNodeDef varID node edge):valDef where
+renderNode (DVariable varID _ val) = (GNodeDef varID node edge):valDef where
     valDef = renderNode val
     node = printf "node_%i [ fontcolor=dimgray ];\n" varID
     edge = printf "node_%i -> node_%i;\n" (nodeID val) varID

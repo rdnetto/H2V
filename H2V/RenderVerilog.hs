@@ -366,14 +366,14 @@ renderNode (DLiteral nodeID value) = return $ VNodeDef nodeID def ass "" where
                   ]
 
 --arguments which are lists are already defined
-renderNode (DVariable nodeID (DList _) Nothing) = []
+renderNode (DArgument nodeID (DList _) _) = []
 
 --argument - wire/reg is defined with function, but need to manually specify ready/done signals
-renderNode (DVariable nodeID _ Nothing) = return $ VNodeDef nodeID def ass "" where
+renderNode (DArgument nodeID _ _) = return $ VNodeDef nodeID def ass "" where
     def = printf "wire node_%i_done;\n" nodeID
     ass = printf "assign node_%i_done = ready;\n" nodeID
 
-renderNode var@(DVariable varID t (Just val)) = valDef ++ return (VNodeDef varID def ass "") where
+renderNode var@(DVariable varID t val) = valDef ++ return (VNodeDef varID def ass "") where
     valDef = renderNode val
     def = defineNode varID t $ getParallelism val
     ass = assignNode var val
@@ -396,7 +396,7 @@ renderNode (DFunctionCall appID f args p)
         ready = joinMap " & " (printf "node_%i_done" . nodeID) args'
         aDefs = concatMap renderNode args'
         aAsses = concatMap (argEdge par) args'
-        resAss = chopComma . argEdge par $ DVariable appID (returnType f) Nothing
+        resAss = chopComma . argEdge par $ DArgument appID (returnType f) p
 
 renderNode elem@(DTupleElem elemID tupleIndex tuple) = (renderNode tuple) ++ return (VNodeDef elemID def ass "") where
     par = getParallelism tuple
@@ -427,7 +427,7 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                     printfAll "listLiteral_%i listLit_%i(clock, node_%i_ready," listID,
                     chopComma $ indent [
                         concatMap (argEdge par) items,
-                        argEdge par (DVariable listID (DList UndefinedType) Nothing)
+                        argEdge par (DArgument listID (DList UndefinedType) p)
                     ],
                     ");",
                     genericDone listID items
@@ -564,7 +564,8 @@ parEdge par f = map f [0 .. par - 1]
 getParallelism :: DNode -> Int
 getParallelism node
     | hasParallelism node = parValue $ parallelism node
-getParallelism (DVariable _ _ (Just value)) = getParallelism value
+getParallelism (DVariable _ _ value) = getParallelism value
+getParallelism node@DArgument{} = parValue $ parallelism node
 getParallelism node@DFunctionCall{} = parValue $ parallelism node
 getParallelism node@DTupleElem{} = getParallelism $ tuple node
 getParallelism node = error $ "getParallelism: unknown node " ++ show node
@@ -582,8 +583,8 @@ renderBuiltin resID (BinaryOp ":") par args@(a0:a1:[])
         def = defineNode resID (nodeType a1) par
         ass = concat [
                 printf "Cons cons_%i(clock, node_%i_done, node_%i, " resID resID a0ID,
-                argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
-                argEdge par (DVariable resID (DList UndefinedType) Nothing),          --TODO: implement parallelism
+                argEdge par (DArgument  a1ID (DList UndefinedType) (InferredPar par)),
+                argEdge par (DArgument resID (DList UndefinedType) (InferredPar par)),          --TODO: implement parallelism
                 ");\n"
             ]
         a0ID = nodeID a0
@@ -599,9 +600,9 @@ renderBuiltin resID (BinaryOp "++") par args@(a0:a1:[])
         a1ID = nodeID a1
         ass = unlines [
                 printf "Concat concat_%i(clock, node_%i_done," resID resID,
-                argEdge par (DVariable  a0ID (DList UndefinedType) Nothing),          --TODO: implement parallelism
-                argEdge par (DVariable  a1ID (DList UndefinedType) Nothing),
-                argEdge par (DVariable resID (DList UndefinedType) Nothing),
+                argEdge par (DArgument  a0ID (DList UndefinedType) (InferredPar par)),          --TODO: implement parallelism
+                argEdge par (DArgument  a1ID (DList UndefinedType) (InferredPar par)),
+                argEdge par (DArgument resID (DList UndefinedType) (InferredPar par)),
                 ");",
                 printf "assign node_%i_done = node_%i_done & node_%i_done;" resID a0ID a1ID
             ]
@@ -653,9 +654,9 @@ renderBuiltin resID Decons par [list]
         ass = concat [ printf   "Decons decons_%i(clock, node_%i_done, node_%i_done,\n\t" listID listID resID,
                        strip  $ argEdge par list,
                        "\n\t",
-                       lstrip $ argEdgeX "node_head" (DVariable resID UndefinedType Nothing) 1,
+                       lstrip $ argEdgeX "node_head" (DArgument resID UndefinedType NoPar) 1,
                        lstrip $ printf   "node_head_%i_valid,\n\t" resID,
-                       lstrip . chopComma $ argEdgeX "node_tail" (DVariable resID (DList UndefinedType) Nothing) par,
+                       lstrip . chopComma $ argEdgeX "node_tail" (DArgument resID (DList UndefinedType) (InferredPar par)) par,
                        ");\n"
                      ]
 
@@ -669,7 +670,7 @@ renderBuiltin resID MapMacro par [lambda, list] = VNodeDef resID def ass mod whe
             printf "Map_%i map_%i(clock, node_%i_done, node_%i_done,\n\t" resID resID listID resID,
             lstrip $ argEdge par list,
             "\n\t",
-            lstrip . chopComma . argEdge par $ DVariable resID listType Nothing,
+            lstrip . chopComma . argEdge par $ DArgument resID listType (InferredPar par),
             ");\n"
           ]
     inputType = scalarVType . snd . head $ dfdArgs f
@@ -796,7 +797,7 @@ renderBuiltin resID ZipMacro par [lambda, list1, list2] = VNodeDef resID def ass
             lstrip $ argEdge par list1,
             lstrip $ argEdge par list2,
             "\n\t",
-            lstrip . chopComma . argEdge par $ DVariable resID listType Nothing,
+            lstrip . chopComma . argEdge par $ DArgument resID listType (InferredPar par),
             ");\n"
           ]
     inputType = scalarVType . snd . head $ dfdArgs f
@@ -948,7 +949,7 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
             lstrip $ argEdge 1   identity,
             lstrip $ argEdge par list,
             "\n\t",
-            lstrip . chopComma . argEdge 1 $ DVariable resID (returnType f) Nothing,
+            lstrip . chopComma . argEdge 1 $ DArgument resID (returnType f) (InferredPar par),
             ");\n"
           ]
     inputType  = scalarVType . snd . head $ dfdArgs f
@@ -1135,7 +1136,7 @@ renderListGen resID min step max par = (ass, mod) where
             printf "BoundedEnum_%i enum_%i(clock, node_%i_done, " resID resID resID,
             printf "node_%i, node_%i, " (nodeID min) (nodeID step),
             maybe  "8'hFF, " (printf "node_%i, " . nodeID) max,
-            chopComma $ argEdge par (DVariable resID (DList UndefinedType) Nothing),
+            chopComma $ argEdge par (DArgument resID (DList UndefinedType) (InferredPar par)),
             ");\n"
         ]
     mod = unlines [
