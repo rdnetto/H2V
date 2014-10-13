@@ -320,8 +320,8 @@ assignNode lhs rhs
         rhsID = nodeID rhs
         res = [ printf "assign node_%i_req = node_%i_req;" rhsID lhsID,
                 printf "assign node_%i_ack = node_%i_ack;" lhsID rhsID,
-                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i = node_%i_value_%i;" lhsID rhsID i i,
-                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_%i_value_%i_valid;" lhsID rhsID i i,
+                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i = node_%i_value_%i;" lhsID i rhsID i,
+                unlines . parEdge par $ \i -> printf "assign node_%i_value_%i_valid = node_%i_value_%i_valid;" lhsID i rhsID i,
                 printf "assign node_%i_done = node_%i_done;" lhsID rhsID
               ]
 
