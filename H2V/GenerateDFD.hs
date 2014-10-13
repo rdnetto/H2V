@@ -572,7 +572,7 @@ linkDFD :: DFD -> NodeGen DFD
 linkDFD dfd = do
     linked <- dmapM linkExpr (dfdRoot dfd)
     promoted <- dmapM promoteBuiltinArgs linked
-    let newRoot = dmap inferPars promoted
+    let newRoot = updateArgPars $ dmap inferPars promoted
     return dfd{dfdRoot = newRoot}
 
 linkExpr :: DNode -> NodeGen DNode
@@ -672,6 +672,7 @@ inferPars :: DNode -> DNode
 inferPars node
     | not $ hasParallelism node     = node
     | isAssigned (parallelism node) = reverseInferPar node
+inferPars node@DArgument{} = node                                                   --arguments are handled separately
 inferPars node@DListLiteral{} = node{parallelism = InferredPar 1}                   --list literals have no children to infer from
 inferPars node@DFunctionCall{callArgs = args} = res where
     pars = catMaybes . map getPar $ filter (isList . nodeType) args
@@ -692,6 +693,12 @@ reverseInferPar fc@DFunctionCall{callArgs = args, parallelism = par} = fc{callAr
             oldPar = parallelism n
             newPar = max (parValue oldPar) (parValue par)
 reverseInferPar n = n
+
+updateArgPars :: DNode -> DNode
+updateArgPars root = dmap f root where
+    par = parallelism root
+    f node@DArgument{} = node{parallelism = par}
+    f node = node
 
 --Infers the parallelism of a node based on its children
 getPar :: DNode -> Maybe Int
