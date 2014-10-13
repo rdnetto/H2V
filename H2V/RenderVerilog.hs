@@ -432,7 +432,9 @@ renderNode (DListLiteral listID items p) = (VNodeDef listID def ass mod):elemDef
                     ");",
                     genericDone listID items
                   ]
-    readySig = joinMap " & " (printf "node_%i_done" . nodeID) items
+    readySig = if   null items
+               then "ready"
+               else joinMap " & " (printf "node_%i_done" . nodeID) items
     elemDefs = concatMap renderNode items
     elemIndices = [0 .. length items - 1]
     mod = if   items == []
