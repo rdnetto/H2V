@@ -614,7 +614,10 @@ renderBuiltin resID (BinaryOp op) _ args@(a0:a1:[]) = VNodeDef resID def (ass ++
     ass = printf "assign node_%i = node_%i %s node_%i;\n" resID (nodeID a0) op (nodeID a1)
     doneAs = genericDone resID args
 
-renderBuiltin resID Ternary par args@(cond:tExp:fExp:[]) = VNodeDef resID def (ass ++ doneAs) "" where
+renderBuiltin resID Ternary par args@(cond:tExp:fExp:[])
+    | par == 1  = VNodeDef resID def (ass ++ doneAs) ""
+    | otherwise = error "Parallel ternary operator is not supported"
+    where
         resType = headOr UndefinedType $ filter (/= UndefinedType) [nodeType tExp, nodeType fExp]
         def = defineNode resID (nodeType tExp) par
         ass = case resType of
@@ -622,7 +625,7 @@ renderBuiltin resID Ternary par args@(cond:tExp:fExp:[]) = VNodeDef resID def (a
                 _       -> scalarAss
         [cID, tID, fID] = map nodeID [cond, tExp, fExp]
         scalarAss = printf "assign node_%i = node_%i ? node_%i : node_%i;\n" resID cID tID fID
-        listTerms = map (++ ", ") ["node_%i_req", "node_%i_ack", "node_%i_value", "node_%i_value_valid"]
+        listTerms = map (++ ", ") ["node_%i_req", "node_%i_ack", "node_%i_value_0", "node_%i_value_0_valid"]
         listAss = concat [ printf "ListMux lm_%i(node_%i_done, node_%i," resID cID cID,
                            chopComma $ concatMap genMuxLine [resID, tID, fID],
                            ");\n"
