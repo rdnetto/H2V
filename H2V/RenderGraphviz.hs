@@ -28,7 +28,7 @@ renderFunc dfd@(DFD dfdID name args _ _ root) = (nDefs, edges) where
     nDefs = unlines [ printf "subgraph cluster_dfd_%i{" dfdID,
                     printf "label = \"%s [dfd_%i] (%i args)\";" name dfdID $ length args,
                     "color = black;",
-                    concatMap renderArg $ zip [0..] args,
+                    concatMap renderArg . zip [0..] $ trueArgs dfd,
                     subNs,
                     printf "result_%i [ label = \"Result\", color=red ];" dfdID,
                     "}\n"
@@ -39,8 +39,10 @@ renderFunc dfd@(DFD dfdID name args _ _ root) = (nDefs, edges) where
             ]
 
 --Args are defined by the function, so we don't need to worry about duplicates
-renderArg :: (Int, (NodeId, DType)) -> String
-renderArg (i, (argID, _)) = printf "node_%i [ label = \"arg_%i\n[node_%i]\", color=red ];\n" argID i argID
+renderArg :: (Int, DNode) -> String
+renderArg (i, DArgument argID t par)
+    | isList t  = printf "node_%i [ label = \"arg_%i\n%s[node_%i]\", color=red ];\n" argID i (renderPar par) argID
+    | otherwise = printf "node_%i [ label = \"arg_%i\n[node_%i]\", color=red ];\n" argID i argID
 
 renderNode :: DNode -> [GNodeDef]
 renderNode (DLiteral nodeID value) = return $ GNodeDef nodeID (printf "node_%i [ label = \"%i\n[node_%i]\"];\n" nodeID value nodeID) ""

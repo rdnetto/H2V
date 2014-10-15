@@ -144,6 +144,14 @@ dfdArgs :: DFD -> [(NodeId, DType)]
 dfdArgs dfd@DFD{} = dfdArgs_ dfd
 dfdArgs DfdHeader{dfdTypeInfo = Just (args, ret)} = args
 
+--Retrieves the actual nodes used for the DFD's args
+trueArgs :: DFD -> [DNode]
+trueArgs dfd = map getArg $ dfdArgs dfd where
+    argNodes = map (\n -> (nodeID n, n)) . filterNodes isArg $ dfdRoot dfd
+
+    getArg :: (NodeId, DType) -> DNode
+    getArg (nID, t) = maybe (DArgument nID t NoPar) id $ lookup nID argNodes
+
 returnType :: DFD -> DType
 returnType dfd@DFD{} = returnType_ dfd
 returnType DfdHeader{dfdTypeInfo = Just (args, ret)} = ret
@@ -181,6 +189,13 @@ selectType [] = UndefinedType
 isArg :: DNode -> Bool
 isArg DArgument{} = True
 isArg _ = False
+
+--Returns all nodes in the DFD sub-graph satisfied by the predicate
+filterNodes :: (DNode -> Bool) -> DNode -> [DNode]
+filterNodes pred root = dfold f [] root where
+    f xs node
+        | pred node = node:xs
+        | otherwise = xs
 
 isFunc :: DType -> Bool
 isFunc DFunc{} = True
