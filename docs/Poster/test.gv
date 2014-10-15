@@ -1,53 +1,116 @@
 digraph G{
-subgraph cluster_dfd_10{
-label = "sum [dfd_10] (1 args)";
+subgraph cluster_dfd_5{
+label = "demo [dfd_5] (1 args)";
 color = black;
-node_11 [ label = "arg_0
-[node_11]", color=red ];
+node_26 [ label = "arg_0
+[node_26]", color=red ];
 
-node_12 [ label = "Function call: mfoldr 
-[node_12]", color=darkgreen ];
+node_27 [ label = "Function call: dotProduct (dfd_2)
+Par: 3
+[node_27]", color=darkgreen ];
+node_29 [ label = "List
+Par: 3 (inferred)
+[node_29]", color=blue ];
+node_30 [ label = "1
+[node_30]"];
+node_31 [ label = "2
+[node_31]"];
+node_32 [ label = "3
+[node_32]"];
+node_33 [ label = "List
+Par: 3 (inferred)
+[node_33]", color=blue ];
+node_34 [ label = "4
+[node_34]"];
+node_35 [ label = "5
+[node_35]"];
+node_36 [ label = "6
+[node_36]"];
+
+result_5 [ label = "Result", color=red ];
+}
+
+subgraph cluster_dfd_38{
+label = "__lambda_41 [dfd_38] (2 args)";
+color = black;
+node_39 [ label = "arg_0
+[node_39]", color=red ];
+node_40 [ label = "arg_1
+[node_40]", color=red ];
+
+node_41 [ label = "Function call: * 
+[node_41]", color=darkgreen ];
+
+result_38 [ label = "Result", color=red ];
+}
+
+subgraph cluster_dfd_11{
+label = "sum [dfd_11] (1 args)";
+color = black;
+node_12 [ label = "arg_0
+Par: 3
+[node_12]", color=red ];
+
+node_13 [ label = "Function call: mfoldr 
+Par: 3
+[node_13]", color=darkgreen ];
 node_8 [ label = "Function: +
 [node_8]", color=darkgreen ];
 node_9 [ label = "0
 [node_9]"];
 
-result_10 [ label = "Result", color=red ];
+result_11 [ label = "Result", color=red ];
 }
 
 subgraph cluster_dfd_2{
 label = "dotProduct [dfd_2] (2 args)";
 color = black;
 node_3 [ label = "arg_0
+Par: 3
 [node_3]", color=red ];
 node_4 [ label = "arg_1
+Par: 3
 [node_4]", color=red ];
 
-node_19 [ label = "Function call: sum (dfd_10)
+node_20 [ label = "Function call: sum (dfd_11)
 Par: 3
-[node_19]", color=darkgreen ];
-node_20 [ label = "Function call: zipWith 
-Par: 3 (inferred)
 [node_20]", color=darkgreen ];
-node_22 [ label = "Function: __lambda_40
-[node_22]", color=darkgreen ];
-node_17 [ fontcolor=dimgray ];
+node_21 [ label = "Function call: zipWith 
+Par: 3 (inferred)
+[node_21]", color=darkgreen ];
+node_23 [ label = "Function: __lambda_41
+[node_23]", color=darkgreen ];
 node_18 [ fontcolor=dimgray ];
+node_19 [ fontcolor=dimgray ];
 
 result_2 [ label = "Result", color=red ];
 }
 
-node_8 -> node_12 [ label = "arg_0" ];
-node_9 -> node_12 [ label = "arg_1" ];
-node_11 -> node_12 [ label = "arg_2" ];
+node_29 -> node_27 [ label = "arg_0" ];
+node_33 -> node_27 [ label = "arg_1" ];
+node_30 -> node_29 [ label = "[0]" ];
+node_31 -> node_29 [ label = "[1]" ];
+node_32 -> node_29 [ label = "[2]" ];
+node_34 -> node_33 [ label = "[0]" ];
+node_35 -> node_33 [ label = "[1]" ];
+node_36 -> node_33 [ label = "[2]" ];
 
-node_12 -> result_10;
-node_20 -> node_19 [ label = "arg_0" ];
-node_22 -> node_20 [ label = "arg_0" ];
-node_17 -> node_20 [ label = "arg_1" ];
-node_18 -> node_20 [ label = "arg_2" ];
-node_3 -> node_17;
-node_4 -> node_18;
+node_27 -> result_5;
+node_39 -> node_41 [ label = "arg_0" ];
+node_40 -> node_41 [ label = "arg_1" ];
 
-node_19 -> result_2;
+node_41 -> result_38;
+node_8 -> node_13 [ label = "arg_0" ];
+node_9 -> node_13 [ label = "arg_1" ];
+node_12 -> node_13 [ label = "arg_2" ];
+
+node_13 -> result_11;
+node_21 -> node_20 [ label = "arg_0" ];
+node_23 -> node_21 [ label = "arg_0" ];
+node_18 -> node_21 [ label = "arg_1" ];
+node_19 -> node_21 [ label = "arg_2" ];
+node_3 -> node_18;
+node_4 -> node_19;
+
+node_20 -> result_2;
 }
