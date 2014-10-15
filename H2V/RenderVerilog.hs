@@ -1005,10 +1005,23 @@ renderBuiltin resID FoldMacro par [lambda, identity, list] = VNodeDef resID def 
                 in  unlines $ map f [par .. accNo - 1],
                 "",
 
-                let f :: Int -> String
-                    f i = printf fmt fID i i i (2*i) (2*i + 1) i where
-                    fmt = "dfd_%i func_%i(clock, (processingValues | listIn_ack) & func_%i_enabled, func_%i_done, accumulator_%i, accumulator_%i, func_%i_result);"
-                in  unlines $ parEdge funcNo f,
+                let renderInst :: Int -> String
+                    renderInst i --built-in operators don't have explicit function definitions
+                        | fID == (-1) = printf fmt2 i (2*i) op (2*i + 1) i i
+                        | otherwise   = printf fmt1 fID i i i (2*i) (2*i + 1) i
+                        where
+                            op = getOperator . builtinOp $ dfdRoot f
+                            fmt1 = intercalate " " [
+                                        "dfd_%i func_%i(clock,",
+                                        "(processingValues | listIn_ack) & func_%i_enabled,",
+                                        "func_%i_done,",
+                                        "accumulator_%i, accumulator_%i, func_%i_result);"
+                                    ]
+                            fmt2 = unlines [
+                                        "assign func_%i_result = accumulator_%i %s accumulator_%i;",
+                                        "assign func_%i_done = (processingValues | listIn_ack) & func_%i_enabled;"
+                                    ]
+                in  unlines $ parEdge funcNo renderInst,
                 "",
 
                 "always @(*) begin",

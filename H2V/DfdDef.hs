@@ -119,6 +119,9 @@ isHeader :: DFD -> Bool
 isHeader (DfdHeader{}) = True
 isHeader _ = False
 
+getOperator :: BuiltinOp -> String
+getOperator (BinaryOp op) = op
+
 isFunctionCall :: DNode -> Bool
 isFunctionCall (DFunctionCall{}) = True
 isFunctionCall _ = False
