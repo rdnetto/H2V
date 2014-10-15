@@ -1,7 +1,7 @@
 import H2V_Compat
 
 sum :: [Int] -> Int
-sum = mfoldr (+) 0
+sum = mfoldr (+) 0 ||| 3
 
 dotProduct :: [Int] -> [Int] -> Int
 dotProduct u v = sum $ zipWith (*) u v ||| 3
