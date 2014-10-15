@@ -1,4 +1,35 @@
 ================================================================================
+Wednesday 15 October 2014
+Completed poster and added demo to test cases (see docs/Poster/Poster.pdf)
+Made some minor fixes so that the demo would actually compile.
+
+TODO: fix folds to use binary tree instead of underutilized linear structure
+TODO: fix composition operator definition, so that it can be used without explicit application
+
+Git commits:
+d91199e  2014-10-15 22:58:20 +1100  Updated testbench
+5008ede  2014-10-15 22:57:57 +1100  Added section arrows to poster
+d5e6ea0  2014-10-15 22:53:29 +1100  Finished poster
+0aac5ce  2014-10-15 20:26:35 +1100  BUG FIX: added missing parallelism annotation to demo.hs
+9ebe4dc  2014-10-15 20:12:08 +1100  RenderVerilog: added support for rendering parallel args
+e183dea  2014-10-15 19:58:25 +1100  RenderGraphviz: added support for rendering parallelism of args
+a958cb3  2014-10-15 19:33:22 +1100  BUG FIX: built-in operators were not being used correctly for partially applied folds This solution is much easier than actually trying to promote them to functions
+fb9aead  2014-10-13 22:47:32 +1100  BUG FIX: ternary operator wasn't updated to handle parallel lists
+4ff3a4a  2014-10-13 22:47:14 +1100  BUG FIX: indices were in the wrong order
+22ae6cd  2014-10-13 22:46:51 +1100  BUG FIX: wasn't generating the correct code for empty list literals
+3db25af  2014-10-13 21:59:06 +1100  Updated poster
+80c91e2  2014-10-13 20:56:11 +1100  FIX: need to specify list parallelism in each function
+c45e1c8  2014-10-13 20:55:33 +1100  FIX: need to set the parallelism of args after all others have been inferred
+d4e7fb1  2014-10-13 20:54:57 +1100  Refactoring: replace DVariable{varVal = Nothing} with DArgument
+1b00b7e  2014-10-12 22:53:53 +1100  Added bitwise operators
+9e2495e  2014-10-12 21:47:31 +1100  Added support for zipWith
+3fb9fe1  2014-10-12 21:13:37 +1100  BUG FIX: MapMacro: if the last REQ is not performed, value_valid will remain high
+b035f99  2014-10-12 20:47:46 +1100  Added support to list literals for parallel list interface Also replaced invidiual done signals with a single one, since it simplifies the design.
+1a6f3f8  2014-10-12 18:53:25 +1100  ListLiteral: removed register that was never used
+b19aadb  2014-10-12 18:35:21 +1100  Updated poster
+9bac25d  2014-10-09 11:39:10 +1100  Excluded Quartus projects from tarballs, since we're hitting Gmail's size limit.
+
+================================================================================
 Thursday 09 October 2014
 Finished implementing decons and concat for non-parallel case. Will only implement parallel versions if needed for examples.
 Implemented parallel list protocol, including map and fold (reduce). Performed optimizations to reduce latency.
