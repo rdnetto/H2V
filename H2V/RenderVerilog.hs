@@ -90,24 +90,25 @@ extractListConds x = Left x
 --Render combinatorial functions.
 --TODO: add assign statements to link ready/done signals
 renderFunc :: DFD -> String
-renderFunc dfd@(DFD dfdID name args _ _ root)
+renderFunc dfd@(DFD dfdID name _ _ _ root)
     | fCalls dfd dfd        = renderRecursiveFunc dfd $ recursiveCases dfd
     | otherwise             = unlines [concatMap vModDeps defs,
                                        printf "module dfd_%i(" dfdID,
                                        indent [
                                            printf "//%s (%i args) [dfd_%i]" name (length args) dfdID,
                                            "input clock, input ready, output done,",
-                                           concatMap (renderArg "input" "node" True "," par) (zip [0..] args),
+                                           joinMap "\n" (\(i, n) -> renderArg "input" "node" True "," (parValue $ safeParallelism n) (i, (nodeID n, nodeType n))) (zip [0..] args),
                                            rstrip . chopComma $ renderArg "output" "node" True ", " par (0, (nodeID root, retType)),
                                        ");"
                                        ],
-                                       indent $ map (\(i, _) -> printf "wire node_%i_done; //arg" i) args,
+                                       indent $ map (printf "wire node_%i_done; //arg" . nodeID) args,
                                        indent . lines $ concatNodes defs',
-                                       indent $ map (\(i, _) -> printf "assign node_%i_done = ready;" i) args,
+                                       indent $ map (printf "assign node_%i_done = ready;" . nodeID) args,
                                        '\t' : doneAssign,
                                        "endmodule\n"
                                       ]
     where
+        args = trueArgs dfd
         par = if   isList $ returnType dfd
               then getParallelism root
               else 1
@@ -115,10 +116,10 @@ renderFunc dfd@(DFD dfdID name args _ _ root)
         retType = selectType [returnType_ dfd, nodeType root]
         doneAssign = printf "assign done = node_%i_done;" $ nodeID root
         --need to filter out definitions from the root node that are already present in the module def
-        argDefs = map strip . lines $ concat [ concatMap (renderArg "" "node" True "\n" par) (zip [0..] args),
+        argDefs = map strip . lines $ concat [ concatMap (\(i, n) -> renderArg "" "node" True "\n" par (i, (nodeID n, nodeType n))) (zip [0..] args),
                                               renderArg "" "node" True "\n" par (0, (nodeID root, retType))
                                             ]
-        argIDs = map fst args
+        argIDs = map nodeID args
         (rootDefs, otherDefs) = partition (\n -> vNodeId n == nodeID root) defs
         defs' = (map filterRootDef rootDefs) ++ (filter (\n -> not $ vNodeId n `elem` argIDs) otherDefs)
 

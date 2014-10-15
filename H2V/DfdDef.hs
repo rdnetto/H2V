@@ -215,6 +215,11 @@ hasParallelism DListLiteral{} = True
 hasParallelism DArgument{} = True
 hasParallelism _ = False
 
+safeParallelism :: DNode -> Parallelism
+safeParallelism n
+    | hasParallelism n = parallelism n
+    | otherwise        = NoPar
+
 isAssigned :: Parallelism -> Bool
 isAssigned (AssignedPar _) = True
 isAssigned _ = False
