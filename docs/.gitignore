@@ -9,6 +9,8 @@
 *.run.xml
 *.toc
 *.rtf
+*_aux
+*.project.vim
 
 Design Specification/examples/
 
