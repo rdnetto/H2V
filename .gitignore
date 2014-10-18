@@ -12,9 +12,6 @@ H2V/test.png
 *.pdf
 *.bak
 *.qws
-docs/Design Specification/
-
-docs/Design Presentation/src/*.rtf
 
 #Verilog generated files
 *.rpt
