@@ -9,6 +9,7 @@
 \usepackage{tikz-timing}
 \usepackage{graphicx}
 \usepackage{pdfpages}
+\usepackage{amsmath}
 \usepackage[style=ieee, backend=biber]{biblatex}
 
 \definecolor{darkgreen}{HTML}{008000}
@@ -46,10 +47,10 @@
     \item Designed and implemented support for the following functions through a combination of generated and hard-coded Verilog:
         \begin{itemize}
             \item List operators: cons (:), concat (++)
-            \item Higher order list functions: map, fold/reduce, zipWith
+            \item Higher-order list functions: map, fold/reduce, zipWith
         \end{itemize}
     \item Designed and implemented support for N-degree parallel computation of lists, as defined by user
-    \item Designed and implemented support for evaluation of higher order functions at compile-time
+    \item Designed and implemented support for evaluation of higher-order functions at compile-time
     \item Designed and implemented data flow graph generation
     \item Verified hardware generated for test cases using SignalTap
 \end{itemize}
@@ -61,7 +62,10 @@
     \addcontentsline{toc}{section}{\protect\numberline{\thesection}#1}%
     \sectionmark{#1}}
 
+% Mark this as a title page so that the page number isn't printed
+\begin{titlepage}
 \includepdf[pages={1}, pagecommand={\invisiblesection{Poster}}]{../Poster/Poster.pdf}
+\end{titlepage}
 
 
 \section{Summary}
@@ -72,7 +76,7 @@
 % summarise major results/outcomes and their significance
 
 \section{Introduction}
-% TODO: context, motivation/rationale, problem definition, aims/goals, scope, outline report structure
+% context, motivation/rationale, problem definition, aims/goals, scope, outline report structure
 
 \subsection{Context \& Rationale}
 Verilog is a commonly used hardware description language used for programming field programmable gate arrays (FPGAs).
@@ -147,7 +151,7 @@ ID      & Type              & Description                 & Implemented
 \\ \midrule
 
 3.1.2.7 & Optional    & Partial type inference. & Yes%
-\footnote{Limited type inference is supported for scalar and list types. Type inference for higher order types is not supported.}
+\footnote{Limited type inference is supported for scalar and list types. Type inference for higher-order types is not supported.}
 \\ \midrule
 
 3.2.1   & Requirement & QSys Integration --- generation of C headers and component definitions. & No%
@@ -160,12 +164,11 @@ ID      & Type              & Description                 & Implemented
 3.2.2.2 & Optional    & Support Avalon Streaming interfaces. & No
 \\ \midrule
 
-3.3.1   & Requirement & Support for sequential reads from RAM. & Implicit%
-\footnote{See s\ref{sec:reqDMA}.}
+3.3.1   & Requirement & Support for sequential reads from RAM. & Implicit\footnotemark
 \\ \midrule
 
-3.3.2   & Optional    & Support for sequential writes to RAM. & Implicit%
-\footnote{See s\ref{sec:reqDMA}.}
+3.3.2   & Optional    & Support for sequential writes to RAM. & Implicit\footnotemark[\value{footnote}]
+\footnotetext{See s\ref{sec:reqDMA}.}
 \\ \midrule
 
 3.3.3   & Optional    & Support for non-sequential reads from RAM. & No
@@ -178,9 +181,9 @@ ID      & Type              & Description                 & Implemented
 3.4.1.1 & Requirement & Results shall include benchmarks comparing H2V and C2H. & No
 \\ \midrule
 
-%TODO: update this cross-reference
 3.4.1.2 & Requirement & The execution time of H2V accelerators shall be equal or better to those of C2H. & Yes%
-\footnote{H2V is significantly faster than C2H in list-based benchmarks due to its support for parallelism. (refer to s FOO.)}
+\footnote{H2V is significantly faster than C2H in list-based benchmarks due to its support for parallelism
+    (refer to s\ref{sec:listPar}.)}
 \\ \midrule
 
 3.5.1   & Requirement & H2V shall be published under a free software license. & Yes%
@@ -213,18 +216,208 @@ be regarded as completed.
 
 
 \subsection{Supported Features}
-% discuss exactly what is supported here
+% discuss exactly what is supported here, possibly in terms of test suite
 % this is also a good place to discuss the overall design of the compiler
+
+\subsubsection{Language Features}
+H2V is capable of correctly resolving functions and variables defined out of order in multiple scopes, including shadowing.\ i.e.\ the
+definition in the innermost scope has precedence over definitions in outer scopes with the same name. Pattern guards and pattern
+matching are also supported; the function definitions are lowered into a single definition with appropriate if statements /
+multiplexors inserted at the root node. Tail-recursive functions are supported, with pattern matching is used to define the base and
+recursive cases.
+
+Refer to s\ref{sec:testLangFeat} for test cases corresponding to these features.
+
+
+\subsubsection{Higher-Order Functions}
+\paragraph{Introduction}
+The following section is for the benefit of readers who are unfamiliar with the concept of higher-order functions, and may be
+skipped.
+
+Consider a function of the form \(f:(x, y) \rightarrow z | f(x, y) = x + y\). This is a function of arity 2 (i.e. it takes two arguments) and
+order one; it is a first-order function. In general, any function whose argument and return types are scalar types (or lists
+thereof) is a first-order function. Variables, which do not take any arguments, may be regarded as zeroth-order functions.
+In other words, first-order functions take arguments and return values which are zeroth-order functions.
+
+This may then be generalized in a manner similar to induction, to define an Nth-order function as one which takes arguments and
+returns a value of order \(N - 1\) or lower.\footnotemark Functions of order two or higher are generally referred to as
+higher-order functions, in contrast to first-order functions.
+\footnotetext{Any function can trivially be expressed as one of a higher order, by defining a function which returns the original
+    function.}
+
+In Haskell, all functions of arity two or higher are considered higher-order functions, since partial application (i.e. the
+application of fewer arguments than the arity of the function) of a function returns a function which takes the remaining
+arguments.\footnote{This is referred to as \textit{currying}, after the logician Haskell Curry.}
+While H2V supports partial application, the following discussion will refer to first-order functions of any arity as first-order
+functions, in order to simplify the terminology.
+
+It is worth taking the time to distinguish higher-order functions in Haskell from function pointers in C. Function pointers allow
+functions to take arguments and return values which are pointers to existing functions. This is more limited than higher-order
+functions, which allow completely new functions to be returned.%
+\footnote{While one could theoretically allocate some memory, write assembly to it, and return a pointer to it in C, the
+    resulting code would not be portable, and would certainly not be usable in C2H. A more sensible approach would be provide a
+    pointer to a data structure, but this would be shared state which would prevent the function being called multiple times in
+    parallel.}
+Furthermore, the function pointer cannot be modified in anyway, while higher-order functions in Haskell can have arguments applied
+to them, to yield new functions via partial application. This is a direct consequence of the languages' different philosophies:
+Haskell was designed to represent computations, while C was designed to represent machine code, in which a function is merely a
+memory address to be jumped to.
+
+
+\paragraph{Implementation}
+Because a functional argument may be evaluated multiple times within a higher-order function, it is impractical to pass it at
+run-time. Therefore, H2V implements support for higher-order functions by evaluating them at compile-time, effectively rewriting
+them as first-order functions which are evaluated at run-time. This is sufficient as higher-order functions are used primarily to
+enable code re-use rather perform expensive computations. For example, Haskell's map function (see s\ref{sec:listFuncs}) is a
+higher-order function which maps a list over its functional argument. The partial application \texttt{map f} yields a first-order
+function which performs that same mapping. The application of the functional argument is a relatively cheap operation that can be
+performed at compile-time (simply subtituting the function into the data flow graph), while the evaluation of the resulting
+first-order function is an expensive operation depending on the contents of the list at run-time.
+
+Examples of higher-order functions supported by H2V may be found in s\ref{sec:testHOFunc}.
+
+\subsubsection{Lists}
+\paragraph{Concept}
+Lists in H2V are implemented as a streaming data source. This is mirrors Haskell's lazy evaluation, where values (such as the
+elements of the list) are not computed until they are required. This means that lists can be used to encapsulate data without
+adding significant overheads, in contrast to C where arrays are mapped to blocks of memory. Furthermore, it means that the total
+memory requirements of the data structure are restricted to the number of elements accessed at any one time. This means that lists
+can be of infinite length.\ e.g.\ \texttt{[1, 3 ..]} will evaluate to the list of all positive odd numbers.
+
+\paragraph{Parallelism}
+\label{sec:listPar}
+List operations are a prime candidate for parallelism, since the data is already organized into discrete elements which are
+subject to the same repeated operations. To faciliate this, H2V defines a parallelism operator \texttt{|||} which may be applied
+to any expression which returns a list to define the number of elements it should read/process simultaneously. Parallelism
+inference is supported within functions; that is, any parallelism assignment will be propagated to other adjacent nodes in the
+data flow graph.
+
+\paragraph{Higher-order List Functions}
+\label{sec:listFuncs}
+H2V supports three higher-order list functions: \texttt{map}, \texttt{mfoldr}, and \texttt{zipWith}.
+\texttt{map} applies a function to each element of a list, returning a list containing the result of each application.
+\texttt{zipWith} generalizes map to functions with two arguments, taking the first and second arguments from their respective
+lists.
+
+\texttt{mfoldr} is a monoidic right-fold. Fold (or reduce as it is sometimes known) recursively applies a function to an element
+of the list and an accumulator, storing its value in the accumulator. Right and left folds refer to the order in which the
+elements of the list are processed. Because the order in which elements are folded is defined for \texttt{foldr} and
+\texttt{foldl}, it is not possible to compute folds in parallel. For this reason the function \texttt{mfoldr} was defined instead.
+\texttt{mfoldr} imposes the additional constraint that the function and its domain form a \textit{monoid}.%
+\footnote{A monoid is an algebraic structure consisting of a set and a binary function which is associative and has a
+    right-identity over the that set. For example, addition is a monoid over the set of real numbers with a right-identity of 0.}
+By adding the requirement that the function must be associative, intermediate values can be computed in parallel using a binary
+reduce tree. The use of a right-identity instead of an initial value for the accumulator also means that the number of values read
+from the list does not need to be a power of two, since the empty slots can simply be set to the identity, thereby having no
+effect on the result.
+
+%TODO: insert diagrams to explain list functions
+
+\subsection{Interfaces \& Protocols}
+\subsubsection{Function Interface}
+All functions compiled into Verilog modules by H2V use the following interface.
+
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+Name        & Width     & Type      & Description
+\\ \midrule
+
+\texttt{clock}         & 1 bit     & Input     & Clock signal.
+\\ \midrule
+
+\texttt{ready}       & 1 bit     & Input     & Clock enable --- indicates that the other input values are now valid.
+\\ \midrule
+
+\texttt{done}        & 1 bit     & Output    & Asserted high when \texttt{result} is valid.
+\\ \midrule
+
+\texttt{arg0, arg1, \ldots}  & 8 bits\footnotemark & Input    & The values passed to the function as arguments.
+\\ \midrule
+
+\texttt{result} & 8 bits\footnotemark[\value{footnote}] & Output    & The return value of the function.
+\\ \bottomrule
+\end{tabularx}
+\footnotetext{8 bits is the default width for scalar values --- see s\ref{sec:parListComp}. Refer to s\ref{sec:listInterface} if the argument is a list.}
+
+\begin{figure}[h]
+\label{fig:funcTiming}
+\begin{tikztimingtable}[scale=2, line width=1]
+    clock  &  9{C}       \\
+    ready  &  L 6H 2L    \\
+    args   &  U 6D 2U    \\
+    done   &  U 2L 4H 2U \\
+    result & 3U 4D 2U    \\
+\end{tikztimingtable}
+\caption{Timing diagram for function interface.}
+\end{figure}
+
+\subsubsection{List Interface}
+\label{sec:listInterface}
+
+Arguments which are lists are passed using the following signals:
+
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+Name        & Width     & Type      & Description
+\\ \midrule
+
+\texttt{REQ}       & 1 bit     & Input      & Asserted high when a new (set of) elements are requested. One asserted, must be
+    reset before another request can be made. Note that \texttt{value\_0, \ldots} will only remain valid as long as \texttt{REQ} is
+    high.
+\\ \midrule
+
+\texttt{ACK}        & 1 bit     & Output    & Asserted high for one clock cycle when \texttt{value\_0, \ldots} become valid.
+\\ \midrule
+
+\texttt{value\_0, \ldots}  & 8 bits & Output    & The values of the next N elements, where N is the parallelism of the list
+instance.
+\\ \midrule
+
+\texttt{value\_0\_valid, \ldots}  & 1 bit & Output    & Asserted high if \texttt{value\_0, \ldots} are valid.
+\\ \bottomrule
+\end{tabularx}
+
+\begin{figure}[h]
+\label{fig:listTiming}
+\begin{tikztimingtable}[scale=1.5, line width=1]
+    clock & 25{C} \\
+    req             &  L 3{6H2L}   \\
+    ack             &  L 3{2L2H4L} \\
+    value\_0        & 3U 4D{$X_0$} 4U 4D{$X_3$} 10U \\
+    value\_1        & 3U 4D{$X_1$} 4U 4D{$X_4$} 10U \\
+    value\_2        & 3U 4D{$X_2$} 4U 14U  \\
+    value\_0\_valid & 3U 4H 4U 4H 4U 4L 2U \\
+    value\_1\_valid & 3U 4H 4U 4H 4U 4L 2U \\
+    value\_2\_valid & 3U 4H 4U 4L 4U 4L 2U \\
+\end{tikztimingtable}
+\caption{Timing diagram for the list interface of \(\{X_0, X_1, X_2, X_3, X_4\}\).}
+\end{figure}
+
+Note that each list has an integral parallelism.\ i.e.\ the number of values read per \texttt{REQ--ACK} cycle.
+It is an invariant of the interface that
+\[ \texttt{value\_i\_valid} \implies \texttt{value\_j\_valid}\ \forall\ i > j \]
+
+If \texttt{value\_0\_valid} is asserted low, then the end of the list has been reached. Note that as H2V supports infinite lists,
+there is no guarrantee that this signal will ever be asserted low.
+
+The signals \texttt{value\_i} and \texttt{value\_i\_valid} are only valid
+for the interval between \texttt{ACK} being asserted and \texttt{REQ} being unasserted.
 
 
 \section{Future Work}
-% TODO
-% -parallelism inference
-% -closures
-% -full support for list functions
+% TODO discuss how what you've done can lead to this
 
-Blah\footnote{More blah}
+\subsection{Improved Type Support}
+% signed/unsigned ints of varying widths, fixed point, etc.
 
+\subsection{Parallelism Inference}
+% already partially supported, just need to infer between different functions
+
+\subsection{Closures}
+
+\subsection{Compilation of Parallel List Functions}
+\label{sec:parListComp}
+% Haskell defs of map, fold, etc.
 
 \section{Conclusions}
 % relate content to project aims
@@ -238,19 +431,22 @@ Blah\footnote{More blah}
 \appendix
 \section{Appendix --- Test Cases}
 \subsection{Language Features}
+\label{sec:testLangFeat}
 \lstinputlisting{../../H2V/tests/f0.hs}
 \lstinputlisting{../../H2V/tests/f1.hs}
 \lstinputlisting{../../H2V/tests/guards.hs}
 \lstinputlisting{../../H2V/tests/pattern_match.hs}
 \lstinputlisting{../../H2V/tests/fib.hs}
 
-\subsection{Higher Order Functions}
+\subsection{Higher-Order Functions}
+\label{sec:testHOFunc}
 \lstinputlisting{../../H2V/tests/ho_arg.hs}
 \lstinputlisting{../../H2V/tests/ho_flip.hs}
 \lstinputlisting{../../H2V/tests/ho_pa.hs}
 \lstinputlisting{../../H2V/tests/ho_return.hs}
 
 \subsection{Lists}
+\label{sec:testList}
 \lstinputlisting{../../H2V/tests/lists.hs}
 \lstinputlisting{../../H2V/tests/lists2.hs}
 \lstinputlisting{../../H2V/tests/demo.hs}

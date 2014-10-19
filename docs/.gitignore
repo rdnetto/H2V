@@ -11,6 +11,7 @@
 *.rtf
 *_aux
 *.project.vim
+*.synctex.gz
 
 Design Specification/examples/
 
