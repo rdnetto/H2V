@@ -115,15 +115,36 @@ libraries.
 
 
 \section{Literature Review}
-% current state of field
-% define the gap satisfied by my project
-% justify trade offs for rejection of superior approaches
-% TODO
 
-%-C2H
-%-why C2H is inferior - expand on this using the notes from the last meeting with David
-%-existing functional approaches
-Lorem ipsum blah blah blah
+% Clash is a pain to type, so let's just define a command for it
+\newcommand\Clash{C\(\lambda\)aSH}
+
+\subsection{Academia}
+The idea of using functional programming concepts to design hardware is not new; the concept dates back to the early
+1980s,\cite[1135]{sheeran} prior to the standardization of Verilog\cite{Verilog_std} and VHDL.\cite{VHDL_std}
+More modern attempts at doing so include Lava\cite{lava} and \Clash.\cite{clash}
+
+Lava is an embedded domain-specific hardware description language, and as such intends each syntactic element to map to a hardware
+block. This is achieved by encapsulating all signals in a abstract data type (called \texttt{Signal}), and breaks
+compatibility with existing Haskell tools.
+In contrast, H2V programs describe the computation of a value (or set of values), allowing the compiler more leeway for optimization.
+For example, where a H2V program contains two multiplication operations as the children of a ternary operator (i.e.\ a multiplexor),
+a single hardware multiplexor could be used without complicating the functional description.%
+\footnote{This approach is already used in H2V for recursive functions, and could easily be applied to other cases such as
+    expensive function calls.}
+
+\Clash\ is more similar to H2V as it compiles a proper subset of Haskell to VHDL. It however lacks support for recursive
+functions.\cite{clashReference}
+
+
+\subsection{Commercial Tools}
+There exists a large number of tools for compiling programs in C--like languages to hardware description languages,
+such as Altera's C2H.\cite{C2H_UG} Many of them use proprietary extensions to compensate for the intrinsic deficiencies of
+using a imperative system programming language for hardware, resulting in a highly fragmented landscape and the inability to use
+existing C libraries.
+In contrast to this, H2V programs are written in standard Haskell, and can use code from existing Haskell libraries (subject to
+the limitations of its feature-set). Furthermore, using a functional language gives H2V some significant advantages over tools
+based on imperative languages. (For a detailed discussion of this, please refer to s\ref{sec:imp_vs_func}.
 
 
 \section{Supported Features}
@@ -323,6 +344,7 @@ thereby having no effect on the result.
 
 
 \subsection{Case Study --- Dot Product}
+\label{sec:imp_vs_func}
 Consider the following C code for computing a Euclidean inner product. (i.e.\ a vector dot product)
 The \texttt{\_\_restrict\_\_} type qualifier allows the compiler to assume pointer aliasing does not occur,\cite[122]{c_std}
 and a hypothetical pragma is used to instruct the compiler to unroll three iterations of the loop.
