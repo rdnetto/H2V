@@ -35,8 +35,17 @@
 \title{ECE4095 Final Report}
 \subtitle{H2V --- a Haskell to Verilog Compiler}
 \author{Reuben D'Netto (22096620)}
-
 \maketitle
+
+\begin{abstract}
+A proof-of-concept Haskell to Verilog compiler (H2V) was designed and implemented.
+Recursive functions, higher-order functions and parallel computation of lists are supported.
+This demonstrated the feasibility of generating hardware modules from functional programs, which can significantly reduce
+the labour and expertise needed to design hardware accelerators.
+Additional work is recommended to convert this into a production-ready tool.
+\end{abstract}
+
+\pagebreak{}
 \tableofcontents{}
 \pagebreak{}
 \pagenumbering{arabic}
@@ -74,17 +83,7 @@
 \includepdf[pages={1}, pagecommand={\invisiblesection{Poster}}]{../Poster/Poster.pdf}
 \end{titlepage}
 
-
-\section{Summary}
-% TODO: do this last
-% what I did, how I did it, and why the results matter
-% state topic and aim
-% outline major stages
-% summarise major results/outcomes and their significance
-
 \section{Introduction}
-% context, motivation/rationale, problem definition, aims/goals, scope, outline report structure
-
 \subsection{Context \& Rationale}
 Verilog is a commonly used hardware description language used for programming field programmable gate arrays (FPGAs).
 Its uses may be broadly grouped into two categories: interfacing with low-level hardware, and accelerating computations which
@@ -716,12 +715,12 @@ An attempt was made at implementing this, but was not completed due to time cons
 \texttt{recursive\_list\_functions}.
 
 \section{Conclusions}
-% relate content to project aims
-% summarise major findings
-% highlight contributions of work
-% acknowledge limitations
-% make recommendations - further work, improvements
-
+The results of this project demonstrate the feasibility of generating hardware descriptions from functional programs.
+Language features are easily rewritten to equivalent Verilog constructs and higher-order functions can be effectively
+evaluated at compile-time. The streaming model for lists was found to work extremely well, though the lack of support for nested
+lists and recursive functions of lists prevented its application to problems involving matrices. Extending the range of supported
+types, improving inference and adding features such as closures and native compilation for recursive functions are recommended,
+as this will result in the creation of an extremely powerful and elegant hardware synthesis tool.
 
 \pagebreak{}
 \appendix
