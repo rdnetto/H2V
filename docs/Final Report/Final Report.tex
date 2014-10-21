@@ -451,6 +451,8 @@ Given this code, we can now easily answer the questions from before.
     \item Summation (\texttt{mfoldr (+)}) and multiplication (\texttt{zipWith (*)}) are clearly distinct operations,
         and can be annotated using the parallelism operator (\texttt{|||}) to indicate how many elements should be read at a time.
         Because this is an operator and not a pragma, it can be used multiple times per line on different expressions.
+        An additional benefit of clearly separating these operations is that it simplifies resource sharing.
+        (see s\ref{sec:resSharing}.)
     \item Summation is performed using \texttt{mfoldr}, which uses a reduction tree by definition.
     \item As Haskell is a functional language, all variables are guaranteed to be immutable and all functions to be pure,
         so the compiler is able to optimize the function as aggressively as possible without needing to perform expensive,
@@ -713,6 +715,21 @@ as their implementation relies on the non-syntactic constraint that the folding 
 
 An attempt was made at implementing this, but was not completed due to time constraints. It can be found on the topic branch
 \texttt{recursive\_list\_functions}.
+
+
+\subsection{Resource Sharing}
+\label{sec:resSharing}
+In complex programs, it is rare for all hardware blocks to be in use simultaneously. Because functional programming encourages
+the expression of programs as many small, modular functions, it becomes viable to identify commonly used functions and re-use
+existing hardware blocks when the calls are known to happen at mutually exclusive times. For example, consider the example
+code in s\ref{sec:imp_vs_func}. Identifying the re-usable code in the C example would be extremely difficult; at most one could
+make some arguments about individual multipliers. However, the Haskell code clearly groups the operations using
+\texttt{mfoldr (+)} and \texttt{zipWith (*)}, and even explicitly assigns them parallelisms.
+Generalizing furher, the \texttt{dotProduct} function as a whole could be re-used in multiple places.
+This would require a significant amount of effort as H2V currently does not consider timing requirements or
+the relationships between different modules, but could result in some fairly impressive reductions in hardware requirements,
+especially for applications like CPUs where only a small fraction of the ALU is in use at any given time.
+
 
 \section{Conclusions}
 The results of this project demonstrate the feasibility of generating hardware descriptions from functional programs.
