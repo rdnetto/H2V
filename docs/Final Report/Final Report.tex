@@ -91,7 +91,7 @@ would otherwise be performed sequentially on a microprocessor. Due to its low-le
 of use cases), implementing computations directly in Verilog is extremely time consuming, and often complex as a result of the
 parallelism that it enables.
 
-H2V is a Haskell to Verilog compiler. Programs can be defined extremely consisely and simply in Haskell, and then compiled into an
+H2V is a Haskell to Verilog compiler. Programs can be defined extremely concisely and simply in Haskell, and then compiled into an
 appropriate set of Verilog modules. Since H2V is compatible with a subset of the Haskell standard, the same program code can be
 compiled and tested using existing tools, facilitating faster and more thorough testing.
 
@@ -174,7 +174,7 @@ ID      & Type              & Description                 & Implemented
 3.1.2.5 & Optional    & Loop vectorization of recursive functions. & No
 \\ \midrule
 
-3.1.2.6 & Optional    & Restructing of expressiong trees to reduce critical path. & No
+3.1.2.6 & Optional    & Restructuring of expression trees to reduce critical path. & No
 \\ \midrule
 
 3.1.2.7 & Optional    & Partial type inference. & Yes%
@@ -297,7 +297,7 @@ them as first-order functions which are evaluated at run-time. This is sufficien
 enable code re-use rather perform expensive computations. For example, Haskell's map function (see s\ref{sec:listFuncs}) is a
 higher-order function which maps a list over its functional argument. The partial application \texttt{map f} yields a first-order
 function which performs that same mapping. The application of the functional argument is a relatively cheap operation that can be
-performed at compile-time (simply subtituting the function into the data flow graph), while the evaluation of the resulting
+performed at compile-time (simply substituting the function into the data flow graph), while the evaluation of the resulting
 first-order function is an expensive operation depending on the contents of the list at run-time.
 
 Examples of higher-order functions supported by H2V may be found in s\ref{sec:testHOFunc}.
@@ -313,7 +313,7 @@ can be of infinite length.\ e.g.\ \texttt{[1, 3 ..]} will evaluate to the list o
 \paragraph{Parallelism}
 \label{sec:listPar}
 List operations are a prime candidate for parallelism, since the data is already organized into discrete elements which are
-subject to the same repeated operations. To faciliate this, H2V defines a parallelism operator \texttt{|||} which may be applied
+subject to the same repeated operations. To facilitate this, H2V defines a parallelism operator \texttt{|||} which may be applied
 to any expression which returns a list to define the number of elements it should read/process simultaneously. Parallelism
 inference is supported within functions; that is, any parallelism assignment will be propagated to other adjacent nodes in the
 data flow graph.
@@ -376,8 +376,8 @@ If we consider how it maps to hardware, the following questions arise:
 
 It quickly becomes obvious that even with an explicit pragma for controlling loop unrolling, there is a lot of ambiguity as to how
 the compiler generates the hardware. This is partly due to the conflation of two different operations: the addition and
-multiplication. Because they are combined into construct in idiomatic C, it becomes difficult to analyse them in isolation, even
-though they are seperate operations computationally and would ideally map to separate blocks of hardware. The following code
+multiplication. Because they are combined into construct in idiomatic C, it becomes difficult to analyze them in isolation, even
+though they are separate operations computationally and would ideally map to separate blocks of hardware. The following code
 addresses this problem.
 
 \begin{lstlisting}[language=C]
@@ -465,7 +465,7 @@ Given this code, we can now easily answer the questions from before.
 \end{itemize}
 
 Furthermore, the code is idiomatic and concise. It is identical to the equivalent code in standard Haskell (minus the parallelism
-annotiations), and a mere four lines long (reducible to two if \texttt{sum} is inlined), in contrast to the eleven lines of C.
+annotations), and a mere four lines long (reducible to two if \texttt{sum} is inlined), in contrast to the eleven lines of C.
 Put simply, the Haskell version maps as cleanly to hardware as C does to assembly, as shown in Figure~\ref{fig:dotProdBD}.
 
 \begin{figure}[h]
@@ -561,7 +561,7 @@ It is an invariant of the interface that
 \[ \texttt{value\_i\_valid} \implies \texttt{value\_j\_valid}\ \forall\ i > j \]
 
 If \texttt{value\_0\_valid} is asserted low, then the end of the list has been reached. Note that as H2V supports infinite lists,
-there is no guarrantee that this signal will ever be asserted low.
+there is no guarantee that this signal will ever be asserted low.
 
 The signals \texttt{value\_i} and \texttt{value\_i\_valid} are only valid
 for the interval between \texttt{ACK} being asserted and \texttt{REQ} being unasserted.
@@ -570,7 +570,7 @@ for the interval between \texttt{ACK} being asserted and \texttt{REQ} being unas
 \pagebreak{}
 \section{Future Work}
 As stated previously, H2V is a proof of concept; it provides a foundation for a complete tool to be built upon.
-The following sections describe features that would be needed to realise this vision, and discuss the extent to which the existing
+The following sections describe features that would be needed to realize this vision, and discuss the extent to which the existing
 codebase supports them.
 
 \subsection{Improved Type Support}
@@ -579,7 +579,7 @@ H2V currently supports only two scalar types: booleans and unsigned 8-bit intege
 support for signed integers and integers of other sizes will be needed. H2V's type system already supports these,%
 \footnote{See \texttt{DType} at \texttt{H2V/DfdDef.hs:100} for a complete description of H2V's type system.}
 so implementing support is a simple matter of extending the parsing and rendering logic.
-Bitwidths could be described using parameterised types. For example, a signed 16-bit integer would be expressed as
+Bit-widths could be described using parameterised types. For example, a signed 16-bit integer would be expressed as
 \texttt{SInt 16}. An advantage of using parameterised types is that the user can specify any width, rather than just
 one of a predefined set. This can result in significant reductions in hardware used for expensive computations, such as
 multiplication. Aliases could also be defined for \texttt{Word8}, \texttt{Word16}, etc.\ as unsigned integers and \texttt{Int8},
@@ -601,10 +601,10 @@ correctly. Consider the following Haskell, and the equivalent C.
     add1 x = x + 1
 \end{lstlisting}
 
-In the C example, a bitshift is needed to convert 1 from an integer to a fixed-point type, which obscures the actual function of
+In the C example, a bit-shift is needed to convert 1 from an integer to a fixed-point type, which obscures the actual function of
 the code. This is completely unnecessary in the Haskell example, because the compiler can recognize the need for type conversion
-and perform it automatically. Given that bitshifts are effectively free when performed in hardware, there is no reason for the
-programmer concern themselves with this detail, and the bitshift present in the C obscures the true purpose of the code. While
+and perform it automatically. Given that bit-shifts are effectively free when performed in hardware, there is no reason for the
+programmer concern themselves with this detail, and the bit-shift present in the C obscures the true purpose of the code. While
 this may seem insignificant for such a trivial example, reading such code becomes considerably more difficult when evaluating
 complex expressions.
 
@@ -711,7 +711,7 @@ This would enable the re-use of existing list functions from the standard librar
 This feature could be implemented by recognizing that all of these cases involve recursive functions which consume or produce
 lists, in both cases via the cons operator (\texttt{:}). We can then extract the expressions for the elements to be prepended to
 the list, and compile them to the appropriate logic, connected to a list interface. Loop unrolling can be applied as usual via the
-parallelism operator. Note that specialised logic would still be required for the monoidic fold functions (e.g. \texttt{mfoldr}),
+parallelism operator. Note that specialized logic would still be required for the monoidic fold functions (e.g. \texttt{mfoldr}),
 as their implementation relies on the non-syntactic constraint that the folding function and its domain are a monoid.%
 \footnote{See s\ref{sec:listFuncs}.}
 
@@ -727,7 +727,7 @@ existing hardware blocks when the calls are known to happen at mutually exclusiv
 code in s\ref{sec:imp_vs_func}. Identifying the re-usable code in the C example would be extremely difficult; at most one could
 make some arguments about individual multipliers. However, the Haskell code clearly groups the operations using
 \texttt{mfoldr (+)} and \texttt{zipWith (*)}, and even explicitly assigns them parallelisms.
-Generalizing furher, the \texttt{dotProduct} function as a whole could be re-used in multiple places.
+Generalizing further, the \texttt{dotProduct} function as a whole could be re-used in multiple places.
 This would require a significant amount of effort as H2V currently does not consider timing requirements or
 the relationships between different modules, but could result in some fairly impressive reductions in hardware requirements,
 especially for applications like CPUs where only a small fraction of the ALU is in use at any given time.
