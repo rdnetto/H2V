@@ -55,11 +55,11 @@ Additional work is recommended to convert this into a production-ready tool.
 \begin{itemize}
     \item Designed and implemented a Haskell to Verilog compiler, with support for the following language features:
         \begin{itemize}
-            \item pattern matching
-            \item pattern guards
-            \item tail-recursive functions
-            \item higher-order functions (evaluated at compile-time)
-            \item partial application
+            \item Pattern matching
+            \item Pattern guards
+            \item Tail-recursive functions
+            \item Higher-order functions (evaluated at compile-time)
+            \item Partial application
         \end{itemize}
     \item Designed and implemented support for the following functions through a combination of generated and hard-coded Verilog:
         \begin{itemize}
@@ -362,12 +362,14 @@ and a hypothetical pragma is used to instruct the compiler to unroll three itera
 
 If we consider how it maps to hardware, the following questions arise:
 \begin{itemize}
-    \item how is the summation performed? Does each sum occur after \texttt{result} is updated, or is there an intermediate
+    \item How is the summation performed? Does each sum occur after \texttt{result} is updated, or is there an intermediate
             reduction tree?
-    \item how many values are read from \texttt{listA} and \texttt{listB} each cycle?
-    \item does the hardware attempt to sum and multiply the same number of values per clock cycle, or is it aware that these
+    \item Does the pragma indicate that three elements should be read from each list, or that three operations should be
+        performed? Are either of these interpretations even logically possible, and if not, will the compiler issue an error?
+    \item How many values are read from \texttt{listA} and \texttt{listB} each cycle?
+    \item Does the hardware attempt to sum and multiply the same number of values per clock cycle, or is it aware that these
             operations take different durations to complete?
-    \item is it possible for the values in \texttt{listA} and \texttt{listB} to be modified during the computation? C's
+    \item Is it possible for the values in \texttt{listA} and \texttt{listB} to be modified during the computation? C's
         \texttt{const} keyword only protects access to a location in memory via a given variable, not the memory location itself.
         \ i.e.\ the elements of the list are not \textit{immutable.}
 \end{itemize}
@@ -398,10 +400,10 @@ addresses this problem.
 This allows us to define the parallelism of the addition and multiplication separately, but the other problems remain.
 Furthermore, we now have to consider how the compiler treats \texttt{tmp[]}:
 \begin{itemize}
-    \item is a block of memory allocated for \texttt{tmp}, or does the compiler recognize it is used as an intermediate variable?
+    \item Is a block of memory allocated for \texttt{tmp}, or does the compiler recognize it is used as an intermediate variable?
             Can the compiler identify that its elements are consumed in order, or does it store the contents to allow for
             random-access?
-    \item how does the compiler handle cases where the loops have different parallelisms? Will it warn the programmer, or simply
+    \item How does the compiler handle cases where the loops have different parallelisms? Will it warn the programmer, or simply
             assume it was intended? This is significant, as the connection between data sources and sinks may be completely
             unobvious in a large program.
 \end{itemize}
