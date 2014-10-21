@@ -224,8 +224,6 @@ be regarded as completed.
 
 \subsection{Supported Features}
 % discuss exactly what is supported here, possibly in terms of test suite
-% this is also a good place to discuss the overall design of the compiler
-%TODO: walk through some of the examples, do comparison to C2H
 
 \subsubsection{Language Features}
 H2V is capable of correctly resolving functions and variables defined out of order in multiple scopes, including shadowing.\ i.e.\ the
@@ -454,6 +452,7 @@ Put simply, the Haskell version maps as cleanly to hardware as C does to assembl
 
 \subsection{Interfaces \& Protocols}
 \subsubsection{Function Interface}
+\label{sec:funcInterface}
 All functions compiled into Verilog modules by H2V use the following interface.
 
 \begin{tabularx}{\textwidth}{l l l X}
@@ -543,21 +542,156 @@ The signals \texttt{value\_i} and \texttt{value\_i\_valid} are only valid
 for the interval between \texttt{ACK} being asserted and \texttt{REQ} being unasserted.
 
 
+\pagebreak{}
 \section{Future Work}
-% TODO discuss how what you've done can lead to this
+As stated previously, H2V is a proof of concept; it provides a foundation for a complete tool to be built upon.
+The following sections describe features that would be needed to realise this vision, and discuss the extent to which the existing
+codebase supports them.
 
 \subsection{Improved Type Support}
-% signed/unsigned ints of varying widths, fixed point, etc.
-% nested lists
+\subsubsection{Variable Width Integers}
+H2V currently supports only two scalar types: booleans and unsigned 8-bit integers. To be useful in real applications,
+support for signed integers and integers of other sizes will be needed. H2V's type system already supports these,%
+\footnote{See \texttt{DType} at \texttt{H2V/DfdDef.hs:100} for a complete description of H2V's type system.}
+so implementing support is a simple matter of extending the parsing and rendering logic.
+Bitwidths could be described using parameterised types. For example, a signed 16-bit integer would be expressed as
+\texttt{SInt 16}. An advantage of using parameterised types is that the user can specify any width, rather than just
+one of a predefined set. This can result in significant reductions in hardware used for expensive computations, such as
+multiplication. Aliases could also be defined for \texttt{Word8}, \texttt{Word16}, etc.\ as unsigned integers and \texttt{Int8},
+\texttt{Int16}, etc.\ as signed integers to preserve compatibility with existing Haskell code.
 
-\subsection{Parallelism Inference}
-% already partially supported, just need to infer between different functions
+\subsubsection{Fixed-point Types}
+Similarly, fixed-point types could also be defined.\ e.g.\ \texttt{FP 4 8} would describe a fixed-point number with 4 integer bits
+and 8 fractional bits. An advantage of this over existing approaches in C is that the compiler would be able to combine types
+correctly. Consider the following Haskell, and the equivalent C.
+
+\begin{lstlisting}[language=C]
+    int add1_to_fp8(int x){
+        return x + (1 << 8);
+    }
+\end{lstlisting}
+
+\begin{lstlisting}
+    add1 :: FP 4 8 -> FP 4 8
+    add1 x = x + 1
+\end{lstlisting}
+
+In the C example, a bitshift is needed to convert 1 from an integer to a fixed-point type, which obscures the actual function of
+the code. This is completely unnecessary in the Haskell example, because the compiler can recognize the need for type conversion
+and perform it automatically. Given that bitshifts are effectively free when performed in hardware, there is no reason for the
+programmer concern themselves with this detail, and the bitshift present in the C obscures the true purpose of the code. While
+this may seem insignificant for such a trivial example, reading such code becomes considerably more difficult when evaluating
+complex expressions.
+
+
+\subsubsection{Nested Lists}
+A significant limitation of H2V is that it is currently only able to manipulate one-dimensional lists. This is particularly
+limiting since H2V's streaming approach to list manipulation means it is impossible to index an element of the list without
+discarding everything prior to it. Nested lists would allow representation of multi-dimensional data, such as images.
+For instance, matrices could also be intuitively represented as a list of rows with a type such as \texttt{[[Int]]}.
+
+H2V's type system already supports nested lists, since it defines lists recursively (i.e.\ a list is a type parameterised in any
+other type, including itself). As the function interface\footnote{See s\ref{sec:funcInterface}.} currently states that lists are
+handled by replacing the single scalar port for those described by the list interface,\footnote{See s\ref{sec:listInterface}.}
+it would be logical to do the same for the list interface.\ i.e.\ instead of requiring \texttt{list\_value\_0} to be a scalar, it
+could be replaced by the full set of ports defined by the list interface. This would also be particularly easy to implement, since
+functions for rendering nodes as either scalars or lists (depending on type) with a prefix already exist.%
+\footnote{E.g. \texttt{renderArg} at \texttt{H2V/RenderVerilog.hs:340}.}
+
+One complexity that arises from this is the semantics of the parallelism operator when used with nested lists, and whether it
+applies to all levels of the list or just the outermost. In order to be consistent, it should apply to the outermost level only,
+so that the element type (i.e.\ the inner lists) are treated the same regardless of whether they are scalar or not.
+In order to describe the parallelism of nested lists, it becomes desirable to define a new operator. This could be called the
+multi-dimensional parallelism operator, and would take a list of integers instead of a single one, with each element of the list
+assigning a parallelism to the lists of corresponding depth.\ e.g.\ \texttt{[[1, 2], [3, 4], [5, 6]] ||* [3, 2]} would assign a
+parallelism of 3 to the outer list and 2 to the inner list, while \texttt{[[1, 2], [3, 4], [5, 6]] ||| 3} would only assign a
+parallelism to the outer list.
+
+
+\subsection{Type \& Parallelism Inference}
+H2V currently supports type and parallelism inference within functions; extending this to  However, each function must have its own type signature
+and parallelism assignment. This quickly becomes unwieldy, as demonstrated by \texttt{demo.hs} on page~\pageref{test:demo}. Allowing
+parallelism to be inferred across function boundaries would render the redundant assignments unnecessary and improve code re-use
+by allowing the same function to be called in different places with different parallelisms.
+
+Type inference would facilitate code re-use by enabling generic functions. For example, consider the following second-order functions:
+
+\begin{lstlisting}
+    applyTwice1 :: (Int -> Int) -> (Int -> Int)
+    applyTwice1 f = \x -> f (f x)
+
+    applyTwice2 :: (a -> a) -> (a -> a)
+    applyTwice2 f = \x -> f (f x)
+\end{lstlisting}
+
+The first instance can only be used for functions of \texttt{Int}s, while the second can be used for any function whose argument
+and return value are of the same type. In order for the same function to be called with differently typed arguments in different
+places, the compiler would need to track the types it was called with, which is the same information that would be needed for type
+inference.
+
 
 \subsection{Closures}
+Closures extend first-order functions by allowing them to reference variables in their defining context.\ i.e.\ they are said to
+\textit{close over} said variables. Consider Listing~\ref{lst:closure}, which defines a function that increments every element of
+a list by the provided value. The inner function \texttt{f} closes over the variable \texttt{a}, which is a member of
+\texttt{incrementAll}. As Verilog does not allow for nested modules, the function must be rewritten by the compiler so that the
+only inputs take the form of module parameters.
 
-\subsection{Compilation of Parallel List Functions}
+H2V currently has experimental, untested support for closures.%
+\footnote{See \texttt{H2V/GenerateDFD.hs:730}.}
+As part of the linking process, it identifies each function which contains references variables defined outside it,
+adds them to its list of arguments, then updates all of the calls to that function to include the closed over variables.
+
+\begin{figure}
+\begin{lstlisting}
+    incrementAll :: Int -> [Int] -> [Int]
+    incrementAll a xs = map f xs where
+        f x = x + a
+\end{lstlisting}
+\caption{A function with a closure.\label{lst:closure}}
+\end{figure}
+
+
+\subsection{Compilation of Recursive List Functions}
 \label{sec:parListComp}
-% Haskell defs of map, fold, etc.
+H2V currently implements \texttt{map}, \texttt{zipWith} and \texttt{mfoldr} using hard-coded functions for generating their logic.
+This approach scales extremely poorly, requiring approximately 150 lines of dedicated code for each one,%
+\footnote{See \texttt{H2V/RenderVerilog.hs:669}.}
+and means imposes a significant implementation cost for each such function. Ideally, these functions could be defined in Haskell
+(as shown in Listing~\ref{lst:recListFuncs}), and generalized logic used to compile them.
+This would enable the re-use of existing list functions from the standard library, significantly boosting the expressive power of H2V.
+
+\begin{figure}
+\begin{lstlisting}
+    map :: (a -> b) -> [a] -> [b]
+    map f (x0:xs) = (f x0) : (map f xs)
+
+    zipWith :: (a -> b -> c) -> [a] -> [b] -> [c]
+    zipWith f (x0:xs) (y0:ys) = (f x0 y0) : (zipWith f xs ys)
+
+    foldl :: (b -> a -> b) -> b -> [a] -> b
+    foldl f z (x0:xs) = foldl f (f z x0) xs
+    foldl f z [] = z
+
+    foldr :: (a -> b -> b) -> b -> [a] -> b
+    foldr f z (x0:xs) = f x0 (foldr f z xs)
+    foldr f z [] = z
+
+    sumEachPair :: [Int] -> [Int]
+    sumEachPair (x0:x1:xs) = (x0 + x1) : (sumEachPair xs)
+\end{lstlisting}
+\caption{Haskell definitions of recursive list functions.\label{lst:recListFuncs}}
+\end{figure}
+
+This feature could be implemented by recognizing that all of these cases involve recursive functions which consume or produce
+lists, in both cases via the cons operator (\texttt{:}). We can then extract the expressions for the elements to be prepended to
+the list, and compile them to the appropriate logic, connected to a list interface. Loop unrolling can be applied as usual via the
+parallelism operator. Note that specialised logic would still be required for the monoidic fold functions (e.g. \texttt{mfoldr}),
+as their implementation relies on the non-syntactic constraint that the folding function and its domain are a monoid.%
+\footnote{See s\ref{sec:listFuncs}.}
+
+An attempt was made at implementing this, but was not completed due to time constraints. It can be found on the topic branch
+\texttt{recursive\_list\_functions}.
 
 \section{Conclusions}
 % relate content to project aims
@@ -586,6 +720,7 @@ The test suite can be run on a UNIX-compatible system using the following comman
 \newcommand\insertTestCase{\begingroup\catcode`_=12 \doInsTC}
 \newcommand\doInsTC[2]{
     \minipage{\linewidth}
+        \label{test:#1}
         \lstinputlisting{../../H2V/tests/#1.hs}
     \endminipage
     \begin{figure}[htbp]
@@ -626,6 +761,5 @@ be added to any Quartus project using H2V modules.
 \lstinputlisting{../../H2V/include/v/include.v}
 
 \printbibliography
-
 \end{document}
 
