@@ -1,4 +1,27 @@
 ================================================================================
+Wednesday 22 October 2014
+Completed report
+
+Git commits:
+76bcc5a  2014-10-22 15:43:31 +1100  Fixed typo
+950255e  2014-10-22 02:47:15 +1100  Added page break
+6ac1e11  2014-10-22 02:41:52 +1100  Fixed spelling errors
+9e4fb73  2014-10-22 02:34:34 +1100  Report: Added comment on ambiguity of pragma, and fixed some casing issues
+627e36e  2014-10-22 02:19:43 +1100  Report: Added section on resource sharing
+9ea260c  2014-10-22 01:48:31 +1100  Report: Summary & Conclusion
+a5848ca  2014-10-22 01:39:23 +1100  Added poster PDF, since the final report depends on it
+1e65be7  2014-10-22 01:10:07 +1100  Report: literature review
+0e7adf0  2014-10-21 23:10:09 +1100  Completed Future Work section
+5822f76  2014-10-21 00:52:46 +1100  Updated report - added C comparison
+6f18d21  2014-10-20 22:13:35 +1100  Added README
+6e37ff9  2014-10-20 21:44:05 +1100  Improved test case listings to include DFDs
+35be752  2014-10-20 20:31:15 +1100  Updated test script to skip H2V_Compat.hs and track results.
+684301b  2014-10-20 20:23:58 +1100  Report: Removed source code listing, as suggested by David.
+21761c3  2014-10-19 23:46:16 +1100  More report stuff
+74e2ef9  2014-10-19 01:15:49 +1100  Did some work on final report
+1b89384  2014-10-18 19:59:49 +1100  Started work on final report
+
+================================================================================
 Wednesday 15 October 2014
 Completed poster and added demo to test cases (see docs/Poster/Poster.pdf)
 Made some minor fixes so that the demo would actually compile.
