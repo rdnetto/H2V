@@ -634,7 +634,7 @@ parallelism to the outer list.
 
 
 \subsection{Type \& Parallelism Inference}
-H2V currently supports type and parallelism inference within functions; extending this to  However, each function must have its own type signature
+H2V currently supports type and parallelism inference within functions. However, each function must have its own type signature
 and parallelism assignment. This quickly becomes unwieldy, as demonstrated by \texttt{demo.hs} on page~\pageref{test:demo}. Allowing
 parallelism to be inferred across function boundaries would render the redundant assignments unnecessary and improve code re-use
 by allowing the same function to be called in different places with different parallelisms.
