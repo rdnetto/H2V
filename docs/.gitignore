@@ -12,6 +12,10 @@
 *_aux
 *.project.vim
 *.synctex.gz
+*._log
+*.nav
+*.snm
+*.vrb
 
 Design Specification/examples/
 
