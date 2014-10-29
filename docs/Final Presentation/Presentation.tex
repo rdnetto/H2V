@@ -3,7 +3,6 @@
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{booktabs}
-% \usepackage{multirow}
 \usepackage{listings}
 \usepackage{tikz-timing}
 
@@ -23,11 +22,14 @@
 \pagenumbering{roman}
 \tikzset{timing/draw grid}
 
-\usetheme{Warsaw}
+%Beamer settings
+\usetheme{Frankfurt}
 
 %Disable Figure: prefix
 \setbeamertemplate{caption}{\insertcaption}
 \setbeamertemplate{caption label separator}{}
+
+\AtBeginSection{\frame{\sectionpage}}
 
 \title{H2V --- a Haskell to Verilog Compiler}
 \author{Reuben D'Netto (22096620)}
@@ -65,27 +67,46 @@
 }
 
 
+\section{Introduction}
+
 \begin{frame}[t]
-    \frametitle{Verilog}
+    \frametitle{Introduction}
     \begin{itemize}
-        \item Applications
+        \item Verilog
             \begin{itemize}
                 \item Interfacing with digital integrated circuits
                 \item Accelerating expensive computations
             \end{itemize}
+        \item Haskell
+            \begin{itemize}
+                \item Pure
+                \item Functional
+                \item Concise
+            \end{itemize}
+        \item Proof of concept
     \end{itemize}
 \end{frame}
 
 
 \begin{frame}[fragile]
     \frametitle{Purity is good for optimization!}
+    \begin{block}{Pure function}
+        A function whose result does not depend on any shared or global state. Modifications to such state are referred to as
+        \textit{side-effects}.
+    \end{block}
+
     \lstinputlisting{src/intro.hs}
     \lstinputlisting[language=C]{src/intro.c}
 \end{frame}
 
+\section{Supported Features}
 
 \begin{frame}
     \frametitle{Recursive Functions}
+    \begin{block}{Tail-recursive function}
+        A function which performs recursion by returning the result of the recursive call.
+    \end{block}
+
     \lstinputlisting{src/fib.hs}
 
     \only<1>{
@@ -108,22 +129,26 @@
         Order        & Haskell                  & C
         \\ \midrule
 
-        0            & \texttt{x :: Int}        & \texttt{int x;}
+        0            & \texttt{f :: Int}        & \texttt{int f()\{return 0;\}}
         \\ \midrule
 
-        1            & \texttt{f :: Int -> Int} & \texttt{int f(int);}
-        \\ \midrule
-
-        2            & \tiny{\texttt{f :: (Int -> Int) -> (Int -> Int)}} &
-        \parbox{\textwidth}{%
-            \tiny{\texttt{typedef int (*int2int)(int);}} \\
-            \tiny{\texttt{int2int f(int2int);}}
+        \only<2->{
+            1            & \texttt{f :: Int -> Int} & \texttt{int f(int);}
+            \\ \midrule
         }
+
+        \only<3->{
+            2            & \tiny{\texttt{f :: (Int -> Int) -> (Int -> Int)}} &
+            \parbox{\textwidth}{%
+                \tiny{\texttt{typedef int (*int2int)(int);}} \\
+                \tiny{\texttt{int2int f(int2int);}}
+            }
         \\ \bottomrule
+        }
     \end{tabularx}
     \end{small}
 
-    \pause
+    \pause[4]
     \lstinputlisting{src/flip.hs}
     \begin{lstlisting}
 --Equivalent to:
@@ -133,11 +158,25 @@ revsub x y = y - x
 
 
 \begin{frame}
+    \frametitle{Higher-Order List Functions}
+    \begin{itemize}
+        \item List functions
+            \begin{tabularx}{\textwidth}{l l l}
+                \texttt{map}     & --- & Applies a function to each element of a list  \\
+                \texttt{zipWith} & --- & Map generalized to two arguments/lists        \\
+                \texttt{mfoldr}  & --- & Reduce a list of elements to a single value   \\
+            \end{tabularx}
+
+        \item Parallelism operator: \texttt{list ||| N}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
     \frametitle{List Functions --- Maps}
     \lstinputlisting{src/map.hs}
     \lstinputlisting[language=C]{src/map.c}
     \begin{figure}
-        \includegraphics[keepaspectratio=true,scale=0.25]{src/map.png}
+        \includegraphics[keepaspectratio=true,scale=0.2]{src/map.png}
     \end{figure}
 \end{frame}
 
@@ -177,18 +216,10 @@ revsub x y = y - x
 \end{frame}
 
 
-\begin{frame}
-    \frametitle{List Functions}
-    \begin{tabularx}{\textwidth}{l l l}
-        \texttt{map}     & --- & Applies a function to each element of a list  \\
-        \texttt{zipWith} & --- & Map generalized to two arguments/lists      \\
-        \texttt{mfoldr}  & --- & Reduce a list of elements to a single value \\
-    \end{tabularx}
-\end{frame}
-
+\section{Case Study --- Dot Product}
 
 \begin{frame}[fragile]
-    \frametitle{Case Study --- Dot Product}
+    \frametitle{Idiomatic C}
 
 \begin{lstlisting}[language=C]
 int dotProduct(const int* __restrict__ listA, const int* __restrict__ listB, int length){
@@ -204,7 +235,7 @@ int dotProduct(const int* __restrict__ listA, const int* __restrict__ listB, int
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Case Study --- Dot Product}
+    \frametitle{With Separate Addition and Multiplication}
 
 \begin{lstlisting}[language=C]
 int dotProduct(const int* __restrict__ listA, const int* __restrict__ listB, int length){
@@ -225,7 +256,7 @@ int dotProduct(const int* __restrict__ listA, const int* __restrict__ listB, int
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Case Study --- Dot Product}
+    \frametitle{Generalized to arbitrary functions}
 
 \begin{lstlisting}[language=C]
 int innerProd(const int* __restrict__ listA, const int* __restrict__ listB, int length){
@@ -246,7 +277,7 @@ int innerProd(const int* __restrict__ listA, const int* __restrict__ listB, int 
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Case Study --- Dot Product}
+    \frametitle{In Haskell}
 
 \begin{lstlisting}
 sum :: [Int] -> Int
@@ -256,12 +287,19 @@ dotProduct :: [Int] -> [Int] -> Int
 dotProduct listA listB = sum $ zipWith (*) listA listB ||| 3
 \end{lstlisting}
 
-\pause
 \begin{figure}
     \includegraphics[keepaspectratio=true,scale=0.2]{"img/Dot Product Block Diagram".pdf}
 \end{figure}
 \end{frame}
 
+\begin{frame}
+    \frametitle{In Haskell}
+    \begin{figure}
+        \includegraphics[keepaspectratio=true,scale=0.25]{img/dotProduct.png}
+    \end{figure}
+\end{frame}
+
+\section{Future Work}
 
 \begin{frame}
     \frametitle{Future Work}

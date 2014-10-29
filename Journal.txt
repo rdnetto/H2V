@@ -1,3 +1,5 @@
+NOTE: use 'pdfpc -d 30 F*pdf' for presentation
+
 ================================================================================
 Wednesday 22 October 2014
 Completed report
