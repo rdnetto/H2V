@@ -13,6 +13,7 @@ Requires GHC 7.6.3 or later.
 Note that all files compiled should import ```H2V/include/H2V_Compat.hs```, and that the resulting modules may depend on ```H2V/include/include.v```.
 
 Documentation may be compiled by running ```latexmk -pdf``` in directories containing LaTeX files.
+PDFs of the final report and presentation are included for convenience.
 
 ## Usage
 
